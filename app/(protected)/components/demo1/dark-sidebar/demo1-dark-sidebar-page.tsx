@@ -3,7 +3,7 @@ import {
   Toolbar,
   ToolbarActions,
   ToolbarHeading,
-} from '@/layouts/demo1/components/toolbar';
+} from '@/layouts/demo1/toolbar';
 import { addDays, format } from 'date-fns';
 import { CalendarDays } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Container } from '@/components/common/container';
-import { Demo1LightSidebarContent } from '../light-sidebar';
+import { DashboardContent } from '../../dashboard';
 
 const Demo1DarkSidebarPage = () => {
   const [date, setDate] = useState<DateRange | undefined>({
@@ -65,7 +65,7 @@ const Demo1DarkSidebarPage = () => {
         </Toolbar>
       </Container>
       <Container>
-        <Demo1LightSidebarContent />
+        <DashboardContent />
       </Container>
     </Fragment>
   );

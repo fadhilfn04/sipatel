@@ -15,6 +15,7 @@ import {
   Codepen,
   Coffee,
   File as DocumentIcon,
+  DollarSign,
   Euro,
   Eye,
   File,
@@ -278,6 +279,37 @@ export const MENU_SIDEBAR: MenuConfig = [
   },
   { heading: 'Apps' },
   {
+    title: 'Keanggotaan',
+    icon: UserCircle,
+    children: [
+      { title: 'Pengelolaan Data', path: '/public-profile/works' },
+    ],
+  },
+  {
+    title: 'Pelayanan',
+    icon: Briefcase,
+    children: [
+      { title: 'Dana Kematian', path: '/public-profile/works' },
+      { title: 'Dana Sosial', path: '/public-profile/teams' },
+    ],
+  },
+  {
+    title: 'Keuangan',
+    icon: DollarSign,
+    children: [
+      { title: 'Laporan Keuangan', path: '/public-profile/works' },
+      { title: 'Mekanisme Iuran', path: '/public-profile/teams' },
+    ],
+  },
+  {
+    title: 'Surat Elektronik',
+    icon: FileText,
+    children: [
+      { title: 'Surat Elektronik', path: '/public-profile/works' },
+      { title: 'Agenda Surat', path: '/public-profile/teams' },
+    ],
+  },
+  {
     title: 'User Management',
     icon: ShieldUser,
     children: [
@@ -307,84 +339,6 @@ export const MENU_SIDEBAR: MenuConfig = [
       },
     ],
   },
-  {
-    title: 'Store - Client',
-    icon: Users,
-    children: [
-      { title: 'Home', path: '/store-client/home' },
-      {
-        title: 'Search Results - Grid',
-        path: '/store-client/search-results-grid',
-      },
-      {
-        title: 'Search Results - List',
-        path: '/store-client/search-results-list',
-      },
-      { title: 'Product Details', path: '/store-client/product-details' },
-      { title: 'Wishlist', path: '/store-client/wishlist' },
-      {
-        title: 'Checkout',
-        children: [
-          {
-            title: 'Order Summary',
-            path: '/store-client/checkout/order-summary',
-          },
-          {
-            title: 'Shipping Info',
-            path: '/store-client/checkout/shipping-info',
-          },
-          {
-            title: 'Payment Method',
-            path: '/store-client/checkout/payment-method',
-          },
-          {
-            title: 'Order Placed',
-            path: '/store-client/checkout/order-placed',
-          },
-        ],
-      },
-      { title: 'My Orders', path: '/store-client/my-orders' },
-      { title: 'Order Receipt', path: '/store-client/order-receipt' },
-    ],
-  },
-  {
-    title: 'Store - Admin',
-    icon: Bolt,
-    disabled: true,
-    children: [
-      { title: 'Dashboard', path: '/store-admin/dashboard' },
-      {
-        title: 'Inventory',
-        children: [
-          {
-            title: 'All Products',
-            path: '/store-admin/inventory/all-products',
-          },
-          {
-            title: 'Current Stock',
-            path: '/store-admin/inventory/current-stock',
-          },
-          {
-            title: 'Inbound Stock',
-            path: '/store-admin/inventory/inbound-stock',
-          },
-          {
-            title: 'Outbound Stock',
-            path: '/store-admin/inventory/outbound-stock',
-          },
-          {
-            title: 'Stock Planner',
-            path: '/store-admin/inventory/stock-planner',
-          },
-          { title: 'Track Shipping', path: '/' },
-          { title: 'Create Shipping Label', path: '/' },
-        ],
-      },
-    ],
-  },
-  { title: 'Store - Services', icon: Codepen, disabled: true },
-  { title: 'AI Promt', icon: Theater, disabled: true },
-  { title: 'Invoice Generator', icon: ScrollText, disabled: true },
 ];
 
 export const MENU_SIDEBAR_CUSTOM: MenuConfig = [

@@ -3,9 +3,9 @@
 import { ReactNode, useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSettings } from '@/providers/settings-provider';
-import { Footer } from './components/footer';
-import { Header } from './components/header';
-import { Sidebar } from './components/sidebar';
+import { Footer } from './footer';
+import { Header } from './header';
+import { Sidebar } from './sidebar';
 
 export function Demo1Layout({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
