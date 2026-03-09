@@ -282,31 +282,31 @@ export const MENU_SIDEBAR: MenuConfig = [
     title: 'Keanggotaan',
     icon: UserCircle,
     children: [
-      { title: 'Pengelolaan Data', path: '/public-profile/works' },
+      { title: 'Pengelolaan Data', path: '/keanggotaan/pengelolaan-data' },
     ],
   },
   {
     title: 'Pelayanan',
     icon: Briefcase,
     children: [
-      { title: 'Dana Kematian', path: '/public-profile/works' },
-      { title: 'Dana Sosial', path: '/public-profile/teams' },
+      { title: 'Dana Kematian', path: '/pelayanan/dana-kematian' },
+      { title: 'Dana Sosial', path: '/pelayanan/dana-sosial' },
     ],
   },
   {
     title: 'Keuangan',
     icon: DollarSign,
     children: [
-      { title: 'Laporan Keuangan', path: '/public-profile/works' },
-      { title: 'Mekanisme Iuran', path: '/public-profile/teams' },
+      { title: 'Laporan Keuangan', path: '/keuangan/laporan-keuangan' },
+      { title: 'Mekanisme Iuran', path: '/keuangan/mekanisme-iuran' },
     ],
   },
   {
     title: 'Surat Elektronik',
     icon: FileText,
     children: [
-      { title: 'Surat Elektronik', path: '/public-profile/works' },
-      { title: 'Agenda Surat', path: '/public-profile/teams' },
+      { title: 'Surat Elektronik', path: '/surat-elektronik/surat' },
+      { title: 'Agenda Surat', path: '/surat-elektronik/agenda-surat' },
     ],
   },
   {
