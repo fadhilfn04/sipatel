@@ -282,30 +282,30 @@ export const MENU_SIDEBAR: MenuConfig = [
       { title: 'Pengelolaan Data', path: '/keanggotaan/pengelolaan-data' },
     ],
   },
-  {
-    title: 'Pelayanan',
-    icon: Briefcase,
-    children: [
-      { title: 'Dana Kematian', path: '/pelayanan/dana-kematian' },
-      { title: 'Dana Sosial', path: '/pelayanan/dana-sosial' },
-    ],
-  },
-  {
-    title: 'Keuangan',
-    icon: DollarSign,
-    children: [
-      { title: 'Laporan Keuangan', path: '/keuangan/laporan-keuangan' },
-      { title: 'Mekanisme Iuran', path: '/keuangan/mekanisme-iuran' },
-    ],
-  },
-  {
-    title: 'Surat Elektronik',
-    icon: FileText,
-    children: [
-      { title: 'Surat Elektronik', path: '/surat-elektronik/surat' },
-      { title: 'Agenda Surat', path: '/surat-elektronik/agenda-surat' },
-    ],
-  },
+  // {
+  //   title: 'Pelayanan',
+  //   icon: Briefcase,
+  //   children: [
+  //     { title: 'Dana Kematian', path: '/pelayanan/dana-kematian' },
+  //     { title: 'Dana Sosial', path: '/pelayanan/dana-sosial' },
+  //   ],
+  // },
+  // {
+  //   title: 'Keuangan',
+  //   icon: DollarSign,
+  //   children: [
+  //     { title: 'Laporan Keuangan', path: '/keuangan/laporan-keuangan' },
+  //     { title: 'Mekanisme Iuran', path: '/keuangan/mekanisme-iuran' },
+  //   ],
+  // },
+  // {
+  //   title: 'Surat Elektronik',
+  //   icon: FileText,
+  //   children: [
+  //     { title: 'Surat Elektronik', path: '/surat-elektronik/surat' },
+  //     { title: 'Agenda Surat', path: '/surat-elektronik/agenda-surat' },
+  //   ],
+  // },
   {
     title: 'Manajemen Pengguna',
     icon: ShieldUser,
@@ -319,7 +319,7 @@ export const MENU_SIDEBAR: MenuConfig = [
         path: '/user-management/roles',
       },
       {
-        title: 'Hak Akses',
+        title: 'Permissions',
         path: '/user-management/permissions',
       },
       {

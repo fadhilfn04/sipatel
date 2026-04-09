@@ -4,7 +4,13 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, Check, Eye, EyeOff } from 'lucide-react';
+import {
+  AlertCircle,
+  Check,
+  Eye,
+  EyeOff,
+  LoaderCircleIcon,
+} from 'lucide-react';
 import { signIn } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { apiFetch } from '@/lib/api';
@@ -20,7 +26,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { LoaderCircleIcon } from 'lucide-react';
 import { Icons } from '@/components/common/icons';
 import { RecaptchaPopover } from '@/components/common/recaptcha-popover';
 import { getSignupSchema, SignupSchemaType } from '../forms/signup-schema';
@@ -115,7 +120,7 @@ export default function Page() {
         <form onSubmit={handleSubmit} className="block w-full space-y-5">
           <div className="space-y-1.5 pb-3">
             <h1 className="text-2xl font-semibold tracking-tight text-center">
-              Daftar ke SIMP2TEL
+              Daftar ke SIPATEL
             </h1>
           </div>
 
@@ -197,7 +202,9 @@ export default function Page() {
                     onClick={() => setPasswordVisible(!passwordVisible)}
                     className="absolute end-0 top-1/2 -translate-y-1/2 h-7 w-7 me-1.5 bg-transparent!"
                     aria-label={
-                      passwordVisible ? 'Sembunyikan password' : 'Tampilkan password'
+                      passwordVisible
+                        ? 'Sembunyikan password'
+                        : 'Tampilkan password'
                     }
                   >
                     {passwordVisible ? (

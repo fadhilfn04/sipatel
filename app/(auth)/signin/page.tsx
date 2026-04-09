@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { RiErrorWarningFill } from '@remixicon/react';
-import { AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, LoaderCircleIcon } from 'lucide-react';
 import { signIn } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { Alert, AlertIcon, AlertTitle } from '@/components/ui/alert';
@@ -20,7 +20,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { LoaderCircleIcon } from 'lucide-react';
 import { Icons } from '@/components/common/icons';
 import { getSigninSchema, SigninSchemaType } from '../forms/signin-schema';
 
@@ -76,7 +75,7 @@ export default function Page() {
       >
         <div className="space-y-1.5 pb-3">
           <h1 className="text-2xl font-semibold tracking-tight text-center">
-            Masuk ke SIMP2TEL
+            Masuk ke SIPATEL
           </h1>
         </div>
 
@@ -85,9 +84,10 @@ export default function Page() {
             <RiErrorWarningFill className="text-primary" />
           </AlertIcon>
           <AlertTitle className="text-accent-foreground">
-            Gunakan email <span className="text-mono font-semibold">demo@p2tel.or.id</span>{' '}
-            dan{' '}
-            <span className="text-mono font-semibold">Demo123@.</span> untuk akses demo.
+            Gunakan email{' '}
+            <span className="text-mono font-semibold">demo@p2tel.or.id</span>{' '}
+            dan <span className="text-mono font-semibold">Demo123@.</span> untuk
+            akses demo.
           </AlertTitle>
         </Alert>
 
@@ -201,7 +201,9 @@ export default function Page() {
 
         <div className="flex flex-col gap-2.5">
           <Button type="submit" disabled={isProcessing}>
-            {isProcessing ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
+            {isProcessing ? (
+              <LoaderCircleIcon className="size-4 animate-spin" />
+            ) : null}
             Masuk
           </Button>
         </div>

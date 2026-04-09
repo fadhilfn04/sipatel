@@ -48,7 +48,7 @@ export function SidebarHeader() {
 
         {!settings.layouts.demo1.sidebarCollapse && (
           <div className="flex flex-col leading-tight">
-            <span className="text-lg font-semibold">SIMP2TEL</span>
+            <span className="text-lg font-semibold">SIPATEL</span>
             <span className="text-xs text-muted-foreground">
               Sistem Informasi P2TEL
             </span>

@@ -46,7 +46,7 @@ export function DashboardPage() {
             title="Dashboard"
             description="Ringkasan statistik dan aktivitas terbaru sistem P2Tel"
           />
-          <ToolbarActions>
+          {/* <ToolbarActions>
             <Popover open={isOpen} onOpenChange={setIsOpen}>
               <PopoverTrigger asChild>
                 <Button id="date" variant="outline">
@@ -82,7 +82,7 @@ export function DashboardPage() {
                 </div>
               </PopoverContent>
             </Popover>
-          </ToolbarActions>
+          </ToolbarActions> */}
         </Toolbar>
       </Container>
       <Container>
