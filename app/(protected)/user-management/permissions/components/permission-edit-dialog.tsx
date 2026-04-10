@@ -141,7 +141,7 @@ const PermissionEditDialog = ({
       <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>
-            {permission ? 'Edit Permission' : 'Add Permission'}
+            {permission ? 'Perbarui Hak Akses' : 'Tambahkan Hak Akses'}
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
@@ -154,9 +154,9 @@ const PermissionEditDialog = ({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>Nama</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter name" {...field} />
+                    <Input placeholder="Masukkan nama" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -177,8 +177,7 @@ const PermissionEditDialog = ({
                   </FormControl>
                   <FormMessage />
                   <FormDescription>
-                    A unique key for the permission, cannot be edited after
-                    creation.
+                    Unik untuk hak akses, tidak dapat diubah setelah dibuat.
                   </FormDescription>
                 </FormItem>
               )}
@@ -188,9 +187,9 @@ const PermissionEditDialog = ({
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Deskripsi</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Enter description" {...field} />
+                    <Textarea placeholder="Masukkan deskripsi" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -205,7 +204,7 @@ const PermissionEditDialog = ({
                 disabled={isLoading || !form.formState.isDirty}
               >
                 {isLoading && <LoaderCircleIcon className="animate-spin" />}
-                Submit
+                Perbarui
               </Button>
             </DialogFooter>
           </form>

@@ -35,7 +35,7 @@ export default async function Page() {
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  <BreadcrumbPage>User Management</BreadcrumbPage>
+                  <BreadcrumbPage>Manajemen Pengguna</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>

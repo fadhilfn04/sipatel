@@ -1068,13 +1068,9 @@ const calculateBenefit = (member: Anggota, deathDate: Date): number => {
   // Base amount based on member category
   const baseAmounts: Record<string, number> = {
     'pegawai': 10000000,
-    'istri_1': 7500000,
+    'istri': 7500000,
     'suami': 7500000,
-    'anak_1': 5000000,
-    'anak_2': 5000000,
-    'anak_3': 5000000,
-    'istri_2': 2500000,
-    'istri_3': 2500000,
+    'anak': 5000000,
     'meninggal': 0
   };
 
@@ -1105,7 +1101,7 @@ const validateHeir = (
   // Rules based on inheritance hierarchy
   const validCombinations = {
     'istri': ['pegawai', ...],
-    'suami': ['istri_1', ...],
+    'suami': ['istri', ...],
     'anak': [...],
     'orang_tua': [...],
     'saudara_kandung': [...],

@@ -11,9 +11,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Database types based on our migration
 export type KategoriAnggotaEnum = 'biasa' | 'luar_biasa' | 'kehormatan' | 'bukan_anggota';
-export type StatusAnggotaEnum = 'pegawai' | 'istri_1' | 'suami' | 'istri_2' | 'istri_3' | 'anak_1' | 'anak_2' | 'anak_3' | 'meninggal';
+export type StatusAnggotaEnum = 'pegawai' | 'istri' | 'suami' | 'anak' | 'meninggal';
 export type StatusMpsEnum = 'mps' | 'non_mps';
-export type StatusIuranEnum = 'sudah_ttd' | 'belum_ttd' | 'tidak_iuran';
+export type StatusIuranEnum = 'iuran' | 'tidak_iuran';
 export type JenisKelaminEnum = 'laki_laki' | 'perempuan';
 export type SkPensiunEnum = 'pensiun' | 'janda' | 'duda' | 'anak';
 export type StatusPerkawinanEnum = 'belum_kawin' | 'kawin' | 'cerai_hidup' | 'cerai_mati';

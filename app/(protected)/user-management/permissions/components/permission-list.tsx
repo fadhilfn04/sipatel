@@ -262,7 +262,7 @@ const PermissionList = () => {
                   setEditDialogOpen(true);
                 }}
               >
-                Edit permission
+                Perbarui hak akses
               </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"
@@ -271,7 +271,7 @@ const PermissionList = () => {
                   setDeleteDialogOpen(true);
                 }}
               >
-                Delete permission
+                Hapus hak akses
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -386,7 +386,7 @@ const PermissionList = () => {
             }}
           >
             <Plus />
-            Add Permission
+            Tambahkan Hak Akses
           </Button>
         </CardToolbar>
       </CardHeader>

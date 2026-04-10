@@ -17,8 +17,8 @@ import {
 import PermissionList from './components/permission-list';
 
 export const metadata: Metadata = {
-  title: 'Permissions',
-  description: 'Manage user permissions.',
+  title: 'Hak Akses',
+  description: 'Manajemen hak akses pengguna.',
 };
 
 export default async function Page() {
@@ -27,7 +27,7 @@ export default async function Page() {
       <Container>
         <Toolbar>
           <ToolbarHeading>
-            <ToolbarTitle>Permissions</ToolbarTitle>
+            <ToolbarTitle>Hak Akses</ToolbarTitle>
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>

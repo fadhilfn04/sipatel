@@ -198,13 +198,9 @@ export function DanaKematianFormModal({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pegawai">Pegawai</SelectItem>
-                      <SelectItem value="istri_1">Istri 1</SelectItem>
+                      <SelectItem value="istri">Istri</SelectItem>
                       <SelectItem value="suami">Suami</SelectItem>
-                      <SelectItem value="istri_2">Istri 2</SelectItem>
-                      <SelectItem value="istri_3">Istri 3</SelectItem>
-                      <SelectItem value="anak_1">Anak 1</SelectItem>
-                      <SelectItem value="anak_2">Anak 2</SelectItem>
-                      <SelectItem value="anak_3">Anak 3</SelectItem>
+                      <SelectItem value="anak">Anak</SelectItem>
                       <SelectItem value="meninggal">Meninggal</SelectItem>
                     </SelectContent>
                   </Select>

@@ -12,18 +12,13 @@ CREATE TYPE kategori_anggota_enum AS ENUM (
     'biasa',
     'luar_biasa',
     'kehormatan',
-    'bukan_anggota'
 );
 
 CREATE TYPE status_anggota_enum AS ENUM (
     'pegawai',
-    'istri_1',
+    'istri',
     'suami',
-    'istri_2',
-    'istri_3',
-    'anak_1',
-    'anak_2',
-    'anak_3',
+    'anak',
     'meninggal'
 );
 
@@ -33,8 +28,7 @@ CREATE TYPE status_mps_enum AS ENUM (
 );
 
 CREATE TYPE status_iuran_enum AS ENUM (
-    'sudah_ttd',
-    'belum_ttd',
+    'iuran',
     'tidak_iuran'
 );
 
@@ -50,11 +44,14 @@ CREATE TYPE status_perkawinan_enum AS ENUM (
     'cerai_mati'
 );
 
+CREATE TYPE posisi_kepengurusan_enum AS ENUM (
+    'anggota',
+    'pengurus',
+);
+
 CREATE TYPE sk_pensiun_enum AS ENUM (
-    'pensiun',
-    'janda',
-    'duda',
-    'anak'
+    'ada',
+    'tidak_ada',
 );
 
 CREATE TYPE agama_enum AS ENUM (

@@ -319,7 +319,7 @@ export const MENU_SIDEBAR: MenuConfig = [
         path: '/user-management/roles',
       },
       {
-        title: 'Permissions',
+        title: 'Hak Akses',
         path: '/user-management/permissions',
       },
       {
@@ -624,7 +624,7 @@ export const MENU_SIDEBAR_COMPACT: MenuConfig = [
     ],
   },
   {
-    title: 'User Management',
+    title: 'Manajemen Pengguna',
     icon: ShieldUser,
     children: [
       {
@@ -1049,7 +1049,7 @@ export const MENU_MEGA: MenuConfig = [
         ],
       },
       {
-        title: 'User Management',
+        title: 'Manajemen Pengguna',
         children: [
           {
             children: [
@@ -1358,7 +1358,7 @@ export const MENU_MEGA_MOBILE: MenuConfig = [
     ],
   },
   {
-    title: 'User Management',
+    title: 'Manajemen Pengguna',
     icon: Users,
     children: [
       {
@@ -1506,7 +1506,7 @@ export const MENU_ROOT: MenuConfig = [
     childrenIndex: 6,
   },
   {
-    title: 'User Management',
+    title: 'Manajemen Pengguna',
     icon: ShieldUser,
     rootPath: '/user-management/',
     path: '/user-management/users',

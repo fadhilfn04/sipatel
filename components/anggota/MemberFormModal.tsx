@@ -38,9 +38,9 @@ const defaultFormData: CreateAnggotaInput = {
   kategori_anggota: 'biasa',
   status_anggota: 'pegawai',
   status_mps: 'non_mps',
-  status_iuran: 'belum_ttd',
+  status_iuran: 'iuran',
   nama_cabang: '',
-  posisi_kepengurusan: 'Anggota',
+  posisi_kepengurusan: 'anggota',
   status_kepesertaan: '',
   cabang_kelas: '',
   cabang_area_regional: '',
@@ -222,7 +222,6 @@ export function MemberFormModal({
                     <SelectItem value="biasa">Biasa</SelectItem>
                     <SelectItem value="luar_biasa">Luar Biasa</SelectItem>
                     <SelectItem value="kehormatan">Kehormatan</SelectItem>
-                    <SelectItem value="bukan_anggota">Bukan Anggota</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -238,13 +237,9 @@ export function MemberFormModal({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pegawai">Pegawai</SelectItem>
-                    <SelectItem value="istri_1">Istri 1</SelectItem>
+                    <SelectItem value="istri">Istri</SelectItem>
                     <SelectItem value="suami">Suami</SelectItem>
-                    <SelectItem value="istri_2">Istri 2</SelectItem>
-                    <SelectItem value="istri_3">Istri 3</SelectItem>
-                    <SelectItem value="anak_1">Anak 1</SelectItem>
-                    <SelectItem value="anak_2">Anak 2</SelectItem>
-                    <SelectItem value="anak_3">Anak 3</SelectItem>
+                    <SelectItem value="anak">Anak</SelectItem>
                     <SelectItem value="meninggal">Meninggal</SelectItem>
                   </SelectContent>
                 </Select>
@@ -276,8 +271,7 @@ export function MemberFormModal({
                     <SelectValue placeholder="Pilih iuran" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sudah_ttd">Sudah TTD</SelectItem>
-                    <SelectItem value="belum_ttd">Belum TTD</SelectItem>
+                    <SelectItem value="iuran">Sudah Iuran</SelectItem>
                     <SelectItem value="tidak_iuran">Tidak Iuran</SelectItem>
                   </SelectContent>
                 </Select>
@@ -414,12 +408,18 @@ export function MemberFormModal({
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Posisi Kepengurusan *</label>
-                  <Input
-                    placeholder="Posisi kepengurusan"
+                  <Select
                     value={formData.posisi_kepengurusan}
-                    onChange={(e) => setFormData({ ...formData, posisi_kepengurusan: e.target.value })}
-                    required
-                  />
+                    onValueChange={(value: any) => setFormData({ ...formData, posisi_kepengurusan: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih posisi Kepengurusan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="anggota">Anggota</SelectItem>
+                      <SelectItem value="pengurus">Pengurus</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">SK Pensiun</label>
@@ -431,10 +431,8 @@ export function MemberFormModal({
                       <SelectValue placeholder="Pilih SK" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pensiun">Pensiun</SelectItem>
-                      <SelectItem value="janda">Janda</SelectItem>
-                      <SelectItem value="duda">Duda</SelectItem>
-                      <SelectItem value="anak">Anak</SelectItem>
+                      <SelectItem value="ada">Ada</SelectItem>
+                      <SelectItem value="tidak_ada">Tidak Ada</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

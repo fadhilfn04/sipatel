@@ -123,13 +123,8 @@ export default function PengelolaanDataPage() {
   const getStatusAnggotaProps = (status: Anggota['status_anggota']) => {
     const statusMap: Record<string, { variant: 'success' | 'destructive' | 'warning' | 'secondary'; label: string }> = {
       pegawai: { variant: 'success', label: 'Pegawai' },
-      istri_1: { variant: 'warning', label: 'Istri 1' },
       suami: { variant: 'warning', label: 'Suami' },
-      istri_2: { variant: 'warning', label: 'Istri 2' },
-      istri_3: { variant: 'warning', label: 'Istri 3' },
-      anak_1: { variant: 'secondary', label: 'Anak 1' },
-      anak_2: { variant: 'secondary', label: 'Anak 2' },
-      anak_3: { variant: 'secondary', label: 'Anak 3' },
+      anak: { variant: 'secondary', label: 'Anak' },
       meninggal: { variant: 'destructive', label: 'Meninggal' },
     };
     return statusMap[status] || { variant: 'secondary', label: status };
@@ -470,13 +465,9 @@ export default function PengelolaanDataPage() {
                   <SelectContent>
                     <SelectItem value="all">Semua Status</SelectItem>
                     <SelectItem value="pegawai">Pegawai</SelectItem>
-                    <SelectItem value="istri_1">Istri 1</SelectItem>
+                    <SelectItem value="istri">Istri</SelectItem>
                     <SelectItem value="suami">Suami</SelectItem>
-                    <SelectItem value="istri_2">Istri 2</SelectItem>
-                    <SelectItem value="istri_3">Istri 3</SelectItem>
-                    <SelectItem value="anak_1">Anak 1</SelectItem>
-                    <SelectItem value="anak_2">Anak 2</SelectItem>
-                    <SelectItem value="anak_3">Anak 3</SelectItem>
+                    <SelectItem value="anak">Anak</SelectItem>
                     <SelectItem value="meninggal">Meninggal</SelectItem>
                   </SelectContent>
                 </Select>

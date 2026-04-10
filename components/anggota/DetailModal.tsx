@@ -45,13 +45,9 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
   const getStatusAnggotaProps = (status: Anggota['status_anggota']): StatusProps => {
     const statusMap: Record<string, StatusProps> = {
       pegawai: { variant: 'success', label: 'Pegawai' },
-      istri_1: { variant: 'warning', label: 'Istri 1' },
+      istri: { variant: 'warning', label: 'Istri' },
       suami: { variant: 'warning', label: 'Suami' },
-      istri_2: { variant: 'warning', label: 'Istri 2' },
-      istri_3: { variant: 'warning', label: 'Istri 3' },
-      anak_1: { variant: 'secondary', label: 'Anak 1' },
-      anak_2: { variant: 'secondary', label: 'Anak 2' },
-      anak_3: { variant: 'secondary', label: 'Anak 3' },
+      anak: { variant: 'secondary', label: 'Anak' },
       meninggal: { variant: 'destructive', label: 'Meninggal' },
     };
     return statusMap[status] || { variant: 'secondary', label: status };
