@@ -1,4 +1,5 @@
-import { User, FileText, MapPin, Phone, Mail, Building } from 'lucide-react';
+import { useState } from 'react';
+import { User, FileText, MapPin, Phone, Mail, Building, Users } from 'lucide-react';
 import {
   Dialog,
   DialogBody,
@@ -12,11 +13,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge, BadgeDot } from '@/components/ui/badge';
 import { Anggota } from '@/lib/supabase';
+import { WariskanNikModal } from './WariskanNikModal';
 
 interface DetailModalProps {
   open: boolean;
   onClose: () => void;
   member: Anggota | null;
+  onWariskanNik?: (anggota: Anggota) => void;
 }
 
 interface StatusProps {
@@ -24,7 +27,9 @@ interface StatusProps {
   label: string;
 }
 
-export function DetailModal({ open, onClose, member }: DetailModalProps) {
+export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModalProps) {
+  const [wariskanModalOpen, setWariskanModalOpen] = useState(false);
+
   if (!member) return null;
 
   const getKategoriAnggotaProps = (kategori: Anggota['kategori_anggota']): StatusProps => {
@@ -392,10 +397,34 @@ export function DetailModal({ open, onClose, member }: DetailModalProps) {
         </DialogBody>
 
         <DialogFooter>
+          {member.status_anggota === 'meninggal' && (
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (onWariskanNik) {
+                  onWariskanNik(member);
+                } else {
+                  setWariskanModalOpen(true);
+                }
+              }}
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Wariskan NIK
+            </Button>
+          )}
           <DialogClose asChild>
             <Button variant="outline">Tutup</Button>
           </DialogClose>
         </DialogFooter>
+
+        {/* Wariskan NIK Modal */}
+        {onWariskanNik ? null : (
+          <WariskanNikModal
+            open={wariskanModalOpen}
+            onClose={() => setWariskanModalOpen(false)}
+            anggota={member}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

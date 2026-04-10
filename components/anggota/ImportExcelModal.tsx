@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Upload, FileSpreadsheet, CheckCircle, Loader2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogBody,
@@ -50,7 +51,10 @@ export function ImportExcelModal({ open, onClose, onImport }: ImportExcelModalPr
       });
 
       if (jsonData.length === 0) {
-        alert('File kosong atau tidak ada data');
+        toast.error('File kosong atau tidak ada data', {
+          description: 'Silakan upload file yang berisi data anggota',
+          icon: <AlertCircle className="h-4 w-4" />
+        });
         return;
       }
 
@@ -110,7 +114,7 @@ export function ImportExcelModal({ open, onClose, onImport }: ImportExcelModalPr
         media_datul: row.media_datul || row['Media Datul'] || '',
       }));
 
-      // Validate required fields
+      // Validate required fields (only 3 fields required)
       const validData = mappedData.filter((item: any) => {
         return item.nik && item.nama_anggota && item.nama_cabang;
       });
@@ -118,13 +122,33 @@ export function ImportExcelModal({ open, onClose, onImport }: ImportExcelModalPr
       const invalidCount = mappedData.length - validData.length;
 
       if (invalidCount > 0) {
-        alert(`${invalidCount} baris dilewati karena field wajib tidak lengkap (NIK, Nama Anggota, Nama Cabang)`);
+        toast.warning(`${invalidCount} baris dilewati`, {
+          description: 'Data tidak lengkap: NIK, Nama Anggota, dan Nama Cabang wajib diisi',
+          icon: <AlertCircle className="h-4 w-4" />
+        });
+      }
+
+      if (validData.length > 0) {
+        toast.success(`Berhasil memuat ${validData.length} data anggota`, {
+          description: invalidCount > 0
+            ? `${invalidCount} baris dilewati karena data tidak lengkap`
+            : 'Semua data valid dan siap diimport',
+          icon: <CheckCircle className="h-4 w-4" />
+        });
+      } else {
+        toast.error('Tidak ada data valid', {
+          description: 'Pastikan NIK, Nama Anggota, dan Nama Cabang terisi',
+          icon: <AlertCircle className="h-4 w-4" />
+        });
       }
 
       setImportPreview(validData);
     } catch (error) {
       console.error('Error parsing file:', error);
-      alert('Gagal memparse file Excel. Pastikan format file benar.');
+      toast.error('Gagal memparse file Excel', {
+        description: 'Pastikan format file benar (.xlsx, .xls, atau .csv)',
+        icon: <AlertCircle className="h-4 w-4" />
+      });
     }
   };
 
@@ -136,11 +160,28 @@ export function ImportExcelModal({ open, onClose, onImport }: ImportExcelModalPr
 
     try {
       const result = await onImport(importPreview);
-      alert(`Import selesai! ${result.success} berhasil, ${result.error} gagal`);
+
+      if (result.success > 0) {
+        toast.success('Import berhasil!', {
+          description: `${result.success} data anggota berhasil ditambahkan${result.error > 0 ? ` dan ${result.error} gagal` : ''}`,
+          icon: <CheckCircle className="h-4 w-4" />
+        });
+      }
+
+      if (result.error > 0 && result.success === 0) {
+        toast.error('Import gagal', {
+          description: `${result.error} data gagal diimport. Silakan coba lagi.`,
+          icon: <AlertCircle className="h-4 w-4" />
+        });
+      }
+
       handleClose();
     } catch (error) {
       console.error('Error importing:', error);
-      alert('Gagal mengimpor data');
+      toast.error('Gagal mengimpor data', {
+        description: 'Terjadi kesalahan saat memproses data. Silakan coba lagi.',
+        icon: <AlertCircle className="h-4 w-4" />
+      });
     } finally {
       setImporting(false);
       setImportProgress({ current: 0, total: 0 });
@@ -151,16 +192,16 @@ export function ImportExcelModal({ open, onClose, onImport }: ImportExcelModalPr
     try {
       const XLSX = await import('xlsx');
 
-      // Create template data with new field structure
+      // Create template data with minimal required fields
       const templateData = [
         {
           'nik': '3201123456789012',
           'nama_anggota': 'Contoh Nama Anggota',
+          'nama_cabang': 'Cabang Jakarta',
           'kategori_anggota': 'biasa',
           'status_anggota': 'pegawai',
           'status_mps': 'non_mps',
           'status_iuran': 'belum_ttd',
-          'nama_cabang': 'Cabang Jakarta',
           'posisi_kepengurusan': 'Anggota',
           'status_kepesertaan': 'Aktif',
           'cabang_kelas': 'A',
@@ -214,8 +255,8 @@ export function ImportExcelModal({ open, onClose, onImport }: ImportExcelModalPr
 
       // Set column widths
       worksheet['!cols'] = [
-        { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 12 },
-        { wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 15 },
+        { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 15 },
+        { wch: 12 }, { wch: 12 }, { wch: 25 }, { wch: 20 }, { wch: 15 },
         { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 30 }, { wch: 5 },
         { wch: 5 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 8 },
         { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 20 },
@@ -230,9 +271,17 @@ export function ImportExcelModal({ open, onClose, onImport }: ImportExcelModalPr
 
       // Generate and download file
       XLSX.writeFile(workbook, 'template_import_anggota.xlsx');
+
+      toast.success('Template berhasil diunduh', {
+        description: 'Gunakan template ini untuk mengisi data anggota. Field wajib: NIK, Nama Anggota, Nama Cabang',
+        icon: <CheckCircle className="h-4 w-4" />
+      });
     } catch (error) {
       console.error('Error downloading template:', error);
-      alert('Gagal mengunduh template');
+      toast.error('Gagal mengunduh template', {
+        description: 'Terjadi kesalahan saat mengunduh template. Silakan coba lagi.',
+        icon: <AlertCircle className="h-4 w-4" />
+      });
     }
   };
 
@@ -388,7 +437,7 @@ export function ImportExcelModal({ open, onClose, onImport }: ImportExcelModalPr
                           <td className="px-3 py-2">{row.nama_anggota || '-'}</td>
                           <td className="px-3 py-2">{row.nama_cabang || '-'}</td>
                           <td className="px-3 py-2">
-                            {row.nik && row.nama_anggota && row.nama_cabang && row.alamat ? (
+                            {row.nik && row.nama_anggota && row.nama_cabang ? (
                               <Badge variant="success" appearance="ghost" className="text-xs">
                                 Valid
                               </Badge>

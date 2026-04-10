@@ -540,3 +540,42 @@ export interface LaporanPeriodeFilter {
   page?: number;
   limit?: number;
 }
+
+// NIK Inheritance types
+export type StatusKepemilikanEnum = 'aktif' | 'non_aktif' | 'meninggal' | 'dicabut';
+
+export interface NikMaster {
+  id: string;
+  nik: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NikKepemilikan {
+  id: string;
+  nik_id: string;
+  anggota_id: string | null;
+  hubungan: string | null;
+  status: StatusKepemilikanEnum;
+  tanggal_mulai: string;
+  tanggal_selesai: string | null;
+  is_current: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NikKepemilikanWithAnggota extends NikKepemilikan {
+  nik_master: NikMaster;
+}
+
+export interface CreateNikKepemilikanInput {
+  nik_id: string;
+  anggota_id: string;
+  hubungan?: string;
+  status?: StatusKepemilikanEnum;
+  tanggal_mulai: string;
+  tanggal_selesai?: string;
+  is_current?: boolean;
+}
+
+export interface UpdateNikKepemilikanInput extends Partial<CreateNikKepemilikanInput> {}

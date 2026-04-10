@@ -60,6 +60,7 @@ import { DetailModal } from '@/components/anggota/DetailModal';
 import { DeleteConfirmDialog } from '@/components/anggota/DeleteConfirmDialog';
 import { ImportExcelModal } from '@/components/anggota/ImportExcelModal';
 import { ToastNotification } from '@/components/anggota/ToastNotification';
+import { ExpandableRow } from '@/components/anggota/ExpandableRow';
 
 export default function PengelolaanDataPage() {
   // State
@@ -341,7 +342,8 @@ export default function PengelolaanDataPage() {
               size="sm"
               className="h-6 w-6 sm:h-7 sm:w-7"
               title="Lihat Detail"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setSelectedMember(row.original);
                 setDetailModalOpen(true);
               }}
@@ -354,7 +356,8 @@ export default function PengelolaanDataPage() {
               size="sm"
               className="h-6 w-6 sm:h-7 sm:w-7"
               title="Edit"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setEditMemberId(row.original.id);
                 setEditModalOpen(true);
               }}
@@ -368,7 +371,8 @@ export default function PengelolaanDataPage() {
               size="sm"
               className="h-6 w-6 sm:h-7 sm:w-7"
               title="Hapus"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 setMemberToDelete(row.original);
                 setDeleteConfirmOpen(true);
               }}
@@ -561,23 +565,33 @@ export default function PengelolaanDataPage() {
                     </TableCell>
                   </TableRow>
                 ) : table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
-                      {row.getVisibleCells().map((cell) => {
-                        const columnId = cell.column.id;
-                        const accessorKey = (cell.column.columnDef as any).accessorKey as string;
-                        const hideOnMobile = columnId === 'no' || accessorKey === 'jenis_anggota' || accessorKey === 'status_iuran' || accessorKey === 'cabang_domisili';
-                        return (
-                          <TableCell
-                            key={cell.id}
-                            className={`${hideOnMobile ? 'hidden sm:table-cell' : ''} px-3 py-3 text-xs sm:px-4 sm:py-3 sm:text-sm`}
-                          >
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))
+                  table.getRowModel().rows.map((row) => {
+                    const anggota = row.original;
+                    return (
+                      <ExpandableRow
+                        key={row.id}
+                        anggota={anggota}
+                        columns={columns}
+                        index={row.index}
+                        pageSize={pagination.pageSize}
+                        pageIndex={pagination.pageIndex}
+                      >
+                        {row.getVisibleCells().map((cell) => {
+                          const columnId = cell.column.id;
+                          const accessorKey = (cell.column.columnDef as any).accessorKey as string;
+                          const hideOnMobile = columnId === 'no' || accessorKey === 'jenis_anggota' || accessorKey === 'status_iuran' || accessorKey === 'cabang_domisili';
+                          return (
+                            <TableCell
+                              key={cell.id}
+                              className={`${hideOnMobile ? 'hidden sm:table-cell' : ''} px-3 py-3 text-xs sm:px-4 sm:py-3 sm:text-sm`}
+                            >
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          );
+                        })}
+                      </ExpandableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={columns.length} className="h-24 text-center">

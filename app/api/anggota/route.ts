@@ -79,11 +79,8 @@ export async function POST(request: NextRequest) {
   try {
     const body: CreateAnggotaInput = await request.json();
 
-    // Validate required fields
-    const requiredFields = [
-      'nik', 'nama_anggota', 'kategori_anggota', 'status_anggota',
-      'status_mps', 'status_iuran', 'nama_cabang', 'posisi_kepengurusan', 'alamat'
-    ];
+    // Validate only the 3 truly required fields
+    const requiredFields = ['nik', 'nama_anggota', 'nama_cabang'];
 
     for (const field of requiredFields) {
       if (!body[field as keyof CreateAnggotaInput]) {
@@ -109,11 +106,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create new anggota
+    // Create new anggota with defaults for missing required fields
     const { data: newAnggota, error } = await supabase
       .from('anggota')
       .insert([{
         ...body,
+        // Set defaults for required database fields
+        kategori_anggota: body.kategori_anggota || 'biasa',
+        status_anggota: body.status_anggota || 'pegawai',
+        status_mps: body.status_mps || 'non_mps',
+        status_iuran: body.status_iuran || 'belum_ttd',
+        posisi_kepengurusan: body.posisi_kepengurusan || 'Anggota',
+        // Optional fields
+        status_kepesertaan: body.status_kepesertaan || null,
+        cabang_kelas: body.cabang_kelas || null,
+        cabang_area_regional: body.cabang_area_regional || null,
+        cabang_area_witel: body.cabang_area_witel || null,
+        pasutri: body.pasutri || null,
+        status_perkawinan: body.status_perkawinan || null,
+        sk_pensiun: body.sk_pensiun || null,
+        nomor_sk_pensiun: body.nomor_sk_pensiun || null,
         alamat: body.alamat || null,
         rt: body.rt || null,
         rw: body.rw || null,
