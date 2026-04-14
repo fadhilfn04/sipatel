@@ -61,8 +61,7 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
 
   const getStatusIuranProps = (status: Anggota['status_iuran']): StatusProps => {
     const statusMap: Record<string, StatusProps> = {
-      sudah_ttd: { variant: 'success', label: 'Sudah TTD' },
-      belum_ttd: { variant: 'warning', label: 'Belum TTD' },
+      iuran: { variant: 'success', label: 'Sudah Iuran' },
       tidak_iuran: { variant: 'secondary', label: 'Tidak Iuran' },
     };
     return statusMap[status] || { variant: 'secondary', label: status };
@@ -70,12 +69,36 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
 
   const getSkPensiunLabel = (sk: Anggota['sk_pensiun']) => {
     const skMap: Record<string, string> = {
-      pensiun: 'Pensiun',
-      janda: 'Janda',
-      duda: 'Duda',
-      anak: 'Anak',
+      ada: 'ADA',
+      tidak_ada: 'TIDAK ADA',
     };
     return skMap[sk || ''] || sk || '-';
+  };
+
+  const getStatusPerkawinanLabel = (status: Anggota['status_perkawinan'] | null | undefined) => {
+    const statusMap: Record<string, string> = {
+      belum_kawin: 'Belum Kawin',
+      kawin: 'Kawin',
+      cerai_hidup: 'Cerai Hidup',
+      cerai_mati: 'Cerai Mati',
+    };
+    return statusMap[status || ''] || status || '-';
+  };
+
+  const getJenisKelaminLabel = (jk: Anggota['jenis_kelamin'] | null | undefined) => {
+    const jkMap: Record<string, string> = {
+      laki_laki: 'Laki-laki',
+      perempuan: 'Perempuan',
+    };
+    return jkMap[jk || ''] || jk || '-';
+  };
+
+  const formatSnakeCase = (value: string | null | undefined) => {
+    if (!value) return '-';
+    return value
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   };
 
   return (
@@ -146,7 +169,7 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Jenis Kelamin</label>
-                <div className="text-sm">{member.jenis_kelamin === 'laki_laki' ? 'Laki-laki' : member.jenis_kelamin === 'perempuan' ? 'Perempuan' : '-'}</div>
+                <div className="text-sm">{getJenisKelaminLabel(member.jenis_kelamin)}</div>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Agama</label>
@@ -158,11 +181,11 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Status Perkawinan</label>
-                <div className="text-sm">{member.status_perkawinan || '-'}</div>
+                <div className="text-sm">{getStatusPerkawinanLabel(member.status_perkawinan)}</div>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Pasutri</label>
-                <div className="text-sm">{member.pasutri || '-'}</div>
+                <div className="text-sm">{formatSnakeCase(member.pasutri)}</div>
               </div>
             </div>
           </div>
@@ -180,7 +203,13 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Posisi Kepengurusan</label>
-                <div className="text-sm">{member.posisi_kepengurusan}</div>
+                <Badge
+                  variant={member.posisi_kepengurusan === 'Ketua' ? 'success' : member.posisi_kepengurusan === 'Anggota' ? 'secondary' : 'warning'}
+                  appearance="ghost"
+                  className="text-xs"
+                >
+                  {member.posisi_kepengurusan || '-'}
+                </Badge>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">SK Pensiun</label>
@@ -192,23 +221,19 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Status Kepesertaan</label>
-                <div className="text-sm">{member.status_kepesertaan || '-'}</div>
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground">Pasutri</label>
-                <div className="text-sm">{member.pasutri || '-'}</div>
+                <div className="text-sm">{formatSnakeCase(member.status_kepesertaan)}</div>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Cabang Kelas</label>
-                <div className="text-sm">{member.cabang_kelas || '-'}</div>
+                <div className="text-sm">{formatSnakeCase(member.cabang_kelas)}</div>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Area Regional</label>
-                <div className="text-sm">{member.cabang_area_regional || '-'}</div>
+                <div className="text-sm">{formatSnakeCase(member.cabang_area_regional)}</div>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Area Witel</label>
-                <div className="text-sm">{member.cabang_area_witel || '-'}</div>
+                <div className="text-sm">{formatSnakeCase(member.cabang_area_witel)}</div>
               </div>
             </div>
           </div>
@@ -256,7 +281,7 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Nama Bank</label>
-                <div className="text-sm">{member.nama_bank || '-'}</div>
+                <div className="text-sm">{formatSnakeCase(member.nama_bank)}</div>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Nomor Rekening</label>
@@ -296,7 +321,7 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="text-sm text-muted-foreground">Kategori Bantuan</label>
-                <div className="text-sm">{member.kategori_bantuan || '-'}</div>
+                <div className="text-sm">{formatSnakeCase(member.kategori_bantuan)}</div>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Tanggal Terima Bantuan</label>
@@ -318,7 +343,7 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="text-sm text-muted-foreground">Alasan Mutasi</label>
-                <div className="text-sm">{member.alasan_mutasi || '-'}</div>
+                <div className="text-sm">{formatSnakeCase(member.alasan_mutasi)}</div>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Tanggal Mutasi</label>
@@ -369,11 +394,11 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Kategori Datul</label>
-                <div className="text-sm">{member.kategori_datul || '-'}</div>
+                <div className="text-sm">{formatSnakeCase(member.kategori_datul)}</div>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Media Datul</label>
-                <div className="text-sm">{member.media_datul || '-'}</div>
+                <div className="text-sm">{formatSnakeCase(member.media_datul)}</div>
               </div>
               <div className="md:col-span-2">
                 <label className="text-sm text-muted-foreground">Alamat Lengkap</label>

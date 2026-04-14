@@ -32,6 +32,8 @@ export function useAnggotaList(params: {
   nama_cabang?: string;
   page?: number;
   limit?: number;
+  sortColumn?: string;
+  sortDirection?: 'asc' | 'desc';
 }) {
   const queryParams = new URLSearchParams();
   if (params.search) queryParams.set('search', params.search);
@@ -52,6 +54,12 @@ export function useAnggotaList(params: {
   }
   queryParams.set('page', String(params.page || 1));
   queryParams.set('limit', String(params.limit || 10));
+  if (params.sortColumn) {
+    queryParams.set('sortColumn', params.sortColumn);
+  }
+  if (params.sortDirection) {
+    queryParams.set('sortDirection', params.sortDirection);
+  }
 
   return useQuery({
     queryKey: ['anggota', params],

@@ -12,6 +12,13 @@ export const getSignupSchema = () => {
         .string()
         .email({ message: 'Please enter a valid email address.' })
         .min(1, { message: 'Email is required.' }),
+      nik: z
+        .string()
+        .min(5, { message: 'NIK must be at least 5 characters.' })
+        .min(1, { message: 'NIK is required.' }),
+      nama_cabang: z
+        .string()
+        .min(1, { message: 'Cabang is required.' }),
       password: getPasswordSchema(), // Uses the updated password schema with direct messages
       passwordConfirmation: z.string().min(1, {
         message: 'Password confirmation is required.',

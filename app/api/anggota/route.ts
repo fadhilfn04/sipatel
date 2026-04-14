@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { CreateAnggotaInput, AnggotaFilter } from '@/lib/supabase';
 import { requirePermission, requireAnyPermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
-import { PERMISSIONS } from '@/lib/rbac';
+import { PERMISSIONS, ROLES } from '@/lib/rbac';
 
 // GET /api/anggota - Get all members with filtering and pagination
 export async function GET(request: NextRequest) {
     // Check permission - allow access for Keanggotaan, Dana Kematian, or Dana Sosial access
-    await requireAnyPermission([
+    const user = await requireAnyPermission([
       PERMISSIONS.VIEW_KEANGGOTAAN,
       PERMISSIONS.ACCESS_DANA_KEMATIAN,
       PERMISSIONS.ACCESS_DANA_SOCIAL,
@@ -20,10 +20,30 @@ export async function GET(request: NextRequest) {
     const status_anggota = searchParams.get('status_anggota') || 'all';
     const status_mps = searchParams.get('status_mps') || 'all';
     const status_iuran = searchParams.get('status_iuran') || 'all';
-    const nama_cabang = searchParams.get('nama_cabang') || 'all';
+    let nama_cabang = searchParams.get('nama_cabang') || 'all';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = (page - 1) * limit;
+    const sortColumn = searchParams.get('sortColumn') || 'created_at';
+    const sortDirection = searchParams.get('sortDirection') || 'desc';
+
+    // Check if user is admin
+    const isAdmin = user?.role?.slug === ROLES.ADMINISTRATOR;
+
+    // If not admin, get user's cabang from their anggota record and auto-filter
+    if (!isAdmin && user?.id) {
+      const { data: userAnggota } = await supabase
+        .from('anggota')
+        .select('nama_cabang')
+        .eq('user_id', user.id)
+        .is('deleted_at', null)
+        .single();
+
+      // If user has an anggota record with a cabang, filter by it
+      if (userAnggota?.nama_cabang) {
+        nama_cabang = userAnggota.nama_cabang;
+      }
+    }
 
     let query = supabase
       .from('anggota')
@@ -52,9 +72,9 @@ export async function GET(request: NextRequest) {
       query = query.eq('nama_cabang', nama_cabang);
     }
 
-    // Get paginated data
+    // Get paginated data with sorting
     const { data: anggota, error, count } = await query
-      .order('created_at', { ascending: false })
+      .order(sortColumn, { ascending: sortDirection === 'asc' })
       .range(offset, offset + limit - 1);
 
     if (error) {
@@ -136,7 +156,7 @@ export async function POST(request: NextRequest) {
         kategori_anggota: body.kategori_anggota || 'biasa',
         status_anggota: body.status_anggota || 'pegawai',
         status_mps: body.status_mps || 'non_mps',
-        status_iuran: body.status_iuran || 'belum_ttd',
+        status_iuran: body.status_iuran || 'iuran',
         posisi_kepengurusan: body.posisi_kepengurusan || 'Anggota',
         // Optional fields
         status_kepesertaan: body.status_kepesertaan || null,

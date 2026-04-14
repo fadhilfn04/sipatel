@@ -29,6 +29,9 @@ import {
   ChevronsLeft,
   ChevronsRight,
   FileSpreadsheet,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { Card, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -96,6 +99,10 @@ export default function PengelolaanDataPage() {
   }>({ show: false, message: '', type: 'success' });
 
   // API hooks
+  // Extract sort column and direction from sorting state
+  const sortColumn = sorting[0]?.id || 'created_at';
+  const sortDirection = sorting[0]?.desc ? 'desc' : 'asc';
+
   const { data: anggotaData, isLoading } = useAnggotaList({
     search: searchQuery,
     kategori_anggota: selectedKategori,
@@ -105,6 +112,8 @@ export default function PengelolaanDataPage() {
     nama_cabang: selectedCabang,
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
+    sortColumn,
+    sortDirection,
   });
 
   const { data: editMemberData } = useAnggota(editMemberId || '');
@@ -126,6 +135,7 @@ export default function PengelolaanDataPage() {
     const statusMap: Record<string, { variant: 'success' | 'destructive' | 'warning' | 'secondary'; label: string }> = {
       pegawai: { variant: 'success', label: 'Pegawai' },
       suami: { variant: 'warning', label: 'Suami' },
+      istri: { variant: 'info', label: 'Istri' },
       anak: { variant: 'secondary', label: 'Anak' },
       meninggal: { variant: 'destructive', label: 'Meninggal' },
     };
@@ -150,11 +160,43 @@ export default function PengelolaanDataPage() {
 
   const getStatusIuranProps = (status: Anggota['status_iuran']) => {
     const statusMap: Record<string, { variant: 'success' | 'destructive' | 'warning' | 'secondary'; label: string }> = {
-      sudah_ttd: { variant: 'success', label: 'Sudah TTD' },
-      belum_ttd: { variant: 'warning', label: 'Belum TTD' },
+      iuran: { variant: 'success', label: 'Sudah Iuran' },
       tidak_iuran: { variant: 'secondary', label: 'Tidak Iuran' },
     };
     return statusMap[status] || { variant: 'secondary', label: status };
+  };
+
+  const getSkPensiunProps = (sk: string | null | undefined) => {
+    if (!sk) return { variant: 'secondary' as const, label: '-' };
+    const skMap: Record<string, { variant: 'success' | 'destructive' | 'warning' | 'secondary'; label: string }> = {
+      ada: { variant: 'success', label: 'ADA' },
+      tidak_ada: { variant: 'secondary', label: 'TIDAK ADA' },
+    };
+    return skMap[sk] || { variant: 'secondary', label: sk };
+  };
+
+  const getPosisiKepengurusanProps = (posisi: string | null | undefined) => {
+    if (!posisi) return { variant: 'secondary' as const, label: '-' };
+    const posisiMap: Record<string, { variant: 'success' | 'destructive' | 'warning' | 'secondary'; label: string }> = {
+      'Ketua': { variant: 'success', label: 'Ketua' },
+      'Wakil Ketua': { variant: 'warning', label: 'Wakil Ketua' },
+      'Sekretaris': { variant: 'warning', label: 'Sekretaris' },
+      'Bendahara': { variant: 'warning', label: 'Bendahara' },
+      'Anggota': { variant: 'secondary', label: 'Anggota' },
+    };
+    return posisiMap[posisi] || { variant: 'secondary', label: posisi };
+  };
+
+  const formatDisplayValue = (value: string | null | undefined, formatMap?: Record<string, string>) => {
+    if (!value) return '-';
+    if (formatMap && formatMap[value]) {
+      return formatMap[value];
+    }
+    // Convert snake_case to Title Case
+    return value
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   };
 
   const getErrorMessage = (error: any) => {
@@ -250,16 +292,19 @@ export default function PengelolaanDataPage() {
         accessorKey: 'no',
         header: 'NO',
         cell: ({ row }) => row.index + 1 + pagination.pageIndex * pagination.pageSize,
+        enableSorting: false,
       },
       {
         accessorKey: 'nik',
         header: 'NIK',
         cell: ({ row }) => <span className="font-mono text-xs sm:text-sm">{row.original.nik}</span>,
+        enableSorting: true,
       },
       {
         accessorKey: 'nama_anggota',
         header: 'NAMA',
         cell: ({ row }) => <div className="font-medium text-xs sm:text-sm">{row.original.nama_anggota}</div>,
+        enableSorting: true,
       },
       {
         accessorKey: 'kategori_anggota',
@@ -273,6 +318,7 @@ export default function PengelolaanDataPage() {
             </Badge>
           );
         },
+        enableSorting: false,
       },
       {
         accessorKey: 'status_anggota',
@@ -286,24 +332,27 @@ export default function PengelolaanDataPage() {
             </Badge>
           );
         },
+        enableSorting: false,
       },
-      {
-        accessorKey: 'status_mps',
-        header: 'MPS',
-        cell: ({ row }) => {
-          const props = getStatusMpsProps(row.original.status_mps);
-          return (
-            <Badge variant={props.variant} appearance="ghost" className="text-xs">
-              <BadgeDot />
-              {props.label}
-            </Badge>
-          );
-        },
-      },
+      // {
+      //   accessorKey: 'status_mps',
+      //   header: 'MPS',
+      //   cell: ({ row }) => {
+      //     const props = getStatusMpsProps(row.original.status_mps);
+      //     return (
+      //       <Badge variant={props.variant} appearance="ghost" className="text-xs">
+      //         <BadgeDot />
+      //         {props.label}
+      //       </Badge>
+      //     );
+      //   },
+      //   enableSorting: false,
+      // },
       {
         accessorKey: 'nama_cabang',
         header: 'CABANG',
         cell: ({ row }) => <span className="text-xs sm:text-sm">{row.original.nama_cabang}</span>,
+        enableSorting: true,
       },
       {
         accessorKey: 'status_iuran',
@@ -317,16 +366,34 @@ export default function PengelolaanDataPage() {
             </Badge>
           );
         },
+        enableSorting: false,
       },
       {
         accessorKey: 'posisi_kepengurusan',
         header: 'POSISI KEPENGURUSAN',
-        cell: ({ row }) => <span className="text-xs sm:text-sm">{row.original.posisi_kepengurusan}</span>,
+        cell: ({ row }) => {
+          const props = getPosisiKepengurusanProps(row.original.posisi_kepengurusan);
+          return (
+            <Badge variant={props.variant} appearance="ghost" className="text-xs">
+              <BadgeDot />
+              {props.label}
+            </Badge>
+          );
+        },
+        enableSorting: false,
       },
       {
         accessorKey: 'sk_pensiun',
         header: 'SK PENSIUN',
-        cell: ({ row }) => <span className="text-xs sm:text-sm">{row.original.sk_pensiun}</span>,
+        cell: ({ row }) => {
+          const props = getSkPensiunProps(row.original.sk_pensiun);
+          return (
+            <Badge variant={props.variant} appearance="ghost" className="text-xs">
+              {props.label}
+            </Badge>
+          );
+        },
+        enableSorting: false,
       },
       {
         id: 'actions',
@@ -378,6 +445,7 @@ export default function PengelolaanDataPage() {
             </Button>
           </div>
         ),
+        enableSorting: false,
       },
     ],
     [pagination.pageIndex, pagination.pageSize]
@@ -394,6 +462,7 @@ export default function PengelolaanDataPage() {
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     manualPagination: true,
+    manualSorting: true,
   });
 
   const filteredData = anggotaData?.data || [];
@@ -409,196 +478,217 @@ export default function PengelolaanDataPage() {
         </Toolbar>
       </Container>
 
-      <Container>
-        <Card>
-          <CardHeader className="flex-col flex-wrap sm:flex-row items-stretch sm:items-center py-5">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 w-full">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                {/* Search */}
-                <div className="relative">
-                  <Search className="size-4 text-muted-foreground absolute start-3 top-1/2 -translate-y-1/2" />
-                  <Input
-                    placeholder="Cari nama, NIK, atau cabang..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="ps-9 w-full sm:w-64"
-                  />
-                  {searchQuery.length > 0 && (
-                    <Button
-                      mode="icon"
-                      variant="dim"
-                      className="absolute end-1.5 top-1/2 -translate-y-1/2 h-6 w-6"
-                      onClick={() => setSearchQuery('')}
-                    >
-                      ×
-                    </Button>
-                  )}
+      <Container className="flex flex-col max-h-[calc(100vh-200px)]">
+        <Card className="flex flex-col overflow-hidden">
+          {/* Sticky Header Section */}
+          <div className="shrink-0 border-b">
+            <CardHeader className="flex-col flex-wrap sm:flex-row items-stretch sm:items-center py-5">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 w-full">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="size-4 text-muted-foreground absolute start-3 top-1/2 -translate-y-1/2" />
+                    <Input
+                      placeholder="Cari nama, NIK, atau cabang..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="ps-9 w-full sm:w-64"
+                    />
+                    {searchQuery.length > 0 && (
+                      <Button
+                        mode="icon"
+                        variant="dim"
+                        className="absolute end-1.5 top-1/2 -translate-y-1/2 h-6 w-6"
+                        onClick={() => setSearchQuery('')}
+                      >
+                        ×
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Filters */}
+                  <Select
+                    onValueChange={(value) => {
+                      setSelectedKategori(value);
+                      setPagination({ ...pagination, pageIndex: 0 });
+                    }}
+                    value={selectedKategori}
+                  >
+                    <SelectTrigger className="w-full sm:w-40">
+                      <SelectValue placeholder="Kategori" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Kategori</SelectItem>
+                      <SelectItem value="biasa">Biasa</SelectItem>
+                      <SelectItem value="luar_biasa">Luar Biasa</SelectItem>
+                      <SelectItem value="kehormatan">Kehormatan</SelectItem>
+                      <SelectItem value="bukan_anggota">Bukan Anggota</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    onValueChange={(value) => {
+                      setSelectedStatus(value);
+                      setPagination({ ...pagination, pageIndex: 0 });
+                    }}
+                    value={selectedStatus}
+                  >
+                    <SelectTrigger className="w-full sm:w-40">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Status</SelectItem>
+                      <SelectItem value="pegawai">Pegawai</SelectItem>
+                      <SelectItem value="istri">Istri</SelectItem>
+                      <SelectItem value="suami">Suami</SelectItem>
+                      <SelectItem value="anak">Anak</SelectItem>
+                      <SelectItem value="meninggal">Meninggal</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    onValueChange={(value) => {
+                      setSelectedMps(value);
+                      setPagination({ ...pagination, pageIndex: 0 });
+                    }}
+                    value={selectedMps}
+                  >
+                    <SelectTrigger className="w-full sm:w-40">
+                      <SelectValue placeholder="Status MPS" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua MPS</SelectItem>
+                      <SelectItem value="mps">MPS</SelectItem>
+                      <SelectItem value="non_mps">Non-MPS</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    onValueChange={(value) => {
+                      setSelectedIuran(value);
+                      setPagination({ ...pagination, pageIndex: 0 });
+                    }}
+                    value={selectedIuran}
+                  >
+                    <SelectTrigger className="w-full sm:w-40">
+                      <SelectValue placeholder="Status Iuran" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Iuran</SelectItem>
+                      <SelectItem value="iuran">Sudah Iuran</SelectItem>
+                      <SelectItem value="tidak_iuran">Tidak Iuran</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {/* Filters */}
-                <Select
-                  onValueChange={(value) => {
-                    setSelectedKategori(value);
-                    setPagination({ ...pagination, pageIndex: 0 });
-                  }}
-                  value={selectedKategori}
-                >
-                  <SelectTrigger className="w-full sm:w-40">
-                    <SelectValue placeholder="Kategori" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Kategori</SelectItem>
-                    <SelectItem value="biasa">Biasa</SelectItem>
-                    <SelectItem value="luar_biasa">Luar Biasa</SelectItem>
-                    <SelectItem value="kehormatan">Kehormatan</SelectItem>
-                    <SelectItem value="bukan_anggota">Bukan Anggota</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  onValueChange={(value) => {
-                    setSelectedStatus(value);
-                    setPagination({ ...pagination, pageIndex: 0 });
-                  }}
-                  value={selectedStatus}
-                >
-                  <SelectTrigger className="w-full sm:w-40">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Status</SelectItem>
-                    <SelectItem value="pegawai">Pegawai</SelectItem>
-                    <SelectItem value="istri">Istri</SelectItem>
-                    <SelectItem value="suami">Suami</SelectItem>
-                    <SelectItem value="anak">Anak</SelectItem>
-                    <SelectItem value="meninggal">Meninggal</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  onValueChange={(value) => {
-                    setSelectedMps(value);
-                    setPagination({ ...pagination, pageIndex: 0 });
-                  }}
-                  value={selectedMps}
-                >
-                  <SelectTrigger className="w-full sm:w-40">
-                    <SelectValue placeholder="Status MPS" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua MPS</SelectItem>
-                    <SelectItem value="mps">MPS</SelectItem>
-                    <SelectItem value="non_mps">Non-MPS</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  onValueChange={(value) => {
-                    setSelectedIuran(value);
-                    setPagination({ ...pagination, pageIndex: 0 });
-                  }}
-                  value={selectedIuran}
-                >
-                  <SelectTrigger className="w-full sm:w-40">
-                    <SelectValue placeholder="Status Iuran" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Iuran</SelectItem>
-                    <SelectItem value="sudah_ttd">Sudah TTD</SelectItem>
-                    <SelectItem value="belum_ttd">Belum TTD</SelectItem>
-                    <SelectItem value="tidak_iuran">Tidak Iuran</SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Actions */}
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Button variant="outline" onClick={() => setImportModalOpen(true)} className="flex-1 sm:flex-none">
+                    <FileSpreadsheet className="h-4 w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Import Excel</span>
+                    <span className="sm:hidden">Import</span>
+                  </Button>
+                  <Button onClick={() => setAddModalOpen(true)} className="flex-1 sm:flex-none">
+                    <Plus className="h-4 w-4" />
+                    <span className="hidden sm:inline ml-1">Tambah Anggota</span>
+                    <span className="sm:hidden ml-1">Tambah</span>
+                  </Button>
+                </div>
               </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Button variant="outline" onClick={() => setImportModalOpen(true)} className="flex-1 sm:flex-none">
-                  <FileSpreadsheet className="h-4 w-4 mr-1 sm:mr-2" />
-                  <span className="hidden sm:inline">Import Excel</span>
-                  <span className="sm:hidden">Import</span>
-                </Button>
-                <Button onClick={() => setAddModalOpen(true)} className="flex-1 sm:flex-none">
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline ml-1">Tambah Anggota</span>
-                  <span className="sm:hidden ml-1">Tambah</span>
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
+            </CardHeader>
+          </div>
 
           {/* Table */}
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
-                      const columnId = header.column.id;
-                      const accessorKey = (header.column.columnDef as any).accessorKey as string;
-                      const hideOnMobile = columnId === 'no' || accessorKey === 'jenis_anggota' || accessorKey === 'status_iuran' || accessorKey === 'cabang_domisili';
+          <div className="flex-1 overflow-auto min-h-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-background">
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                      {headerGroup.headers.map((header) => {
+                        const columnId = header.column.id;
+                        const accessorKey = (header.column.columnDef as any).accessorKey as string;
+                        const hideOnMobile = columnId === 'no' || accessorKey === 'jenis_anggota' || accessorKey === 'status_iuran' || accessorKey === 'cabang_domisili';
+                        const canSort = header.column.getCanSort();
+                        const isSorted = header.column.getIsSorted();
+
+                        return (
+                          <TableHead
+                            key={header.id}
+                            className={`${hideOnMobile ? 'hidden sm:table-cell' : ''} bg-background px-3 py-3 text-xs sm:px-4 sm:py-3 sm:text-sm ${canSort ? 'cursor-pointer select-none hover:bg-muted/50' : ''}`}
+                            onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                          >
+                            {header.isPlaceholder ? null : (
+                              <div className="flex items-center gap-1">
+                                {flexRender(header.column.columnDef.header, header.getContext())}
+                                {canSort && (
+                                  <span className="ml-1">
+                                    {isSorted === 'asc' ? (
+                                      <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                                    ) : isSorted === 'desc' ? (
+                                      <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                                    ) : (
+                                      <ChevronsUpDown className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground opacity-50" />
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </TableHead>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={columns.length} className="h-24 text-center">
+                        Memuat data...
+                      </TableCell>
+                    </TableRow>
+                  ) : table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => {
+                      const anggota = row.original;
                       return (
-                        <TableHead
-                          key={header.id}
-                          className={`${hideOnMobile ? 'hidden sm:table-cell' : ''} px-3 py-3 text-xs sm:px-4 sm:py-3 sm:text-sm`}
+                        <ExpandableRow
+                          key={row.id}
+                          anggota={anggota}
+                          columns={columns}
+                          index={row.index}
+                          pageSize={pagination.pageSize}
+                          pageIndex={pagination.pageIndex}
                         >
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(header.column.columnDef.header, header.getContext())}
-                        </TableHead>
+                          {row.getVisibleCells().map((cell) => {
+                            const columnId = cell.column.id;
+                            const accessorKey = (cell.column.columnDef as any).accessorKey as string;
+                            const hideOnMobile = columnId === 'no' || accessorKey === 'jenis_anggota' || accessorKey === 'status_iuran' || accessorKey === 'cabang_domisili';
+                            return (
+                              <TableCell
+                                key={cell.id}
+                                className={`${hideOnMobile ? 'hidden sm:table-cell' : ''} px-3 py-3 text-xs sm:px-4 sm:py-3 sm:text-sm`}
+                              >
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </TableCell>
+                            );
+                          })}
+                        </ExpandableRow>
                       );
-                    })}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={columns.length} className="h-24 text-center">
-                      Memuat data...
-                    </TableCell>
-                  </TableRow>
-                ) : table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => {
-                    const anggota = row.original;
-                    return (
-                      <ExpandableRow
-                        key={row.id}
-                        anggota={anggota}
-                        columns={columns}
-                        index={row.index}
-                        pageSize={pagination.pageSize}
-                        pageIndex={pagination.pageIndex}
-                      >
-                        {row.getVisibleCells().map((cell) => {
-                          const columnId = cell.column.id;
-                          const accessorKey = (cell.column.columnDef as any).accessorKey as string;
-                          const hideOnMobile = columnId === 'no' || accessorKey === 'jenis_anggota' || accessorKey === 'status_iuran' || accessorKey === 'cabang_domisili';
-                          return (
-                            <TableCell
-                              key={cell.id}
-                              className={`${hideOnMobile ? 'hidden sm:table-cell' : ''} px-3 py-3 text-xs sm:px-4 sm:py-3 sm:text-sm`}
-                            >
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </TableCell>
-                          );
-                        })}
-                      </ExpandableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={columns.length} className="h-24 text-center">
-                      Tidak ada data ditemukan.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={columns.length} className="h-24 text-center">
+                        Tidak ada data ditemukan.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           {/* Pagination */}
-          <CardFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 py-4">
+          <CardFooter className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 py-4 border-t">
             <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
               <div className="sm:hidden">
                 {pagination.pageIndex * pagination.pageSize + 1}-{Math.min((pagination.pageIndex + 1) * pagination.pageSize, totalCount)} dari {totalCount}

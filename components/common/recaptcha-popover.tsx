@@ -23,7 +23,6 @@ export function RecaptchaPopover({
   verifyButtonText = 'Verify & Submit',
 }: RecaptchaPopoverProps) {
   const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '';
-  console.log('reCAPTCHA Site Key:', siteKey ? `${siteKey.substring(0, 10)}...` : 'NOT SET');
 
   const { containerRef, getToken, resetCaptcha, initializeRecaptcha } =
     useRecaptchaV2(siteKey);

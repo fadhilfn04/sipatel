@@ -45,6 +45,8 @@ export default function Page() {
     defaultValues: {
       name: '',
       email: '',
+      nik: '',
+      nama_cabang: '',
       password: '',
       passwordConfirmation: '',
       accept: false,
@@ -176,6 +178,34 @@ export default function Page() {
                 <FormLabel>Email</FormLabel>
                 <FormControl>
                   <Input placeholder="Email anda" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="nik"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>NIK</FormLabel>
+                <FormControl>
+                  <Input placeholder="Nomor Induk Kependudukan" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="nama_cabang"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cabang</FormLabel>
+                <FormControl>
+                  <Input placeholder="Nama Cabang (contoh: BANDUNG TIMUR)" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
