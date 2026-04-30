@@ -13,6 +13,7 @@ export type DanaKematianStatus =
   | 'pending_dokumen'
   | 'verifikasi_cabang'
   | 'proses_pusat'
+  | 'verified'
   | 'penyaluran'
   | 'selesai'
   | 'ditolak';
@@ -50,129 +51,149 @@ export interface ClaimValidation {
 // =====================================================
 
 export const STATE_TRANSITIONS: StateTransition[] = [
-  // 1. DILAPORKAN → PENDING_DOKUMEN
+  // Phase A to B: Death Report to PC Validation
   {
     from: 'dilaporkan',
+    to: 'verifikasi_cabang',
+    allowed_roles: ['cabang', 'admin'],
+    description: 'PC starts active validation and communication with heir (Waktu-0 → Waktu-1)',
+    condition: (claim) => {
+      return claim.komunikasi_status === 'completed' &&
+             claim.nama_ahli_waris !== null &&
+             claim.no_hp_ahli_waris !== null;
+    }
+  },
+
+  // Phase B to C: Initial documents incomplete
+  {
+    from: 'verifikasi_cabang',
     to: 'pending_dokumen',
     allowed_roles: ['cabang', 'admin'],
-    description: 'Dokumen belum lengkap, menunggu pelengkapan',
+    description: 'Initial documents received but incomplete (Berkas-1 at Waktu-1)',
     condition: (claim) => {
-      return !areDocumentsComplete(claim);
+      return claim.waktu_1 !== null && !areDocumentsComplete(claim);
     }
   },
 
-  // 2. DILAPORKAN → VERIFIKASI_CABANG
-  {
-    from: 'dilaporkan',
-    to: 'verifikasi_cabang',
-    allowed_roles: ['cabang', 'admin'],
-    description: 'Dokumen lengkap, siap diverifikasi cabang',
-    condition: (claim) => {
-      return areDocumentsComplete(claim) &&
-             claim.cabang_tanggal_awal_terima_berkas !== null;
-    }
-  },
-
-  // 3. DILAPORKAN → DITOLAK
-  {
-    from: 'dilaporkan',
-    to: 'ditolak',
-    allowed_roles: ['cabang', 'pusat', 'admin'],
-    description: 'Klaim tidak valid atau tidak memenuhi syarat',
-    requires_approval: false
-  },
-
-  // 4. PENDING_DOKUMEN → VERIFIKASI_CABANG
-  {
-    from: 'pending_dokumen',
-    to: 'verifikasi_cabang',
-    allowed_roles: ['cabang', 'admin'],
-    description: 'Dokumen pelengkap diterima, siap diverifikasi',
-    condition: (claim) => {
-      return areDocumentsComplete(claim);
-    }
-  },
-
-  // 5. PENDING_DOKUMEN → DITOLAK
-  {
-    from: 'pending_dokumen',
-    to: 'ditolak',
-    allowed_roles: ['cabang', 'pusat', 'admin'],
-    description: 'Batas waktu pelengkapan habis atau klaim tidak valid',
-    requires_approval: false
-  },
-
-  // 6. VERIFIKASI_CABANG → PROSES_PUSAT
+  // Phase C to D: Complete documents submitted to PP
   {
     from: 'verifikasi_cabang',
     to: 'proses_pusat',
     allowed_roles: ['cabang', 'admin'],
-    description: 'Berkas diverifikasi cabang dan dikirim ke pusat',
+    description: 'Complete application submitted to PP (Berkas-2 at Waktu-2)',
     condition: (claim) => {
-      return claim.cabang_tanggal_kirim_ke_pusat !== null &&
-             claim.cabang_status_kelengkapan === 'lengkap';
+      return areDocumentsComplete(claim) &&
+             claim.cabang_tanggal_kirim_ke_pusat !== null &&
+             claim.is_validated_pc === true;
     }
   },
 
-  // 7. VERIFIKASI_CABANG → DILAPORKAN
+  // Alternative: From pending_dokumen to proses_pusat
   {
-    from: 'verifikasi_cabang',
-    to: 'dilaporkan',
+    from: 'pending_dokumen',
+    to: 'proses_pusat',
+    allowed_roles: ['cabang', 'admin'],
+    description: 'Final documents received and submitted to PP (Berkas-2 at Waktu-2)',
+    condition: (claim) => {
+      return areDocumentsComplete(claim) &&
+             claim.cabang_tanggal_kirim_ke_pusat !== null &&
+             claim.is_validated_pc === true;
+    }
+  },
+
+  // Phase D: PP validation
+  {
+    from: 'proses_pusat',
+    to: 'verified',
     allowed_roles: ['pusat', 'admin'],
-    description: 'Dikembalikan ke cabang untuk perbaikan',
+    description: 'PP validation completed successfully (Waktu-3)',
+    condition: (claim) => {
+      return claim.pusat_tanggal_validasi !== null &&
+             claim.is_validated_pp === true &&
+             claim.besaran_dana_kematian > 0;
+    }
+  },
+
+  // Return to PC for corrections
+  {
+    from: 'proses_pusat',
+    to: 'pending_dokumen',
+    allowed_roles: ['pusat', 'admin'],
+    description: 'PP returned application to PC for corrections',
     requires_approval: false
   },
 
-  // 8. VERIFIKASI_CABANG → DITOLAK
+  // Reject application
   {
-    from: 'verifikasi_cabang',
+    from: 'proses_pusat',
     to: 'ditolak',
     allowed_roles: ['pusat', 'admin'],
-    description: 'Verifikasi pusat menemukan ketidaksesuaian',
+    description: 'Application rejected due to eligibility or fraud',
     requires_approval: true
   },
 
-  // 9. PROSES_PUSAT → PENYALURAN
+  // Phase E: Approval to fund transfer
   {
-    from: 'proses_pusat',
+    from: 'verified',
     to: 'penyaluran',
     allowed_roles: ['pusat', 'admin'],
-    description: 'Dana disetujui dan ditransfer ke cabang, siap disalurkan',
+    description: 'Approved and funds transferred to PC (Waktu-4 → Waktu-5)',
     condition: (claim) => {
-      return claim.besaran_dana_kematian > 0 &&
-             claim.pusat_tanggal_validasi !== null;
+      return claim.is_approved === true &&
+             claim.pusat_tanggal_selesai !== null &&
+             claim.is_funds_transferred === true &&
+             claim.tanggal_transfer_dana !== null;
     }
   },
 
-  // 10. PROSES_PUSAT → DITOLAK
+  // Reject from verified stage
   {
-    from: 'proses_pusat',
+    from: 'verified',
     to: 'ditolak',
     allowed_roles: ['pusat', 'admin'],
-    description: 'Verifikasi pusat gagal atau klaim tidak disetujui',
+    description: 'Application rejected at approval stage',
     requires_approval: true
   },
 
-  // 11. PENYALURAN → SELESAI
+  // Phase F: Fund delivery and reporting
   {
     from: 'penyaluran',
     to: 'selesai',
     allowed_roles: ['cabang', 'admin'],
-    description: 'Dana berhasil diserahkan ke ahli waris',
+    description: 'Funds delivered to heir and all reports submitted (Waktu-6 → Waktu-7)',
     condition: (claim) => {
-      return claim.cabang_tanggal_serah_ke_ahli_waris !== null &&
+      return claim.is_delivered === true &&
+             claim.cabang_tanggal_serah_ke_ahli_waris !== null &&
+             claim.file_bukti_penyerahan !== null &&
+             claim.is_reported === true &&
              claim.cabang_tanggal_lapor_ke_pusat !== null &&
-             claim.cabang_bukti_penyerahan !== null;
+             claim.file_berita_acara !== null &&
+             claim.file_laporan_keuangan !== null &&
+             claim.file_laporan_feedback !== null;
     }
   },
 
-  // 12. DITOLAK → DILAPORKAN
+  // Reject from delivery stage
+  {
+    from: 'penyaluran',
+    to: 'ditolak',
+    allowed_roles: ['pusat', 'admin'],
+    description: 'Application rejected during delivery phase',
+    requires_approval: true
+  },
+
+  // Allow resubmission after rejection
   {
     from: 'ditolak',
     to: 'dilaporkan',
     allowed_roles: ['admin'],
-    description: 'Klaim diajukan ulang dengan dokumen/perbaikan baru',
-    requires_approval: true
+    description: 'Application resubmitted after rejection with new documents',
+    requires_approval: true,
+    condition: (claim) => {
+      return claim.can_resubmit === true &&
+             claim.resubmission_deadline !== null &&
+             new Date(claim.resubmission_deadline) > new Date();
+    }
   }
 ];
 
@@ -551,11 +572,29 @@ export function getStateLabel(status: DanaKematianStatus): string {
     'pending_dokumen': 'Pending Dokumen',
     'verifikasi_cabang': 'Verifikasi Cabang',
     'proses_pusat': 'Proses Pusat',
+    'verified': 'Terverifikasi',
     'penyaluran': 'Penyaluran',
     'selesai': 'Selesai',
     'ditolak': 'Ditolak'
   };
   return labels[status] || status;
+}
+
+/**
+ * Get state description for tooltip/help
+ */
+export function getStateDescription(status: DanaKematianStatus): string {
+  const descriptions: Record<DanaKematianStatus, string> = {
+    'dilaporkan': 'Laporan kematian telah diterima (Waktu-0)',
+    'pending_dokumen': 'Menunggu pelengkapan dokumen (Waktu-1)',
+    'verifikasi_cabang': 'PC melakukan validasi dan komunikasi aktif dengan ahli waris',
+    'proses_pusat': 'Berkas sedang diverifikasi oleh PP (Waktu-2 → Waktu-3)',
+    'verified': 'Terverifikasi oleh PP, menunggu penyaluran dana',
+    'penyaluran': 'Dana sedang diproses dan disalurkan (Waktu-4 → Waktu-6)',
+    'selesai': 'Dana telah diserahkan dan semua laporan lengkap (Waktu-7)',
+    'ditolak': 'Pengajuan ditolak'
+  };
+  return descriptions[status] || status;
 }
 
 /**
@@ -567,6 +606,7 @@ export function getStateColor(status: DanaKematianStatus): string {
     'pending_dokumen': 'yellow',
     'verifikasi_cabang': 'cyan',
     'proses_pusat': 'purple',
+    'verified': 'indigo',
     'penyaluran': 'orange',
     'selesai': 'green',
     'ditolak': 'red'
@@ -580,6 +620,7 @@ export function getStateColor(status: DanaKematianStatus): string {
 export function getStateBadgeVariant(status: DanaKematianStatus): 'success' | 'warning' | 'destructive' | 'secondary' {
   const variants: Record<DanaKematianStatus, 'success' | 'warning' | 'destructive' | 'secondary'> = {
     'selesai': 'success',
+    'verified': 'success',
     'ditolak': 'destructive',
     'pending_dokumen': 'warning',
     'penyaluran': 'warning',
@@ -588,6 +629,75 @@ export function getStateBadgeVariant(status: DanaKematianStatus): 'success' | 'w
     'proses_pusat': 'secondary'
   };
   return variants[status] || 'secondary';
+}
+
+/**
+ * Get current phase based on status
+ */
+export function getCurrentPhase(status: DanaKematianStatus): string {
+  const phaseMap: Record<DanaKematianStatus, string> = {
+    'dilaporkan': 'A. Laporan Kematian',
+    'verifikasi_cabang': 'B. Pengajuan Dakem',
+    'pending_dokumen': 'C. Kompilasi Berkas',
+    'proses_pusat': 'D. Verifikasi Pengajuan',
+    'verified': 'E. Finalisasi Pengajuan',
+    'penyaluran': 'F. Laporan Dakem',
+    'selesai': 'Selesai',
+    'ditolak': 'Ditolak'
+  };
+  return phaseMap[status] || 'Unknown';
+}
+
+/**
+ * Get next expected waktu based on current status
+ */
+export function getNextWaktu(status: DanaKematianStatus): string {
+  const nextWaktu: Record<DanaKematianStatus, string> = {
+    'dilaporkan': 'Waktu-1 (Initial Documents)',
+    'verifikasi_cabang': 'Waktu-1 (Initial Documents)',
+    'pending_dokumen': 'Waktu-2 (Final Documents)',
+    'proses_pusat': 'Waktu-3 (PP Validation)',
+    'verified': 'Waktu-4 (Processing Complete)',
+    'penyaluran': 'Waktu-7 (Reporting Complete)',
+    'selesai': 'Complete',
+    'ditolak': 'N/A'
+  };
+  return nextWaktu[status] || 'Unknown';
+}
+
+/**
+ * Check if status allows communication tracking
+ */
+export function allowsCommunicationTracking(status: DanaKematianStatus): boolean {
+  return ['dilaporkan', 'verifikasi_cabang'].includes(status);
+}
+
+/**
+ * Check if status allows document upload
+ */
+export function allowsDocumentUpload(status: DanaKematianStatus): boolean {
+  return ['dilaporkan', 'verifikasi_cabang', 'pending_dokumen'].includes(status);
+}
+
+/**
+ * Check if status allows PP actions
+ */
+export function allowsPPActions(status: DanaKematianStatus): boolean {
+  return ['proses_pusat', 'verified'].includes(status);
+}
+
+/**
+ * Check if status allows delivery actions
+ */
+export function allowsDeliveryActions(status: DanaKematianStatus): boolean {
+  return ['penyaluran'].includes(status);
+}
+
+/**
+ * Check if status allows reporting
+ */
+export function allowsReporting(status: DanaKematianStatus): boolean {
+  return ['penyaluran'].includes(status);
 }
 
 /**
@@ -617,6 +727,232 @@ export function isOverdue(claim: any, maxDays: number = 30): boolean {
   return claim.status_proses !== 'selesai' &&
          claim.status_proses !== 'ditolak' &&
          processingDays > maxDays;
+}
+
+/**
+ * Get timeline progress percentage
+ */
+export function getTimelineProgress(claim: any): number {
+  if (!claim.waktu_0) return 0;
+
+  const waktuFields = ['waktu_0', 'waktu_1', 'waktu_2', 'waktu_3', 'waktu_4', 'waktu_5', 'waktu_6', 'waktu_7'];
+  let completedWaktu = 0;
+
+  for (const field of waktuFields) {
+    if (claim[field]) completedWaktu++;
+  }
+
+  return (completedWaktu / 8) * 100;
+}
+
+/**
+ * Get current stage information
+ */
+export function getCurrentStageInfo(claim: any): {
+  stage: string;
+  description: string;
+  waktu: string;
+  percentComplete: number;
+  nextStep: string;
+} {
+  const status = claim.status_proses;
+
+  const stageInfo: Record<string, any> = {
+    'dilaporkan': {
+      stage: 'A. Laporan Kematian',
+      description: 'Laporan kematian telah diterima',
+      waktu: 'Waktu-0',
+      percentComplete: 12.5,
+      nextStep: 'PC memulai validasi dan komunikasi dengan ahli waris'
+    },
+    'verifikasi_cabang': {
+      stage: 'B. Pengajuan Dakem',
+      description: 'PC melakukan validasi aktif dan komunikasi dengan ahli waris',
+      waktu: 'Waktu-0 → Waktu-1',
+      percentComplete: 25,
+      nextStep: 'Menerima dan memverifikasi dokumen dari ahli waris'
+    },
+    'pending_dokumen': {
+      stage: 'C. Kompilasi Berkas',
+      description: 'Menunggu pelengkapan dokumen dari ahli waris',
+      waktu: 'Waktu-1',
+      percentComplete: 37.5,
+      nextStep: 'Menerima dokumen lengkap dan mengirim ke PP'
+    },
+    'proses_pusat': {
+      stage: 'D. Verifikasi Pengajuan',
+      description: 'PP menerima dan memverifikasi kelengkapan dokumen',
+      waktu: 'Waktu-2 → Waktu-3',
+      percentComplete: 50,
+      nextStep: 'Menunggu validasi dan persetujuan dari PP'
+    },
+    'verified': {
+      stage: 'E. Finalisasi Pengajuan',
+      description: 'Dokumen telah divalidasi, menunggu persetujuan dan transfer dana',
+      waktu: 'Waktu-3 → Waktu-5',
+      percentComplete: 62.5,
+      nextStep: 'Menunggu transfer dana dari PP ke PC'
+    },
+    'penyaluran': {
+      stage: 'F. Laporan Dakem',
+      description: 'Dana telah ditransfer ke PC, siap disalurkan ke ahli waris',
+      waktu: 'Waktu-5 → Waktu-6',
+      percentComplete: 75,
+      nextStep: 'Menyerahkan dana ke ahli waris dan membuat laporan'
+    },
+    'selesai': {
+      stage: 'Selesai',
+      description: 'Dana telah diserahkan dan semua laporan lengkap',
+      waktu: 'Waktu-7',
+      percentComplete: 100,
+      nextStep: 'Proses selesai'
+    },
+    'ditolak': {
+      stage: 'Ditolak',
+      description: 'Pengajuan ditolak',
+      waktu: 'N/A',
+      percentComplete: 0,
+      nextStep: 'Periksa alasan penolakan'
+    }
+  };
+
+  return stageInfo[status] || stageInfo['dilaporkan'];
+}
+
+/**
+ * Get timeline events for display
+ */
+export function getTimelineEvents(claim: any): Array<{
+  waktu: string;
+  label: string;
+  date: string | null;
+  description: string;
+  completed: boolean;
+}> {
+  return [
+    {
+      waktu: 'Waktu-0',
+      label: 'Laporan Kematian',
+      date: claim.waktu_0 || claim.tanggal_lapor_keluarga,
+      description: 'Laporan kematian diterima dari keluarga',
+      completed: !!(claim.waktu_0 || claim.tanggal_lapor_keluarga)
+    },
+    {
+      waktu: 'Waktu-1',
+      label: 'Dokumen Awal',
+      date: claim.waktu_1 || claim.cabang_tanggal_awal_terima_berkas,
+      description: 'Penerimaan dokumen pertama dari ahli waris',
+      completed: !!claim.waktu_1
+    },
+    {
+      waktu: 'Waktu-2',
+      label: 'Pengiriman ke PP',
+      date: claim.waktu_2 || claim.cabang_tanggal_kirim_ke_pusat,
+      description: 'Berkas lengkap dikirim ke Pusat',
+      completed: !!claim.waktu_2
+    },
+    {
+      waktu: 'Waktu-3',
+      label: 'Validasi PP',
+      date: claim.waktu_3 || claim.pusat_tanggal_validasi,
+      description: 'Validasi dan verifikasi oleh Pusat',
+      completed: !!claim.waktu_3
+    },
+    {
+      waktu: 'Waktu-4',
+      label: 'Finalisasi',
+      date: claim.waktu_4 || claim.pusat_tanggal_selesai,
+      description: 'Persetujuan dan koordinasi keuangan',
+      completed: !!claim.waktu_4
+    },
+    {
+      waktu: 'Waktu-5',
+      label: 'Transfer Dana',
+      date: claim.waktu_5 || claim.tanggal_transfer_dana,
+      description: 'Transfer dana dari PP ke PC',
+      completed: !!claim.waktu_5
+    },
+    {
+      waktu: 'Waktu-6',
+      label: 'Penyerahan ke Ahli Waris',
+      date: claim.waktu_6 || claim.tanggal_penyaluran_actual,
+      description: 'Dana diserahkan kepada ahli waris',
+      completed: !!claim.waktu_6
+    },
+    {
+      waktu: 'Waktu-7',
+      label: 'Laporan Lengkap',
+      date: claim.waktu_7 || claim.tanggal_laporan_lengkap,
+      description: 'Semua laporan telah diserahkan',
+      completed: !!claim.waktu_7
+    }
+  ];
+}
+
+/**
+ * Calculate stage duration
+ */
+export function getStageDurationInfo(claim: any): {
+  total: number;
+  phases: {
+    phaseA: number;
+    phaseB: number;
+    phaseC: number;
+    phaseD: number;
+    phaseE: number;
+    phaseF: number;
+  };
+} {
+  const result = {
+    total: 0,
+    phases: {
+      phaseA: 0,
+      phaseB: 0,
+      phaseC: 0,
+      phaseD: 0,
+      phaseE: 0,
+      phaseF: 0
+    }
+  };
+
+  // Phase A: Waktu-0 only
+  if (claim.waktu_0 && claim.waktu_1) {
+    result.phases.phaseA = Math.ceil((new Date(claim.waktu_1).getTime() - new Date(claim.waktu_0).getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  // Phase B: Waktu-1 to Waktu-2
+  if (claim.waktu_1 && claim.waktu_2) {
+    result.phases.phaseB = Math.ceil((new Date(claim.waktu_2).getTime() - new Date(claim.waktu_1).getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  // Phase C: Part of Waktu-1 to Waktu-2
+  if (claim.waktu_1 && claim.waktu_2) {
+    result.phases.phaseC = Math.ceil((new Date(claim.waktu_2).getTime() - new Date(claim.waktu_1).getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  // Phase D: Waktu-2 to Waktu-3
+  if (claim.waktu_2 && claim.waktu_3) {
+    result.phases.phaseD = Math.ceil((new Date(claim.waktu_3).getTime() - new Date(claim.waktu_2).getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  // Phase E: Waktu-3 to Waktu-5
+  if (claim.waktu_3 && claim.waktu_5) {
+    result.phases.phaseE = Math.ceil((new Date(claim.waktu_5).getTime() - new Date(claim.waktu_3).getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  // Phase F: Waktu-5 to Waktu-7
+  if (claim.waktu_5 && claim.waktu_7) {
+    result.phases.phaseF = Math.ceil((new Date(claim.waktu_7).getTime() - new Date(claim.waktu_5).getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  // Total
+  if (claim.waktu_0 && claim.waktu_7) {
+    result.total = Math.ceil((new Date(claim.waktu_7).getTime() - new Date(claim.waktu_0).getTime()) / (1000 * 60 * 60 * 24));
+  } else if (claim.waktu_0) {
+    result.total = Math.ceil((new Date().getTime() - new Date(claim.waktu_0).getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  return result;
 }
 
 /**

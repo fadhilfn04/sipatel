@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
         file_kartu_keluarga: body.file_kartu_keluarga || null,
         file_e_ktp: body.file_e_ktp || null,
         file_surat_nikah: body.file_surat_nikah || null,
-        status_proses: body.status_proses || 'dilaporkan',
+        status_proses: body.status_proses || 'verifikasi_cabang', // Default: verifikasi cabang
         keterangan: body.keterangan || null,
         data_perubahan: {
           actor_id: null,

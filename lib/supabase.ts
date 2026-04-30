@@ -182,7 +182,7 @@ export interface AnggotaFilter {
 
 // Death benefits types
 export type StatusAhliWarisEnum = 'istri' | 'suami' | 'anak' | 'keluarga';
-export type StatusProsesDakemEnum = 'dilaporkan' | 'verifikasi_cabang' | 'proses_pusat' | 'selesai';
+export type StatusProsesDakemEnum = 'dilaporkan' | 'verifikasi_cabang' | 'pending_dokumen' | 'proses_pusat' | 'verified' | 'penyaluran' | 'selesai' | 'ditolak';
 
 export interface DanaKematian {
   id: string;
@@ -206,12 +206,85 @@ export interface DanaKematian {
   cabang_tanggal_lapor_ke_pusat: string | null;
   nama_ahli_waris: string;
   status_ahli_waris: StatusAhliWarisEnum;
+
+  // Main documents
   file_sk_pensiun: string | null;
   file_surat_kematian: string | null;
   file_surat_pernyataan_ahli_waris: string | null;
   file_kartu_keluarga: string | null;
   file_e_ktp: string | null;
   file_surat_nikah: string | null;
+
+  // Additional documents
+  file_buku_rekening: string | null;
+  file_surat_kuasa: string | null;
+
+  // Reporting documents (Berkas-3 to Berkas-7)
+  file_berita_acara: string | null;
+  file_laporan_keuangan: string | null;
+  file_laporan_feedback: string | null;
+  file_bukti_penyerahan: string | null;
+  file_dokumen_pendukung: string | null;
+
+  // Timeline fields (Waktu-0 to Waktu-7)
+  waktu_0: string | null;
+  waktu_1: string | null;
+  waktu_2: string | null;
+  waktu_3: string | null;
+  waktu_4: string | null;
+  waktu_5: string | null;
+  waktu_6: string | null;
+  waktu_7: string | null;
+
+  // Additional tracking fields
+  tanggal_transfer_dana: string | null;
+  tanggal_laporan_lengkap: string | null;
+  tanggal_penyaluran_actual: string | null;
+
+  // Communication tracking (Phase B: Active Validation)
+  komunikasi_status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  komunikasi_catatan: string | null;
+  komunikasi_terakhir: string | null;
+
+  // Document validation flags
+  dokumen_surat_kematian_verified: boolean;
+  dokumen_sk_pensiun_verified: boolean;
+  dokumen_surat_pernyataan_verified: boolean;
+  dokumen_kartu_keluarga_verified: boolean;
+  dokumen_ktp_ahli_waris_verified: boolean;
+  dokumen_surat_nikah_verified: boolean;
+  dokumen_buku_rekening_verified: boolean;
+  dokumen_surat_kuasa_verified: boolean;
+
+  // Validation flags
+  is_validated_pc: boolean;
+  is_validated_pp: boolean;
+  is_approved: boolean;
+  is_funds_transferred: boolean;
+  is_delivered: boolean;
+  is_reported: boolean;
+
+  // Rejection handling
+  rejection_reason: string | null;
+  rejection_category: 'document' | 'eligibility' | 'fraud' | 'timeout' | 'other' | null;
+  can_resubmit: boolean;
+  resubmission_deadline: string | null;
+
+  // Performance tracking
+  total_processing_days: number | null;
+  overdue_days: number | null;
+  sla_status: 'on_track' | 'at_risk' | 'overdue';
+
+  // Additional delivery and financial details
+  metode_penyaluran_actual: 'cash' | 'transfer' | null;
+  penerima_dana: string | null;
+  cabang_petugas_penyerah: string | null;
+
+  // Heir contact information
+  nik_ahli_waris: string | null;
+  no_hp_ahli_waris: string | null;
+  alamat_ahli_waris: string | null;
+
   status_proses: StatusProsesDakemEnum;
   keterangan: string | null;
   data_perubahan: Record<string, any> | null;
@@ -241,12 +314,85 @@ export interface CreateDanaKematianInput {
   cabang_tanggal_lapor_ke_pusat?: string;
   nama_ahli_waris: string;
   status_ahli_waris: StatusAhliWarisEnum;
+
+  // Main documents
   file_sk_pensiun?: string;
   file_surat_kematian?: string;
   file_surat_pernyataan_ahli_waris?: string;
   file_kartu_keluarga?: string;
   file_e_ktp?: string;
   file_surat_nikah?: string;
+
+  // Additional documents
+  file_buku_rekening?: string;
+  file_surat_kuasa?: string;
+
+  // Reporting documents
+  file_berita_acara?: string;
+  file_laporan_keuangan?: string;
+  file_laporan_feedback?: string;
+  file_bukti_penyerahan?: string;
+  file_dokumen_pendukung?: string;
+
+  // Timeline fields
+  waktu_0?: string;
+  waktu_1?: string;
+  waktu_2?: string;
+  waktu_3?: string;
+  waktu_4?: string;
+  waktu_5?: string;
+  waktu_6?: string;
+  waktu_7?: string;
+
+  // Additional tracking
+  tanggal_transfer_dana?: string;
+  tanggal_laporan_lengkap?: string;
+  tanggal_penyaluran_actual?: string;
+
+  // Communication tracking
+  komunikasi_status?: 'pending' | 'in_progress' | 'completed' | 'failed';
+  komunikasi_catatan?: string;
+  komunikasi_terakhir?: string;
+
+  // Document validation flags
+  dokumen_surat_kematian_verified?: boolean;
+  dokumen_sk_pensiun_verified?: boolean;
+  dokumen_surat_pernyataan_verified?: boolean;
+  dokumen_kartu_keluarga_verified?: boolean;
+  dokumen_ktp_ahli_waris_verified?: boolean;
+  dokumen_surat_nikah_verified?: boolean;
+  dokumen_buku_rekening_verified?: boolean;
+  dokumen_surat_kuasa_verified?: boolean;
+
+  // Validation flags
+  is_validated_pc?: boolean;
+  is_validated_pp?: boolean;
+  is_approved?: boolean;
+  is_funds_transferred?: boolean;
+  is_delivered?: boolean;
+  is_reported?: boolean;
+
+  // Rejection handling
+  rejection_reason?: string;
+  rejection_category?: 'document' | 'eligibility' | 'fraud' | 'timeout' | 'other';
+  can_resubmit?: boolean;
+  resubmission_deadline?: string;
+
+  // Performance tracking
+  total_processing_days?: number;
+  overdue_days?: number;
+  sla_status?: 'on_track' | 'at_risk' | 'overdue';
+
+  // Additional details
+  metode_penyaluran_actual?: 'cash' | 'transfer';
+  penerima_dana?: string;
+  cabang_petugas_penyerah?: string;
+
+  // Heir contact information
+  nik_ahli_waris?: string;
+  no_hp_ahli_waris?: string;
+  alamat_ahli_waris?: string;
+
   status_proses?: StatusProsesDakemEnum;
   keterangan?: string;
 }

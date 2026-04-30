@@ -59,7 +59,7 @@ const defaultFormData: CreateDanaKematianInput = {
   file_kartu_keluarga: '',
   file_e_ktp: '',
   file_surat_nikah: '',
-  status_proses: 'dilaporkan',
+  status_proses: 'verifikasi_cabang', // Default status: mulai dari verifikasi cabang
   keterangan: '',
 };
 
@@ -132,8 +132,8 @@ export function DanaKematianFormModal({
 
   const title = mode === 'create' ? 'Ajukan Dana Kematian Baru' : 'Edit Data Dana Kematian';
   const description = mode === 'create'
-    ? 'Isi formulir di bawah ini untuk mengajukan dana kematian'
-    : 'Ubah data pengajuan dana kematian';
+    ? 'Isi formulir di bawah ini untuk mengajukan dana kematian. Status akan otomatis diatur ke "Verifikasi Cabang".'
+    : 'Ubah data pengajuan dana kematian. Status proses dikelola otomatis melalui workflow.';
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -145,6 +145,25 @@ export function DanaKematianFormModal({
 
         <form onSubmit={handleSubmit}>
           <DialogBody className="space-y-6">
+            {/* Workflow Information - Only show in create mode */}
+            {mode === 'create' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Alur Proses Dana Kematian
+                </h4>
+                <div className="text-sm text-blue-800 space-y-1">
+                  <p>1. <strong>Verifikasi Cabang</strong> - PC input data dan upload dokumen</p>
+                  <p>2. <strong>Verifikasi PP</strong> - Ketua I/Ketua II memverifikasi kelengkapan dokumen</p>
+                  <p>3. <strong>Disetujui/Ditolak</strong> - PP membuat keputusan</p>
+                  <p>4. <strong>Selesai</strong> - Dana cair dan diserahkan ke ahli waris</p>
+                </div>
+                <p className="text-xs text-blue-700 mt-2">
+                  Status akan berubah otomatis: Verifikasi Cabang → Terverifikasi/Ditolak → Selesai
+                </p>
+              </div>
+            )}
+
             {/* Data Anggota Section */}
             <div>
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -302,57 +321,77 @@ export function DanaKematianFormModal({
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Tanggal Terima Berkas</label>
+                  <label className="text-sm font-medium">Tanggal Terima Berkas dari Ahli Waris *</label>
                   <Input
                     type="date"
                     value={formData.cabang_tanggal_awal_terima_berkas}
                     onChange={(e) => setFormData({ ...formData, cabang_tanggal_awal_terima_berkas: e.target.value })}
+                    required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Tanggal saat PC menerima dokumen dari ahli waris
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Tanggal Kirim ke Pusat</label>
-                  <Input
-                    type="date"
-                    value={formData.cabang_tanggal_kirim_ke_pusat}
-                    onChange={(e) => setFormData({ ...formData, cabang_tanggal_kirim_ke_pusat: e.target.value })}
-                  />
-                </div>
+                {mode === 'edit' && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Tanggal Kirim ke Pusat</label>
+                    <Input
+                      type="date"
+                      value={formData.cabang_tanggal_kirim_ke_pusat}
+                      onChange={(e) => setFormData({ ...formData, cabang_tanggal_kirim_ke_pusat: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                  Diisi otomatis saat PC mengirim ke pusat
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Proses Pusat Section */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Building className="h-5 w-5" />
-                Proses Pusat
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Tanggal Terima</label>
-                  <Input
-                    type="date"
-                    value={formData.pusat_tanggal_awal_terima}
-                    onChange={(e) => setFormData({ ...formData, pusat_tanggal_awal_terima: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Tanggal Validasi</label>
-                  <Input
-                    type="date"
-                    value={formData.pusat_tanggal_validasi}
-                    onChange={(e) => setFormData({ ...formData, pusat_tanggal_validasi: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Tanggal Selesai</label>
-                  <Input
-                    type="date"
-                    value={formData.pusat_tanggal_selesai}
-                    onChange={(e) => setFormData({ ...formData, pusat_tanggal_selesai: e.target.value })}
-                  />
+            {/* Proses Pusat Section - HIDDEN in create mode, shown in edit mode */}
+            {mode === 'edit' && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Building className="h-5 w-5" />
+                  Proses Pusat
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Tanggal Terima di Pusat</label>
+                    <Input
+                      type="date"
+                      value={formData.pusat_tanggal_awal_terima}
+                      onChange={(e) => setFormData({ ...formData, pusat_tanggal_awal_terima: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Diisi otomatis saat pengajuan diterima pusat
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Tanggal Validasi</label>
+                    <Input
+                      type="date"
+                      value={formData.pusat_tanggal_validasi}
+                      onChange={(e) => setFormData({ ...formData, pusat_tanggal_validasi: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Diisi otomatis saat PP selesai verifikasi
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Tanggal Selesai</label>
+                    <Input
+                      type="date"
+                      value={formData.pusat_tanggal_selesai}
+                      onChange={(e) => setFormData({ ...formData, pusat_tanggal_selesai: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Diisi otomatis saat proses selesai
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Dana Section */}
             <div>
@@ -371,22 +410,32 @@ export function DanaKematianFormModal({
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Tanggal Serah ke Ahli Waris</label>
-                  <Input
-                    type="date"
-                    value={formData.cabang_tanggal_serah_ke_ahli_waris}
-                    onChange={(e) => setFormData({ ...formData, cabang_tanggal_serah_ke_ahli_waris: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Tanggal Lapor ke Pusat</label>
-                  <Input
-                    type="date"
-                    value={formData.cabang_tanggal_lapor_ke_pusat}
-                    onChange={(e) => setFormData({ ...formData, cabang_tanggal_lapor_ke_pusat: e.target.value })}
-                  />
-                </div>
+                {mode === 'edit' && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Tanggal Serah ke Ahli Waris</label>
+                      <Input
+                        type="date"
+                        value={formData.cabang_tanggal_serah_ke_ahli_waris}
+                        onChange={(e) => setFormData({ ...formData, cabang_tanggal_serah_ke_ahli_waris: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Diisi saat dana diserahkan ke ahli waris
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Tanggal Lapor ke Pusat</label>
+                      <Input
+                        type="date"
+                        value={formData.cabang_tanggal_lapor_ke_pusat}
+                        onChange={(e) => setFormData({ ...formData, cabang_tanggal_lapor_ke_pusat: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Diisi saat PC melaporkan ke pusat
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -485,40 +534,29 @@ export function DanaKematianFormModal({
               </div>
             </div>
 
-            {/* Status Proses Section */}
+            {/* Status Proses Section - HIDDEN, automatic based on workflow */}
+            <div className="hidden">
+              <input
+                type="hidden"
+                name="status_proses"
+                value={formData.status_proses}
+              />
+            </div>
+
+            {/* Keterangan Section */}
             <div>
               <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Status Proses
+                Keterangan Tambahan
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Status Proses *</label>
-                  <Select
-                    value={formData.status_proses}
-                    onValueChange={(value) => setFormData({ ...formData, status_proses: value as any })}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="dilaporkan">Dilaporkan</SelectItem>
-                      <SelectItem value="verifikasi_cabang">Verifikasi Cabang</SelectItem>
-                      <SelectItem value="proses_pusat">Proses Pusat</SelectItem>
-                      <SelectItem value="selesai">Selesai</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Keterangan</label>
-                  <Textarea
-                    placeholder="Keterangan tambahan"
-                    value={formData.keterangan}
-                    onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
-                    rows={3}
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Keterangan</label>
+                <Textarea
+                  placeholder="Keterangan tambahan"
+                  value={formData.keterangan}
+                  onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
+                  rows={3}
+                />
               </div>
             </div>
 

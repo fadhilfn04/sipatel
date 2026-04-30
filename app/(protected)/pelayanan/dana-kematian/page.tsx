@@ -56,11 +56,9 @@ import {
   useDanaKematian,
 } from '@/lib/hooks/use-dana-kematian-api';
 import { DanaKematian, CreateDanaKematianInput } from '@/lib/supabase';
-import {
-  DanaKematianFormModal,
-  DanaKematianDetailModal,
-  DeleteConfirmDialog,
-} from '@/components/dana-kematian';
+import { DanaKematianDetailModal } from '@/components/dana-kematian/DanaKematianDetailModal';
+import { DanaKematianFormModal } from '@/components/dana-kematian/DanaKematianFormModal';
+import { DeleteConfirmDialog } from '@/components/dana-kematian/DeleteConfirmDialog';
 import { ToastNotification } from '@/components/anggota/ToastNotification';
 import { useAnggotaList } from '@/lib/hooks/use-anggota-api';
 
@@ -93,7 +91,7 @@ export default function DanaKematianPage() {
   }>({ show: false, message: '', type: 'success' });
 
   // API hooks
-  const { data: danaKematianData, isLoading } = useDanaKematianList({
+  const { data: danaKematianData, isLoading, refetch } = useDanaKematianList({
     search: searchQuery,
     status_proses: selectedStatus,
     tanggal_meninggal_from: dateFrom,
@@ -206,7 +204,7 @@ export default function DanaKematianPage() {
       },
       {
         accessorKey: 'tanggal_meninggal',
-        header: 'TGL MENINGGAL',
+        header: 'TANGGAL MENINGGAL',
         cell: ({ row }) => <span className="text-xs sm:text-sm">{formatDate(row.original.tanggal_meninggal)}</span>,
       },
       {
@@ -214,11 +212,11 @@ export default function DanaKematianPage() {
         header: 'NAMA',
         cell: ({ row }) => <div className="font-medium text-xs sm:text-sm">{row.original.nama_anggota}</div>,
       },
-      {
-        accessorKey: 'status_mps',
-        header: 'MPS',
-        cell: ({ row }) => <span className="font-mono text-xs sm:text-sm">{row.original.status_mps}</span>,
-      },
+      // {
+      //   accessorKey: 'status_mps',
+      //   header: 'MPS',
+      //   cell: ({ row }) => <span className="font-mono text-xs sm:text-sm">{row.original.status_mps}</span>,
+      // },
       {
         accessorKey: 'nama_ahli_waris',
         header: 'AHLI WARIS',
@@ -269,6 +267,7 @@ export default function DanaKematianPage() {
             >
               <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
+
             <Button
               mode="icon"
               variant="dim"
@@ -376,7 +375,7 @@ export default function DanaKematianPage() {
                 </Select>
 
                 {/* Date Range Filter */}
-                <Input
+                {/* <Input
                   type="date"
                   placeholder="Dari tanggal"
                   value={dateFrom}
@@ -395,7 +394,7 @@ export default function DanaKematianPage() {
                     setPagination({ ...pagination, pageIndex: 0 });
                   }}
                   className="w-full sm:w-auto"
-                />
+                /> */}
               </div>
 
               {/* Actions */}
@@ -552,6 +551,7 @@ export default function DanaKematianPage() {
         open={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
         claim={selectedClaim}
+        onRefresh={() => refetch()}
       />
       <DanaKematianFormModal
         open={addModalOpen}
