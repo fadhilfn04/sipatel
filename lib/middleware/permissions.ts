@@ -126,7 +126,11 @@ export async function canVerifyClaim(
     // Check verification permissions
     const verification = canVerifyPP(userRole, claimAmount);
 
-    return verification;
+    return {
+      allowed: verification.canVerify,
+      reason: verification.reason,
+      needsApproval: verification.needsApproval
+    };
 
   } catch (error) {
     console.error('Verification check error:', error);
