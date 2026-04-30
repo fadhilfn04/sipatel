@@ -30,6 +30,18 @@ export const DANA_KEMATIAN_PERMISSIONS = {
   ADMIN_FULL_ACCESS: 'dana_kematian_admin_full_access'
 } as const;
 
+// PC Staff permissions (reusable)
+const PC_STAFF_PERMISSIONS = [
+  DANA_KEMATIAN_PERMISSIONS.PC_VIEW,
+  DANA_KEMATIAN_PERMISSIONS.PC_CREATE,
+  DANA_KEMATIAN_PERMISSIONS.PC_EDIT,
+  DANA_KEMATIAN_PERMISSIONS.PC_VALIDATE_FAMILY,
+  DANA_KEMATIAN_PERMISSIONS.PC_COMMUNICATE_HEIR,
+  DANA_KEMATIAN_PERMISSIONS.PC_SUBMIT_TO_PP,
+  DANA_KEMATIAN_PERMISSIONS.PC_DELIVER_FUNDS,
+  DANA_KEMATIAN_PERMISSIONS.PC_CREATE_REPORTS
+] as const;
+
 // Role definitions for Dana Kematian
 export const DANA_KEMATIAN_ROLES = {
   KETUA_I: {
@@ -67,16 +79,7 @@ export const DANA_KEMATIAN_ROLES = {
     name: 'Staff PC',
     description: 'Staff Pengurus Cabang, dapat mengelola pengajuan di tingkat cabang',
     level: 3,
-    permissions: [
-      DANA_KEMATIAN_PERMISSIONS.PC_VIEW,
-      DANA_KEMATIAN_PERMISSIONS.PC_CREATE,
-      DANA_KEMATIAN_PERMISSIONS.PC_EDIT,
-      DANA_KEMATIAN_PERMISSIONS.PC_VALIDATE_FAMILY,
-      DANA_KEMATIAN_PERMISSIONS.PC_COMMUNICATE_HEIR,
-      DANA_KEMATIAN_PERMISSIONS.PC_SUBMIT_TO_PP,
-      DANA_KEMATIAN_PERMISSIONS.PC_DELIVER_FUNDS,
-      DANA_KEMATIAN_PERMISSIONS.PC_CREATE_REPORTS
-    ]
+    permissions: PC_STAFF_PERMISSIONS
   },
   PC_KEPALA: {
     slug: 'pc_kepala',
@@ -84,7 +87,7 @@ export const DANA_KEMATIAN_ROLES = {
     description: 'Kepala Pengurus Cabang, sama dengan staff PC plus bisa delete',
     level: 3,
     permissions: [
-      ...DANA_KEMATIAN_ROLES.PC_STAFF.permissions,
+      ...PC_STAFF_PERMISSIONS,
       DANA_KEMATIAN_PERMISSIONS.PC_DELETE
     ]
   },
