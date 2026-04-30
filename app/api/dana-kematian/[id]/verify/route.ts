@@ -98,7 +98,7 @@ export async function POST(
     const { data: updatedClaim, error: updateError } = await supabase
       .from('dana_kematian')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -114,7 +114,7 @@ export async function POST(
     const { error: logError } = await supabase
       .from('riwayat_proses_dakem')
       .insert({
-        dana_kematian_id: params.id,
+        dana_kematian_id: id,
         status_dari: 'proses_pusat',
         status_ke: approved ? 'verified' : rejectionCategory === 'document' ? 'pending_dokumen' : 'ditolak',
         aksi: approved ? 'pp_verified' : rejectionCategory === 'document' ? 'pp_returned_to_pc' : 'pp_rejected',
@@ -177,7 +177,7 @@ export async function GET(
     const { data: history } = await supabase
       .from('riwayat_proses_dakem')
       .select('*')
-      .eq('dana_kematian_id', params.id)
+      .eq('dana_kematian_id', id)
       .order('waktu_timestamp', { ascending: false })
       .limit(10);
 
