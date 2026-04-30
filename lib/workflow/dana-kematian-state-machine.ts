@@ -521,6 +521,11 @@ export class DanaKematianStateMachine {
         'Hitung besaran dana kematian',
         'Proses persetujuan dan transfer dana'
       ],
+      'verified': [
+        'Persiapkan penyaluran dana',
+        'Koordinasi dengan keuangan untuk transfer',
+        'Jadwalkan penyerahan ke ahli waris'
+      ],
       'penyaluran': [
         'Terima dana dari pusat',
         'Jadwalkan penyerahan ke ahli waris',
