@@ -5,7 +5,7 @@ import { PERMISSIONS } from '@/lib/rbac';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Check permission
   const user = await requirePermission(PERMISSIONS.HISTORY_ANGGOTA_VIEW);
@@ -14,7 +14,7 @@ export async function GET(
   }
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');

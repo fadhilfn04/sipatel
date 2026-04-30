@@ -13,7 +13,7 @@ interface RelationshipSuggestion {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Check permission
   const user = await requirePermission(PERMISSIONS.VIEW_KEANGGOTAAN);
@@ -22,7 +22,7 @@ export async function GET(
   }
 
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Fetch the target member
     const { data: targetMember, error: memberError } = await supabase
