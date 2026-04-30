@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, FileText, MapPin, Loader2, Pencil, Plus, Building, DollarSign, Settings } from 'lucide-react';
 import {
   Dialog,
@@ -125,7 +125,7 @@ export function MemberFormModalTabbed({
   const [selectedVillageId, setSelectedVillageId] = useState<string>('');
 
   // Reset form when modal opens/closes or member data changes
-  useState(() => {
+  useEffect(() => {
     if (mode === 'edit' && member) {
       setFormData({
         nik: member.nik,
