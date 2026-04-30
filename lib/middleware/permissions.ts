@@ -4,7 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from '@/lib/auth';
+import { getServerSession } from 'next-auth/next';
+import authOptions from '@/app/api/auth/[...nextauth]/auth-options';
 import prisma from '@/lib/prisma';
 import {
   hasPermission,
@@ -29,7 +30,7 @@ export async function checkUserPermission(
 ): Promise<PermissionCheckResult> {
   try {
     // Get user session - adjust based on your auth system
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session?.user) {
       return {
@@ -69,7 +70,7 @@ export async function canAccessPPVerificationPage(
   request: NextRequest
 ): Promise<PermissionCheckResult> {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session?.user) {
       return {
@@ -110,7 +111,7 @@ export async function canVerifyClaim(
   claimAmount: number
 ): Promise<PermissionCheckResult & { needsApproval?: boolean }> {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session?.user) {
       return {
@@ -186,7 +187,7 @@ export function requirePPVerification() {
 export function requirePCManagement() {
   return async (request: NextRequest) => {
     try {
-      const session = await getServerSession();
+      const session = await getServerSession(authOptions);
 
       if (!session?.user) {
         return NextResponse.json(
