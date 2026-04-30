@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, FileText, MapPin, Phone, Mail, Building, Users } from 'lucide-react';
+import { User, FileText, MapPin, Phone, Mail, Building, Users, Heart } from 'lucide-react';
 import {
   Dialog,
   DialogBody,
@@ -14,12 +14,71 @@ import { Button } from '@/components/ui/button';
 import { Badge, BadgeDot } from '@/components/ui/badge';
 import { Anggota } from '@/lib/supabase';
 import { WariskanNikModal } from './WariskanNikModal';
+import { useRecommendations } from '@/lib/hooks/use-recommendations';
+import { RecommendationCard } from './RecommendationCard';
 
 interface DetailModalProps {
   open: boolean;
   onClose: () => void;
   member: Anggota | null;
   onWariskanNik?: (anggota: Anggota) => void;
+}
+
+// Recommendations Section Component
+function RecommendationsSection({ member }: { member: Anggota }) {
+  const { data: recommendations, isLoading, error } = useRecommendations(member.id);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-center text-muted-foreground">
+          <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p>Memuat rekomendasi...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !recommendations || recommendations.suggestions.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground border rounded-lg">
+        <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <p>Tidak ada rekomendasi hubungan yang ditemukan untuk anggota ini.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-muted-foreground">
+          Ditemukan {recommendations.total_suggestions} kemungkinan hubungan keluarga
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {recommendations.suggestions.map((suggestion, index) => (
+          <RecommendationCard
+            key={`${suggestion.suggested_member.id}-${index}`}
+            suggestion={suggestion}
+            onAccept={(suggestion) => {
+              console.log('Accepted suggestion:', suggestion);
+              // TODO: Implement accept action
+            }}
+            onReject={(suggestion) => {
+              console.log('Rejected suggestion:', suggestion);
+              // TODO: Implement reject action
+            }}
+          />
+        ))}
+      </div>
+
+      <p className="text-xs text-muted-foreground mt-4">
+        <Users className="h-3 w-3 inline mr-1" />
+        Rekomendasi berdasarkan analisis kemiripan data alamat, nomor telepon, dan usia.
+      </p>
+    </div>
+  );
 }
 
 interface StatusProps {
@@ -202,6 +261,10 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
                 <div className="text-sm font-medium">{member.nama_cabang}</div>
               </div>
               <div>
+                <label className="text-sm text-muted-foreground">Kode Cabang</label>
+                <div className="text-sm font-medium">{member.kode_cabang || '-'}</div>
+              </div>
+              <div>
                 <label className="text-sm text-muted-foreground">Posisi Kepengurusan</label>
                 <div className="text-sm font-medium">{member.posisi_kepengurusan}</div>
               </div>
@@ -255,6 +318,84 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
                 <label className="text-sm text-muted-foreground">Nomor SK Pensiun</label>
                 <div className="text-sm">{member.nomor_sk_pensiun || '-'}</div>
               </div>
+            </div>
+          </div>
+
+          {/* Document Download Section */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Download Dokumen
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {member.e_ktp && (
+                <div className="border rounded-lg p-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">E-KTP</div>
+                      <div className="text-sm text-muted-foreground">{member.e_ktp}</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(`/api/anggota/${member.id}/documents?type=e_ktp`, '_blank')}
+                    >
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {member.kartu_keluarga && (
+                <div className="border rounded-lg p-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">Kartu Keluarga</div>
+                      <div className="text-sm text-muted-foreground">{member.kartu_keluarga}</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(`/api/anggota/${member.id}/documents?type=kartu_keluarga`, '_blank')}
+                    >
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {member.npwp && (
+                <div className="border rounded-lg p-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">NPWP</div>
+                      <div className="text-sm text-muted-foreground">{member.npwp}</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(`/api/anggota/${member.id}/documents?type=npwp`, '_blank')}
+                    >
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {member.nomor_sk_pensiun && (
+                <div className="border rounded-lg p-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">SK Pensiun</div>
+                      <div className="text-sm text-muted-foreground">{member.nomor_sk_pensiun}</div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(`/api/anggota/${member.id}/documents?type=nomor_sk_pensiun`, '_blank')}
+                    >
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -408,6 +549,15 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Smart Recommendations Section */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Rekomendasi Hubungan Keluarga
+            </h3>
+            <RecommendationsSection member={member} />
           </div>
         </DialogBody>
 

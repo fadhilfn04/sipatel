@@ -285,6 +285,11 @@ export const MENU_SIDEBAR: MenuConfig = [
         path: '/keanggotaan/pengelolaan-data',
         permissions: [PERMISSIONS.VIEW_KEANGGOTAAN],
       },
+      // {
+      //   title: 'History Anggota',
+      //   path: '/keanggotaan/history-anggota',
+      //   permissions: [PERMISSIONS.HISTORY_ANGGOTA_VIEW],
+      // },
     ],
   },
   {

@@ -67,6 +67,7 @@ import { ImportExcelModal } from '@/components/anggota/ImportExcelModal';
 import { ExportExcelModal } from '@/components/anggota/ExportExcelModal';
 import { ToastNotification } from '@/components/anggota/ToastNotification';
 import { ExpandableRow } from '@/components/anggota/ExpandableRow';
+import { DocumentStatusBadge } from '@/components/anggota/DocumentStatusBadge';
 
 export default function PengelolaanDataPage() {
   // State
@@ -383,6 +384,12 @@ export default function PengelolaanDataPage() {
         enableSorting: true,
       },
       {
+        accessorKey: 'kode_cabang',
+        header: 'KODE CABANG',
+        cell: ({ row }) => <span className="text-xs sm:text-sm font-mono">{row.original.kode_cabang || '-'}</span>,
+        enableSorting: true,
+      },
+      {
         accessorKey: 'status_iuran',
         header: 'IURAN',
         cell: ({ row }) => {
@@ -423,6 +430,14 @@ export default function PengelolaanDataPage() {
         },
         enableSorting: false,
       },
+      // {
+      //   id: 'document_status',
+      //   header: 'DOKUMEN',
+      //   cell: ({ row }) => (
+      //     <DocumentStatusBadge anggota={row.original} size="sm" />
+      //   ),
+      //   enableSorting: false,
+      // },
       {
         id: 'actions',
         header: 'AKSI',
@@ -514,19 +529,19 @@ export default function PengelolaanDataPage() {
               {/* Search & Filters Section */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full">
                 {/* Search */}
-                <div className="relative">
-                  <Search className="size-4 text-muted-foreground absolute start-3 top-1/2 -translate-y-1/2" />
+                <div className="relative flex-1 max-w-2xl">
+                  <Search className="size-5 text-muted-foreground absolute start-4 top-1/2 -translate-y-1/2" />
                   <Input
-                    placeholder="Cari nama, NIK, atau cabang..."
+                    placeholder="Cari nama, NIK, cabang, atau lainnya..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="ps-9 w-full sm:w-64"
+                    className="ps-12 h-12 text-base"
                   />
                   {searchQuery.length > 0 && (
                     <Button
                       mode="icon"
                       variant="dim"
-                      className="absolute end-1.5 top-1/2 -translate-y-1/2 h-6 w-6"
+                      className="absolute inset-e-1.5 top-1/2 -translate-y-1/2 h-7 w-7"
                       onClick={() => setSearchQuery('')}
                     >
                       ×

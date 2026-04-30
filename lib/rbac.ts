@@ -11,6 +11,8 @@ export const PERMISSIONS = {
   ACCESS_KEANGGOTAAN: 'access_keanggotaan',
   MANAGE_KEANGGOTAAN: 'manage_keanggotaan',
   VIEW_KEANGGOTAAN: 'view_keanggotaan',
+  HISTORY_ANGGOTA_VIEW: 'history_anggota_view',
+  HISTORY_ANGGOTA_MANAGE: 'history_anggota_manage',
 
   // Pelayanan
   ACCESS_DANA_KEMATIAN: 'access_dana_kematian',
@@ -57,6 +59,8 @@ export const PERMISSION_GROUPS = {
       PERMISSIONS.ACCESS_KEANGGOTAAN,
       PERMISSIONS.VIEW_KEANGGOTAAN,
       PERMISSIONS.MANAGE_KEANGGOTAAN,
+      PERMISSIONS.HISTORY_ANGGOTA_VIEW,
+      PERMISSIONS.HISTORY_ANGGOTA_MANAGE,
     ],
   },
   PELAYANAN: {

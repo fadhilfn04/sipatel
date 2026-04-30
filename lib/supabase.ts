@@ -63,6 +63,7 @@ export interface Anggota {
   status_iuran: StatusIuranEnum;
   status_kepesertaan: string | null;
   nama_cabang: string;
+  kode_cabang: string | null;
   posisi_kepengurusan: string;
   cabang_kelas: string | null;
   cabang_area_regional: string | null;
@@ -120,6 +121,7 @@ export interface CreateAnggotaInput {
   status_mps: StatusMpsEnum;
   status_iuran: StatusIuranEnum;
   nama_cabang: string;
+  kode_cabang?: string;
   posisi_kepengurusan: string;
   status_kepesertaan?: string;
   cabang_kelas?: string;
@@ -726,3 +728,17 @@ export interface CreateNikKepemilikanInput {
 }
 
 export interface UpdateNikKepemilikanInput extends Partial<CreateNikKepemilikanInput> {}
+
+// Anggota History types
+export type AnggotaHistoryAction = 'CREATE' | 'UPDATE' | 'DELETE';
+
+export interface AnggotaHistory {
+  id: string;
+  anggota_id: string;
+  action: AnggotaHistoryAction;
+  changed_by: string | null;
+  changed_data: Record<string, any>;
+  previous_data: Record<string, any> | null;
+  changed_fields: string[] | null;
+  created_at: string;
+}

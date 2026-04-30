@@ -40,6 +40,7 @@ const defaultFormData: CreateAnggotaInput = {
   status_mps: 'non_mps',
   status_iuran: 'iuran',
   nama_cabang: '',
+  kode_cabang: '',
   posisi_kepengurusan: 'anggota',
   status_kepesertaan: '',
   cabang_kelas: '',
@@ -129,6 +130,7 @@ export function MemberFormModal({
         status_mps: member.status_mps,
         status_iuran: member.status_iuran,
         nama_cabang: member.nama_cabang,
+        kode_cabang: member.kode_cabang || '',
         posisi_kepengurusan: member.posisi_kepengurusan,
         status_kepesertaan: member.status_kepesertaan || '',
         cabang_kelas: member.cabang_kelas || '',
@@ -404,6 +406,14 @@ export function MemberFormModal({
                     value={formData.nama_cabang}
                     onChange={(e) => setFormData({ ...formData, nama_cabang: e.target.value })}
                     required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Kode Cabang</label>
+                  <Input
+                    placeholder="Kode cabang"
+                    value={formData.kode_cabang}
+                    onChange={(e) => setFormData({ ...formData, kode_cabang: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
