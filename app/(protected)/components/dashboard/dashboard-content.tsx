@@ -2,6 +2,7 @@ import { StatisticsCards } from './StatisticsCards';
 import { LatestMembers } from './LatestMembers';
 import { LatestClaims } from './LatestClaims';
 import { LatestSocial } from './LatestSocial';
+import { DanaKematianMonitoringDashboard } from './DanaKematianMonitoringDashboard';
 import { useDashboardStats, useLatestData } from '@/lib/hooks/use-dashboard-api';
 
 export function DashboardContent() {
@@ -25,6 +26,9 @@ export function DashboardContent() {
         }}
         isLoading={statsLoading}
       />
+
+      {/* Dana Kematian Monitoring Dashboard */}
+      <DanaKematianMonitoringDashboard />
 
       {/* Latest Data Lists */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

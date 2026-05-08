@@ -216,6 +216,7 @@ export interface DanaKematian {
   file_kartu_keluarga: string | null;
   file_e_ktp: string | null;
   file_surat_nikah: string | null;
+  file_surat_keterangan: string | null;
 
   // Additional documents
   file_buku_rekening: string | null;
@@ -255,6 +256,7 @@ export interface DanaKematian {
   dokumen_kartu_keluarga_verified: boolean;
   dokumen_ktp_ahli_waris_verified: boolean;
   dokumen_surat_nikah_verified: boolean;
+  dokumen_surat_keterangan_verified: boolean;
   dokumen_buku_rekening_verified: boolean;
   dokumen_surat_kuasa_verified: boolean;
 
@@ -286,6 +288,11 @@ export interface DanaKematian {
   nik_ahli_waris: string | null;
   no_hp_ahli_waris: string | null;
   alamat_ahli_waris: string | null;
+
+  // Document metadata and conditional flags
+  document_metadata: Record<string, any> | null;
+  spouse_alive: boolean | null;
+  both_deceased: boolean | null;
 
   status_proses: StatusProsesDakemEnum;
   keterangan: string | null;
@@ -324,6 +331,7 @@ export interface CreateDanaKematianInput {
   file_kartu_keluarga?: string;
   file_e_ktp?: string;
   file_surat_nikah?: string;
+  file_surat_keterangan?: string;
 
   // Additional documents
   file_buku_rekening?: string;
@@ -363,6 +371,7 @@ export interface CreateDanaKematianInput {
   dokumen_kartu_keluarga_verified?: boolean;
   dokumen_ktp_ahli_waris_verified?: boolean;
   dokumen_surat_nikah_verified?: boolean;
+  dokumen_surat_keterangan_verified?: boolean;
   dokumen_buku_rekening_verified?: boolean;
   dokumen_surat_kuasa_verified?: boolean;
 
@@ -394,6 +403,11 @@ export interface CreateDanaKematianInput {
   nik_ahli_waris?: string;
   no_hp_ahli_waris?: string;
   alamat_ahli_waris?: string;
+
+  // Document metadata and conditional flags
+  document_metadata?: Record<string, any>;
+  spouse_alive?: boolean;
+  both_deceased?: boolean;
 
   status_proses?: StatusProsesDakemEnum;
   keterangan?: string;
