@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   Toolbar,
   ToolbarActions,
@@ -69,8 +69,18 @@ export default function DanaKematianPage() {
     pageSize: 10,
   });
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+
+  // Debounce search input — reset to page 1 when query changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput);
+      setPagination(p => ({ ...p, pageIndex: 0 }));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
@@ -124,16 +134,15 @@ export default function DanaKematianPage() {
 
   const getStatusProps = (status: DanaKematian['status_proses']) => {
     switch (status) {
-      case 'dilaporkan':
-        return { variant: 'secondary' as const, label: 'Dilaporkan' };
-      case 'verifikasi_cabang':
-        return { variant: 'warning' as const, label: 'Verifikasi Cabang' };
-      case 'proses_pusat':
-        return { variant: 'warning' as const, label: 'Proses Pusat' };
-      case 'selesai':
-        return { variant: 'success' as const, label: 'Selesai' };
-      default:
-        return { variant: 'secondary' as const, label: status };
+      case 'dilaporkan':       return { variant: 'secondary' as const,    label: 'Dilaporkan' };
+      case 'verifikasi_cabang':return { variant: 'warning' as const,      label: 'Verifikasi Cabang' };
+      case 'pending_dokumen':  return { variant: 'warning' as const,      label: 'Pending Dokumen' };
+      case 'proses_pusat':     return { variant: 'warning' as const,      label: 'Proses Pusat' };
+      case 'verified':         return { variant: 'success' as const,      label: 'Terverifikasi' };
+      case 'penyaluran':       return { variant: 'warning' as const,      label: 'Penyaluran' };
+      case 'selesai':          return { variant: 'success' as const,      label: 'Selesai' };
+      case 'ditolak':          return { variant: 'destructive' as const,  label: 'Ditolak' };
+      default:                 return { variant: 'secondary' as const,    label: status };
     }
   };
 
@@ -202,20 +211,18 @@ export default function DanaKematianPage() {
         cell: ({ row }) => row.index + 1 + pagination.pageIndex * pagination.pageSize,
       },
       {
-        accessorKey: 'tanggal_meninggal',
-        header: 'TANGGAL MENINGGAL',
-        cell: ({ row }) => <span className="text-xs sm:text-sm">{formatDate(row.original.tanggal_meninggal)}</span>,
-      },
-      {
         accessorKey: 'nama_anggota',
         header: 'NAMA',
         cell: ({ row }) => <div className="font-medium text-xs sm:text-sm">{row.original.nama_anggota}</div>,
       },
-      // {
-      //   accessorKey: 'status_mps',
-      //   header: 'MPS',
-      //   cell: ({ row }) => <span className="font-mono text-xs sm:text-sm">{row.original.status_mps}</span>,
-      // },
+      {
+        id: 'nik',
+        header: 'NIK',
+        cell: ({ row }) => {
+          const nik = (row.original as any).anggota?.nik;
+          return <span className="font-mono text-xs text-muted-foreground">{nik || '—'}</span>;
+        },
+      },
       {
         accessorKey: 'nama_ahli_waris',
         header: 'AHLI WARIS',
@@ -225,6 +232,11 @@ export default function DanaKematianPage() {
             <div className="text-xs text-muted-foreground">{row.original.status_ahli_waris}</div>
           </div>
         ),
+      },
+      {
+        accessorKey: 'tanggal_meninggal',
+        header: 'TGL MENINGGAL',
+        cell: ({ row }) => <span className="text-xs sm:text-sm whitespace-nowrap">{formatDate(row.original.tanggal_meninggal)}</span>,
       },
       {
         accessorKey: 'besaran_dana_kematian',
@@ -336,17 +348,17 @@ export default function DanaKematianPage() {
                 <div className="relative">
                   <Search className="size-4 text-muted-foreground absolute start-3 top-1/2 -translate-y-1/2" />
                   <Input
-                    placeholder="Cari nama, NIKAP, atau ahli waris..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Cari nama, NIK, atau ahli waris..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
                     className="ps-9 w-full sm:w-64"
                   />
-                  {searchQuery.length > 0 && (
+                  {searchInput.length > 0 && (
                     <Button
                       mode="icon"
                       variant="dim"
                       className="absolute end-1.5 top-1/2 -translate-y-1/2 h-6 w-6"
-                      onClick={() => setSearchQuery('')}
+                      onClick={() => setSearchInput('')}
                     >
                       ×
                     </Button>
@@ -367,9 +379,11 @@ export default function DanaKematianPage() {
                   <SelectContent>
                     <SelectItem value="all">Semua Status</SelectItem>
                     <SelectItem value="dilaporkan">Dilaporkan</SelectItem>
-                    <SelectItem value="verifikasi_cabang">Verifikasi Cabang</SelectItem>
                     <SelectItem value="proses_pusat">Proses Pusat</SelectItem>
+                    <SelectItem value="verified">Terverifikasi</SelectItem>
+                    <SelectItem value="penyaluran">Penyaluran</SelectItem>
                     <SelectItem value="selesai">Selesai</SelectItem>
+                    <SelectItem value="ditolak">Ditolak</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -443,7 +457,7 @@ export default function DanaKematianPage() {
                       {row.getVisibleCells().map((cell) => {
                         const columnId = cell.column.id;
                         const accessorKey = (cell.column.columnDef as any).accessorKey as string;
-                        const hideOnMobile = columnId === 'no' || accessorKey === 'tanggal_meninggal' || accessorKey === 'nama_ahli_waris';
+                        const hideOnMobile = columnId === 'no' || columnId === 'nik' || accessorKey === 'tanggal_meninggal' || accessorKey === 'besaran_dana_kematian';
                         return (
                           <TableCell
                             key={cell.id}

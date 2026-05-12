@@ -55,7 +55,7 @@ export function useDanaKematianList(params: {
       }
       return response.json() as Promise<DanaKematianListResponse>;
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 0,
   });
 }
 

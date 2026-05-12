@@ -21,13 +21,13 @@ export async function GET(request: NextRequest) {
 
     let query = getClient()
       .from('dana_kematian')
-      .select('*', { count: 'exact' })
+      .select('*, anggota:anggota_id(nik)', { count: 'exact' })
       .is('deleted_at', null);
 
     // Search
     if (search) {
       query = query.or(
-        `nama_anggota.ilike.%${search}%,nama_ahli_waris.ilike.%${search}%,cabang_asal_melapor.ilike.%${search}%`
+        `nama_anggota.ilike.%${search}%,nama_ahli_waris.ilike.%${search}%,cabang_asal_melapor.ilike.%${search}%,cabang_nik_pelapor.ilike.%${search}%`
       );
     }
 
