@@ -150,7 +150,7 @@ export function MemberSearchModal({
             Cari Data Anggota
           </DialogTitle>
           <DialogDescription>
-            Pilih metode pencarian untuk menemukan data anggota yang meninggal
+            Pilih metode pencarian untuk menemukan data anggota.
           </DialogDescription>
         </DialogHeader>
 

@@ -103,7 +103,6 @@ export default function DanaKematianPage() {
   // Fetch members for dropdown (only for create mode)
   const { data: membersData } = useAnggotaList({
     search: '',
-    status_anggota: 'meninggal',
     page: 1,
     limit: 1000,
   });

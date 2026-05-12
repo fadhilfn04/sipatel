@@ -1,339 +1,268 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   FileText,
   CheckCircle2,
   XCircle,
   AlertCircle,
-  Eye,
-  Upload,
-  Download
+  ExternalLink,
 } from 'lucide-react';
 import { DanaKematian } from '@/lib/supabase';
 
 interface DocumentRequirement {
   key: keyof DanaKematian;
+  verifiedKey: keyof DanaKematian;
   name: string;
   required: boolean;
   description: string;
-  verified?: boolean;
-  conditional?: boolean;
   condition?: string;
 }
 
 interface DocumentValidationSystemProps {
   claim: DanaKematian;
   onUpdate?: (updates: Partial<DanaKematian>) => void;
-  onPreview?: (docUrl: string) => void;
   readonly?: boolean;
 }
+
+function isValidUrl(url: string | null | undefined): url is string {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+const DOCUMENT_REQUIREMENTS: DocumentRequirement[] = [
+  {
+    key: 'file_surat_kematian',
+    verifiedKey: 'dokumen_surat_kematian_verified',
+    name: 'Surat Kematian',
+    required: true,
+    description: 'Surat kematian resmi dari instansi pemerintah atau rumah sakit',
+  },
+  {
+    key: 'file_sk_pensiun',
+    verifiedKey: 'dokumen_sk_pensiun_verified',
+    name: 'SK Pensiun',
+    required: true,
+    description: 'Surat Keputusan Pensiun dari instansi terkait',
+  },
+  {
+    key: 'file_surat_pernyataan_ahli_waris',
+    verifiedKey: 'dokumen_surat_pernyataan_verified',
+    name: 'Surat Pernyataan Ahli Waris',
+    required: true,
+    description: 'Surat pernyataan ahli waris yang telah ditandatangani dan dilegalisir',
+  },
+  {
+    key: 'file_kartu_keluarga',
+    verifiedKey: 'dokumen_kartu_keluarga_verified',
+    name: 'Kartu Keluarga',
+    required: true,
+    description: 'Kartu keluarga yang mencantumkan almarhum dan ahli waris',
+  },
+  {
+    key: 'file_e_ktp',
+    verifiedKey: 'dokumen_ktp_ahli_waris_verified',
+    name: 'E-KTP Ahli Waris',
+    required: true,
+    description: 'KTP elektronik ahli waris yang masih berlaku',
+  },
+  {
+    key: 'file_surat_nikah',
+    verifiedKey: 'dokumen_surat_nikah_verified',
+    name: 'Surat Nikah',
+    required: false,
+    description: 'Buku nikah atau akta pernikahan',
+    condition: 'Wajib jika ahli waris suami/istri',
+  },
+];
 
 export function DocumentValidationSystem({
   claim,
   onUpdate,
-  onPreview,
-  readonly = false
+  readonly = false,
 }: DocumentValidationSystemProps) {
-  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
+  const [pendingKeys, setPendingKeys] = useState<Set<string>>(new Set());
 
-  const documentRequirements: DocumentRequirement[] = [
-    {
-      key: 'file_surat_kematian',
-      name: 'Surat Kematian',
-      required: true,
-      description: 'Surat kematian dari rumah sakit/instansi pemerintah',
-      verified: claim.dokumen_surat_kematian_verified
-    },
-    {
-      key: 'file_sk_pensiun',
-      name: 'SK Pensiun',
-      required: true,
-      description: 'Surat Keputusan Pensiun dari instansi terkait',
-      verified: claim.dokumen_sk_pensiun_verified
-    },
-    {
-      key: 'file_surat_pernyataan_ahli_waris',
-      name: 'Surat Pernyataan Ahli Waris',
-      required: true,
-      description: 'Surat pernyataan ahli waris yang ditandatangani',
-      verified: claim.dokumen_surat_pernyataan_verified
-    },
-    {
-      key: 'file_kartu_keluarga',
-      name: 'Kartu Keluarga',
-      required: true,
-      description: 'Kartu keluarga yang mencantumkan almarhum dan ahli waris',
-      verified: claim.dokumen_kartu_keluarga_verified
-    },
-    {
-      key: 'file_e_ktp',
-      name: 'E-KTP Ahli Waris',
-      required: true,
-      description: 'KTP elektronik ahli waris yang masih berlaku',
-      verified: claim.dokumen_ktp_ahli_waris_verified
-    },
-    {
-      key: 'file_surat_nikah',
-      name: 'Surat Nikah',
-      required: false,
-      conditional: true,
-      condition: 'Wajib jika ahli waris adalah suami/istri',
-      description: 'Buku nikah atau akta pernikahan',
-      verified: claim.dokumen_surat_nikah_verified
-    }
-  ];
-
-  const getDocumentStatus = (doc: DocumentRequirement) => {
-    const docUrl = claim[doc.key];
-    const isVerified = doc.verified;
-
-    if (!docUrl) return { status: 'missing', label: 'Belum Diunggah', icon: AlertCircle };
-    if (isVerified) return { status: 'verified', label: 'Terverifikasi', icon: CheckCircle2 };
-    return { status: 'uploaded', label: 'Menunggu Verifikasi', icon: FileText };
+  const toggleVerification = (doc: DocumentRequirement, verified: boolean) => {
+    if (pendingKeys.has(doc.key)) return;
+    setPendingKeys(prev => new Set(prev).add(doc.key));
+    onUpdate?.({ [doc.verifiedKey]: verified } as Partial<DanaKematian>);
+    // Remove pending after a short delay to allow query refresh
+    setTimeout(() => setPendingKeys(prev => {
+      const next = new Set(prev);
+      next.delete(doc.key);
+      return next;
+    }), 1500);
   };
 
-  const toggleVerification = (docKey: string, verified: boolean) => {
-    // Mapping dari file key ke verified field yang benar
-    const verificationFieldMap: Record<string, keyof DanaKematian> = {
-      'file_surat_kematian': 'dokumen_surat_kematian_verified',
-      'file_sk_pensiun': 'dokumen_sk_pensiun_verified',
-      'file_surat_pernyataan_ahli_waris': 'dokumen_surat_pernyataan_verified',
-      'file_kartu_keluarga': 'dokumen_kartu_keluarga_verified',
-      'file_e_ktp': 'dokumen_ktp_ahli_waris_verified',
-      'file_surat_nikah': 'dokumen_surat_nikah_verified',
-    };
-
-    const verificationField = verificationFieldMap[docKey];
-    if (!verificationField) {
-      console.error(`Unknown docKey: ${docKey}`);
-      return;
-    }
-
-    onUpdate?.({
-      [verificationField]: verified
-    } as Partial<DanaKematian>);
-  };
-
-  const getCompletenessStatus = () => {
-    const requiredDocs = documentRequirements.filter(d => d.required);
-    const allDocs = documentRequirements;
-    const uploadedRequired = requiredDocs.filter(d => claim[d.key]);
-    const verifiedRequired = requiredDocs.filter(d => claim[d.key] && d.verified);
-
-    return {
-      total: requiredDocs.length,
-      totalAllDocs: allDocs.length,
-      uploaded: uploadedRequired.length,
-      verified: verifiedRequired.length,
-      isComplete: uploadedRequired.length === requiredDocs.length,
-      allVerified: verifiedRequired.length === requiredDocs.length
-    };
-  };
-
-  const completeness = getCompletenessStatus();
-
-  const toggleDocSelection = (docKey: string) => {
-    const newSelected = new Set(selectedDocs);
-    if (newSelected.has(docKey)) {
-      newSelected.delete(docKey);
-    } else {
-      newSelected.add(docKey);
-    }
-    setSelectedDocs(newSelected);
-  };
-
-  const verifySelected = () => {
-    selectedDocs.forEach(docKey => {
-      toggleVerification(docKey, true);
+  const verifyAll = () => {
+    DOCUMENT_REQUIREMENTS.forEach(doc => {
+      const fileUrl = claim[doc.key] as string | null;
+      const isVerified = claim[doc.verifiedKey] as boolean;
+      if (fileUrl && !isVerified) {
+        toggleVerification(doc, true);
+      }
     });
-    setSelectedDocs(new Set());
   };
 
-  const unverifySelected = () => {
-    selectedDocs.forEach(docKey => {
-      toggleVerification(docKey, false);
-    });
-    setSelectedDocs(new Set());
+  const uploaded = DOCUMENT_REQUIREMENTS.filter(d => claim[d.key]).length;
+  const verified = DOCUMENT_REQUIREMENTS.filter(d => claim[d.verifiedKey]).length;
+  const requiredCount = DOCUMENT_REQUIREMENTS.filter(d => d.required).length;
+  const requiredVerified = DOCUMENT_REQUIREMENTS.filter(d => d.required && claim[d.verifiedKey]).length;
+  const allVerified = requiredVerified === requiredCount;
+  const progressPct = Math.round((verified / DOCUMENT_REQUIREMENTS.length) * 100);
+
+  const getFileName = (url: string) => {
+    try {
+      return decodeURIComponent(new URL(url).pathname.split('/').pop() ?? url);
+    } catch {
+      return url;
+    }
   };
 
   return (
-    <Card className="p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold">Validasi Dokumen</h3>
-          <p className="text-sm text-muted-foreground">
-            Kelengkapan dan verifikasi dokumen (Berkas-1 & Berkas-2)
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={completeness.allVerified ? 'success' : completeness.isComplete ? 'secondary' : 'destructive'}>
-            {completeness.verified}/{completeness.total} Terverifikasi
-          </Badge>
-          <Badge variant="secondary">
-            {completeness.uploaded}/{completeness.total} Diunggah
-          </Badge>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between text-sm mb-2">
-          <span className="font-medium">Progress Dokumen</span>
-          <span className="text-muted-foreground">
-            {Math.round((completeness.verified / completeness.total) * 100)}%
-          </span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className={`h-2 rounded-full transition-all ${
-              completeness.allVerified ? 'bg-green-600' :
-              completeness.isComplete ? 'bg-blue-600' :
-              'bg-yellow-600'
-            }`}
-            style={{ width: `${(completeness.verified / completeness.total) * 100}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Bulk actions */}
-      {!readonly && completeness.uploaded > 0 && (
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="text-sm">
-              <span className="font-medium">{selectedDocs.size} dokumen dipilih</span>
-            </div>
-            <div className="flex gap-2">
-              {selectedDocs.size > 0 && (
-                <>
-                  <Button onClick={verifySelected} size="sm" variant="outline">
-                    <CheckCircle2 className="h-4 w-4 mr-1" />
-                    Verifikasi
-                  </Button>
-                  <Button onClick={unverifySelected} size="sm" variant="outline">
-                    <XCircle className="h-4 w-4 mr-1" />
-                    Batalkan
-                  </Button>
-                </>
-              )}
-            </div>
+    <div className="space-y-4">
+      {/* Summary header */}
+      <div className="border rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-semibold">Validasi Dokumen</h3>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {uploaded} dari {DOCUMENT_REQUIREMENTS.length} dokumen diunggah ·{' '}
+              {verified} terverifikasi
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={allVerified ? 'success' : 'secondary'}>
+              {verified}/{DOCUMENT_REQUIREMENTS.length} Terverifikasi
+            </Badge>
+            {!readonly && uploaded > verified && (
+              <Button size="sm" variant="outline" onClick={verifyAll}>
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                Verifikasi Semua
+              </Button>
+            )}
           </div>
         </div>
-      )}
+
+        {/* Progress bar */}
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Progress verifikasi</span>
+            <span>{progressPct}%</span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-2">
+            <div
+              className={`h-2 rounded-full transition-all duration-500 ${
+                allVerified ? 'bg-green-500' : 'bg-primary'
+              }`}
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Document list */}
-      <div className="space-y-3">
-        {documentRequirements.map((doc) => {
-          const docUrl = claim[doc.key];
-          const docStatus = getDocumentStatus(doc);
-          const StatusIcon = docStatus.icon;
-          const isSelected = selectedDocs.has(doc.key);
+      <div className="space-y-2">
+        {DOCUMENT_REQUIREMENTS.map((doc) => {
+          const fileUrl = claim[doc.key] as string | null;
+          const isVerified = claim[doc.verifiedKey] as boolean;
+          const isPending = pendingKeys.has(doc.key);
+
+          const state = !fileUrl ? 'missing' : isVerified ? 'verified' : 'uploaded';
 
           return (
             <div
               key={doc.key}
-              className={`p-4 border rounded-lg transition-colors ${
-                isSelected ? 'bg-blue-50 border-blue-300' :
-                docStatus.status === 'verified' ? 'bg-green-50 border-green-200' :
-                docStatus.status === 'uploaded' ? 'bg-white border-gray-200' :
-                'bg-red-50 border-red-200'
+              className={`border rounded-xl p-4 transition-colors ${
+                state === 'verified'
+                  ? 'bg-green-50 border-green-200'
+                  : state === 'uploaded'
+                    ? 'bg-blue-50/50 border-blue-200'
+                    : 'bg-muted/40 border-muted'
               }`}
             >
               <div className="flex items-start gap-3">
-                {/* Selection checkbox */}
-                {!readonly && docUrl && (
-                  <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={() => toggleDocSelection(doc.key)}
-                    className="mt-1"
-                  />
-                )}
-
                 {/* Status icon */}
-                <div className={`p-2 rounded-lg ${
-                  docStatus.status === 'verified' ? 'bg-green-100' :
-                  docStatus.status === 'uploaded' ? 'bg-blue-100' :
-                  'bg-red-100'
+                <div className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${
+                  state === 'verified' ? 'bg-green-100' :
+                  state === 'uploaded' ? 'bg-blue-100' :
+                  'bg-muted'
                 }`}>
-                  <StatusIcon className={`h-5 w-5 ${
-                    docStatus.status === 'verified' ? 'text-green-600' :
-                    docStatus.status === 'uploaded' ? 'text-blue-600' :
-                    'text-red-600'
-                  }`} />
+                  {state === 'verified' ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  ) : state === 'uploaded' ? (
+                    <FileText className="h-4 w-4 text-blue-600" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </div>
 
-                {/* Document info */}
+                {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-medium">{doc.name}</h4>
-                        {doc.required && (
-                          <Badge variant="destructive" className="text-xs">Wajib</Badge>
-                        )}
-                        {doc.conditional && (
-                          <Badge variant="secondary" className="text-xs">
-                            {doc.condition}
-                          </Badge>
-                        )}
-                        <Badge
-                          variant={
-                            docStatus.status === 'verified' ? 'success' :
-                            docStatus.status === 'uploaded' ? 'secondary' :
-                            'destructive'
-                          }
-                          className="text-xs"
-                        >
-                          {docStatus.label}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {doc.description}
-                      </p>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1">
-                      {docUrl && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => onPreview?.(docUrl as string)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {!readonly && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => toggleVerification(doc.key, !doc.verified)}
-                              className="h-8 w-8 p-0"
-                              title={doc.verified ? 'Batalkan verifikasi' : 'Verifikasi'}
-                            >
-                              {doc.verified ? (
-                                <XCircle className="h-4 w-4 text-red-600" />
-                              ) : (
-                                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              )}
-                            </Button>
-                          )}
-                        </>
-                      )}
-                      {!docUrl && !readonly && (
-                        <Button size="sm" variant="outline" className="h-8 gap-1">
-                          <Upload className="h-3 w-3" />
-                          Upload
-                        </Button>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <span className="font-medium text-sm">{doc.name}</span>
+                    {doc.required ? (
+                      <Badge variant="destructive" className="text-xs px-1.5 py-0">Wajib</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs px-1.5 py-0">Opsional</Badge>
+                    )}
+                    {doc.condition && (
+                      <Badge variant="outline" className="text-xs px-1.5 py-0">{doc.condition}</Badge>
+                    )}
+                    <Badge
+                      variant={state === 'verified' ? 'success' : state === 'uploaded' ? 'secondary' : 'outline'}
+                      className="text-xs px-1.5 py-0"
+                    >
+                      {state === 'verified' ? 'Terverifikasi' : state === 'uploaded' ? 'Menunggu Verifikasi' : 'Belum Diunggah'}
+                    </Badge>
                   </div>
+                  <p className="text-xs text-muted-foreground">{doc.description}</p>
+                  {fileUrl && (
+                    <p className="text-xs text-muted-foreground mt-1 truncate max-w-sm">
+                      {getFileName(fileUrl)}
+                    </p>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1 shrink-0">
+                  {isValidUrl(fileUrl) && (
+                    <a
+                      href={fileUrl!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Lihat dokumen"
+                      className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted transition-colors"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
+
+                  {!readonly && isValidUrl(fileUrl) && (
+                    <Button
+                      size="sm"
+                      variant={isVerified ? 'outline' : 'primary'}
+                      className={`h-8 text-xs gap-1.5 ${isVerified ? 'border-red-200 text-red-600 hover:bg-red-50' : ''}`}
+                      onClick={() => toggleVerification(doc, !isVerified)}
+                      disabled={isPending}
+                    >
+                      {isPending ? (
+                        <span className="text-xs">Menyimpan...</span>
+                      ) : isVerified ? (
+                        <><XCircle className="h-3.5 w-3.5" />Batalkan</>
+                      ) : (
+                        <><CheckCircle2 className="h-3.5 w-3.5" />Verifikasi</>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -341,56 +270,39 @@ export function DocumentValidationSystem({
         })}
       </div>
 
-      {/* Footer summary */}
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-        <div className="flex items-center justify-between text-sm">
+      {/* Footer */}
+      {allVerified && (
+        <div className="border border-green-200 bg-green-50 rounded-xl p-4 flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
           <div>
-            <span className="font-medium">Status Dokumen: </span>
-            <span className={`font-semibold ${
-              completeness.allVerified ? 'text-green-600' :
-              completeness.isComplete ? 'text-blue-600' :
-              'text-red-600'
-            }`}>
-              {completeness.allVerified ? 'Lengkap & Terverifikasi' :
-               completeness.isComplete ? 'Lengkap (Perlu Verifikasi)' :
-               'Belum Lengkap'}
-            </span>
+            <p className="font-medium text-green-800 text-sm">Semua dokumen wajib telah terverifikasi</p>
+            <p className="text-xs text-green-700 mt-0.5">Pengajuan siap dikirimkan ke Pusat untuk diproses lebih lanjut</p>
           </div>
-          {completeness.isComplete && !completeness.allVerified && !readonly && (
-            <Button size="sm" onClick={() => {
-              documentRequirements.forEach(doc => {
-                if (doc.required && claim[doc.key] && !doc.verified) {
-                  toggleVerification(doc.key, true);
-                }
-              });
-            }}>
-              Verifikasi Semua
-            </Button>
-          )}
         </div>
-      </div>
-    </Card>
+      )}
+    </div>
   );
 }
 
-// Export compact version for inline use
+// Compact version for inline use (kept for other components that may use it)
 export function DocumentValidationCompact({ claim }: { claim: DanaKematian }) {
-  const requiredDocs = ['file_surat_kematian', 'file_sk_pensiun', 'file_surat_pernyataan_ahli_waris', 'file_kartu_keluarga', 'file_e_ktp'] as const;
-
-  // Mapping dari file key ke verified field
-  const verificationFieldMap: Record<string, keyof DanaKematian> = {
-    'file_surat_kematian': 'dokumen_surat_kematian_verified',
-    'file_sk_pensiun': 'dokumen_sk_pensiun_verified',
-    'file_surat_pernyataan_ahli_waris': 'dokumen_surat_pernyataan_verified',
-    'file_kartu_keluarga': 'dokumen_kartu_keluarga_verified',
-    'file_e_ktp': 'dokumen_ktp_ahli_waris_verified',
-  };
+  const requiredDocs: (keyof DanaKematian)[] = [
+    'file_surat_kematian',
+    'file_sk_pensiun',
+    'file_surat_pernyataan_ahli_waris',
+    'file_kartu_keluarga',
+    'file_e_ktp',
+  ];
+  const verifiedFields: (keyof DanaKematian)[] = [
+    'dokumen_surat_kematian_verified',
+    'dokumen_sk_pensiun_verified',
+    'dokumen_surat_pernyataan_verified',
+    'dokumen_kartu_keluarga_verified',
+    'dokumen_ktp_ahli_waris_verified',
+  ];
 
   const uploaded = requiredDocs.filter(d => claim[d]).length;
-  const verified = requiredDocs.filter(d => {
-    const verifiedField = verificationFieldMap[d];
-    return claim[d] && verifiedField && claim[verifiedField];
-  }).length;
+  const verified = verifiedFields.filter(f => claim[f]).length;
 
   return (
     <div className="flex items-center gap-2">

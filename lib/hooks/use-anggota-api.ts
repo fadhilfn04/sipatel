@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, Anggota, CreateAnggotaInput, UpdateAnggotaInput } from '@/lib/supabase';
 
 // API response types
+interface AnggotaMeResponse {
+  data: Anggota | null;
+}
+
 interface AnggotaListResponse {
   data: Anggota[];
   pagination: {
@@ -189,6 +193,20 @@ export function useUpdateAnggota(id: string) {
       queryClient.invalidateQueries({ queryKey: ['anggota'] });
       queryClient.invalidateQueries({ queryKey: ['anggota', id] });
     },
+  });
+}
+
+// Fetch the anggota record linked to the currently logged-in user
+export function useCurrentUserAnggota() {
+  return useQuery({
+    queryKey: ['anggota', 'me'],
+    queryFn: async () => {
+      const response = await fetch('/api/anggota/me');
+      if (!response.ok) throw new Error('Failed to fetch current user anggota');
+      const json = await response.json() as AnggotaMeResponse;
+      return json.data;
+    },
+    staleTime: 5 * 60 * 1000,
   });
 }
 

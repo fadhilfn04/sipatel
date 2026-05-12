@@ -1,11 +1,23 @@
-import { User, FileText, Calendar, MapPin, Phone, DollarSign, Building, CheckCircle, X, ShieldCheck, Loader2, CheckCircle2 } from 'lucide-react';
-import { useEffect } from 'react';
+'use client';
+
+import { useState } from 'react';
+import {
+  User,
+  FileText,
+  Calendar,
+  Building,
+  ShieldCheck,
+  Loader2,
+  CheckCircle2,
+  Clock,
+  Banknote,
+  Phone,
+  AlertTriangle,
+} from 'lucide-react';
 import {
   Dialog,
-  DialogBody,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -15,13 +27,11 @@ import { Badge, BadgeDot } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DanaKematian } from '@/lib/supabase';
 import { DanaKematianTimeline, DanaKematianTimelineProgress } from './DanaKematianTimeline';
-import { CommunicationTrackingPanel } from './CommunicationTrackingPanel';
 import { DocumentValidationSystem } from './DocumentValidationSystem';
 import { ReportGenerationSystem } from './ReportGenerationSystem';
-import { allowsCommunicationTracking, allowsDocumentUpload, allowsReporting } from '@/lib/workflow/dana-kematian-state-machine';
+import { allowsReporting } from '@/lib/workflow/dana-kematian-state-machine';
 import { useCanAccessPPVerification } from '@/lib/hooks/use-user-permissions';
-import { useUpdateDanaKematian } from '@/lib/hooks/use-dana-kematian-api';
-import { useState } from 'react';
+import { useUpdateDanaKematian, useDanaKematian } from '@/lib/hooks/use-dana-kematian-api';
 import { ToastNotification } from '@/components/anggota/ToastNotification';
 
 interface DanaKematianDetailModalProps {
@@ -34,374 +44,313 @@ interface DanaKematianDetailModalProps {
 interface StatusProps {
   variant: 'success' | 'warning' | 'destructive' | 'secondary';
   label: string;
+  color: string;
 }
 
 export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: DanaKematianDetailModalProps) {
-  const { canAccess, isLoading: permissionLoading, role, roleName } = useCanAccessPPVerification();
-  const updateMutation = useUpdateDanaKematian(claim?.id || '');
+  const { canAccess, isLoading: permissionLoading } = useCanAccessPPVerification();
+
+  // Live data — auto-refreshes when mutation invalidates the query
+  const { data: freshClaim } = useDanaKematian(claim?.id || '');
+  const activeClaim = freshClaim ?? claim;
+
+  const updateMutation = useUpdateDanaKematian(activeClaim?.id || '');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' as 'success' | 'error' });
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+    setTimeout(() => setToast(t => ({ ...t, show: false })), 3500);
   };
 
-  // Check if all required documents are verified
-  const allRequiredDocsVerified = claim ? (
-    claim.dokumen_surat_kematian_verified &&
-    claim.dokumen_sk_pensiun_verified &&
-    claim.dokumen_surat_pernyataan_verified &&
-    claim.dokumen_kartu_keluarga_verified &&
-    claim.dokumen_ktp_ahli_waris_verified
-  ) : false;
+  if (!activeClaim) return null;
 
-  const canShowVerifyButton = claim ? (
+  const allRequiredDocsVerified =
+    activeClaim.dokumen_surat_kematian_verified &&
+    activeClaim.dokumen_sk_pensiun_verified &&
+    activeClaim.dokumen_surat_pernyataan_verified &&
+    activeClaim.dokumen_kartu_keluarga_verified &&
+    activeClaim.dokumen_ktp_ahli_waris_verified;
+
+  const canShowVerifyButton =
     !permissionLoading &&
     canAccess &&
-    claim.status_proses === 'verifikasi_cabang' &&
-    allRequiredDocsVerified
-  ) : false;
+    activeClaim.status_proses === 'verifikasi_cabang' &&
+    allRequiredDocsVerified;
 
-  const canShowFinalizeButton = claim ? (
+  const canShowFinalizeButton =
     !permissionLoading &&
     canAccess &&
-    claim.status_proses === 'proses_pusat' &&
-    allRequiredDocsVerified
-  ) : false;
-
-  // Debug logging
-  useEffect(() => {
-    if (!claim) return;
-
-    console.log('[DanaKematianDetailModal] Permission Check:', {
-      claimStatus: claim?.status_proses,
-      canAccess,
-      permissionLoading,
-      role,
-      roleName,
-      allRequiredDocsVerified,
-      canShowVerifyButton,
-      canShowFinalizeButton
-    });
-  }, [claim, canAccess, permissionLoading, role, roleName, allRequiredDocsVerified, canShowVerifyButton, canShowFinalizeButton]);
-
-  if (!claim) return null;
+    activeClaim.status_proses === 'proses_pusat' &&
+    allRequiredDocsVerified;
 
   const handleVerifyAndSendToPusat = async () => {
-    if (!claim) return;
-
     try {
       setIsVerifying(true);
-
-      console.log('[handleVerifyAndSendToPusat] Starting update...');
-      console.log('[handleVerifyAndSendToPusat] Current status:', claim.status_proses);
-
-      // Update status to proses_pusat
-      const result = await updateMutation.mutateAsync({
+      await updateMutation.mutateAsync({
         status_proses: 'proses_pusat',
         cabang_tanggal_kirim_ke_pusat: new Date().toISOString().split('T')[0],
         pusat_tanggal_awal_terima: new Date().toISOString().split('T')[0],
       } as any);
-
-      console.log('[handleVerifyAndSendToPusat] Update result:', result);
-
-      // Check if update was successful
-      if (result && !updateMutation.error) {
-        console.log('[handleVerifyAndSendToPusat] Update successful!');
-
-        // Refresh data
-        if (onRefresh) {
-          onRefresh();
-        }
-
-        // Close modal
-        onClose();
-
-        // Show success message then redirect
-        showToast('Status berhasil diubah ke Proses Pusat', 'success');
-
-        setTimeout(() => {
-          console.log('[handleVerifyAndSendToPusat] Redirecting to list page...');
-          window.location.href = '/pelayanan/dana-kematian';
-        }, 1000);
-      } else {
-        throw new Error(updateMutation.error?.message || 'Update failed');
-      }
-    } catch (error) {
-      console.error('[handleVerifyAndSendToPusat] Error:', error);
+      onRefresh?.();
+      showToast('Status berhasil diubah ke Proses Pusat', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal mengirim ke pusat', 'error');
+    } finally {
       setIsVerifying(false);
-      // Show error to user
-      const errorMessage = error instanceof Error ? error.message : 'Gagal mengirim ke pusat';
-      showToast(errorMessage, 'error');
     }
   };
 
   const handleFinalize = async () => {
-    if (!claim) return;
-
     try {
       setIsFinalizing(true);
-
-      console.log('[handleFinalize] Starting finalization...');
-      console.log('[handleFinalize] Current status:', claim.status_proses);
-
-      // Update status to verified
-      const result = await updateMutation.mutateAsync({
+      await updateMutation.mutateAsync({
         status_proses: 'verified',
         waktu_3: new Date().toISOString(),
       } as any);
-
-      console.log('[handleFinalize] Finalization result:', result);
-
-      // Check if update was successful
-      if (result && !updateMutation.error) {
-        console.log('[handleFinalize] Finalization successful!');
-
-        // Refresh data
-        if (onRefresh) {
-          onRefresh();
-        }
-
-        // Close modal
-        onClose();
-
-        // Show success message then redirect
-        showToast('Pengajuan berhasil difinalisasi dan disetujui', 'success');
-
-        setTimeout(() => {
-          console.log('[handleFinalize] Redirecting to list page...');
-          window.location.href = '/pelayanan/dana-kematian';
-        }, 1000);
-      } else {
-        throw new Error(updateMutation.error?.message || 'Finalization failed');
-      }
-    } catch (error) {
-      console.error('[handleFinalize] Error:', error);
+      onRefresh?.();
+      showToast('Pengajuan berhasil difinalisasi dan disetujui', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal memfinalisasi pengajuan', 'error');
+    } finally {
       setIsFinalizing(false);
-      // Show error to user
-      const errorMessage = error instanceof Error ? error.message : 'Gagal memfinalisasi pengajuan';
-      showToast(errorMessage, 'error');
     }
   };
 
-  const getStatusProsesProps = (status: DanaKematian['status_proses']): StatusProps => {
-    switch (status) {
-      case 'dilaporkan':
-        return { variant: 'secondary', label: 'Dilaporkan' };
-      case 'verifikasi_cabang':
-        return { variant: 'warning', label: 'Verifikasi Cabang' };
-      case 'pending_dokumen':
-        return { variant: 'warning', label: 'Pending Dokumen' };
-      case 'proses_pusat':
-        return { variant: 'warning', label: 'Proses Pusat' };
-      case 'verified':
-        return { variant: 'success', label: 'Terverifikasi' };
-      case 'penyaluran':
-        return { variant: 'warning', label: 'Penyaluran' };
-      case 'selesai':
-        return { variant: 'success', label: 'Selesai' };
-      case 'ditolak':
-        return { variant: 'destructive', label: 'Ditolak' };
-      default:
-        return { variant: 'secondary', label: status };
-    }
-  };
-
-  const getAhliWarisLabel = (status: DanaKematian['status_ahli_waris']) => {
-    const statusMap: Record<string, string> = {
-      istri: 'Istri',
-      suami: 'Suami',
-      anak: 'Anak',
-      keluarga: 'Keluarga',
+  const getStatusProps = (status: DanaKematian['status_proses']): StatusProps => {
+    const map: Record<string, StatusProps> = {
+      dilaporkan:       { variant: 'secondary',    label: 'Dilaporkan',        color: 'text-gray-600' },
+      verifikasi_cabang:{ variant: 'warning',      label: 'Verifikasi Cabang', color: 'text-amber-600' },
+      pending_dokumen:  { variant: 'warning',      label: 'Pending Dokumen',   color: 'text-amber-600' },
+      proses_pusat:     { variant: 'warning',      label: 'Proses Pusat',      color: 'text-blue-600' },
+      verified:         { variant: 'success',      label: 'Terverifikasi',     color: 'text-green-600' },
+      penyaluran:       { variant: 'warning',      label: 'Penyaluran',        color: 'text-purple-600' },
+      selesai:          { variant: 'success',      label: 'Selesai',           color: 'text-green-700' },
+      ditolak:          { variant: 'destructive',  label: 'Ditolak',           color: 'text-red-600' },
     };
-    return statusMap[status] || status;
+    return map[status] ?? { variant: 'secondary', label: status, color: 'text-gray-600' };
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+
+  const formatDate = (d: string | null) => {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  };
+  const statusProps = getStatusProps(activeClaim.status_proses);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">Detail Dana Kematian</DialogTitle>
-          <DialogDescription>
-            Informasi lengkap mengenai pengajuan dana kematian
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="w-screen h-screen max-w-[100vw] max-h-screen p-0 gap-0 overflow-hidden flex flex-col rounded-none">
 
-        <DialogBody className="space-y-6">
-          {/* Status Overview */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-muted/50 rounded-lg p-4">
-              <div className="text-sm text-muted-foreground mb-1">Status</div>
-              <Badge variant={getStatusProsesProps(claim.status_proses).variant} appearance="ghost">
-                <BadgeDot />
-                {getStatusProsesProps(claim.status_proses).label}
-              </Badge>
+        {/* Header */}
+        <div className="shrink-0 bg-linear-to-r from-slate-800 to-slate-700 text-white px-8 py-5">
+          <DialogHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-slate-400 text-xs uppercase tracking-wide mb-1">
+                  <FileText className="h-3.5 w-3.5" />
+                  Detail Pengajuan Dana Kematian
+                </div>
+                <DialogTitle className="text-white text-2xl font-bold">
+                  {activeClaim.nama_anggota}
+                </DialogTitle>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Badge variant={statusProps.variant} appearance="ghost" className="bg-white/10 border-white/20 text-white">
+                    <BadgeDot />
+                    {statusProps.label}
+                  </Badge>
+                  <span className="text-slate-300 text-sm flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {formatDate(activeClaim.tanggal_meninggal)}
+                  </span>
+                  <span className="text-slate-300 text-sm flex items-center gap-1.5">
+                    <Building className="h-3.5 w-3.5" />
+                    {activeClaim.cabang_asal_melapor}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-slate-400 text-xs mb-1">Besaran Dana</div>
+                <div className="text-2xl font-bold text-green-400">
+                  {formatCurrency(activeClaim.besaran_dana_kematian)}
+                </div>
+              </div>
             </div>
-            <div className="bg-muted/50 rounded-lg p-4">
-              <div className="text-sm text-muted-foreground mb-1">Nama Anggota</div>
-              <div className="font-medium text-sm">{claim.nama_anggota}</div>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-4">
-              <div className="text-sm text-muted-foreground mb-1">Ahli Waris</div>
-              <div className="font-medium text-sm">{claim.nama_ahli_waris}</div>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-4">
-              <div className="text-sm text-muted-foreground mb-1">Besaran Dana</div>
-              <div className="font-semibold text-green-600">{formatCurrency(claim.besaran_dana_kematian)}</div>
-            </div>
-          </div>
+          </DialogHeader>
+        </div>
 
-          {/* Tabs for different sections */}
-          <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="overview">Detail</TabsTrigger>
-              <TabsTrigger value="timeline">Waktu</TabsTrigger>
-              <TabsTrigger value="documents">Dokumen</TabsTrigger>
-              <TabsTrigger value="communication">Komunikasi</TabsTrigger>
-              <TabsTrigger value="reports">Laporan</TabsTrigger>
+        {/* Tabs */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="shrink-0 w-full rounded-none border-b bg-background h-11 grid grid-cols-4 px-8 gap-0 justify-start">
+              <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
+                Detail
+              </TabsTrigger>
+              <TabsTrigger value="timeline" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
+                Timeline
+              </TabsTrigger>
+              <TabsTrigger value="documents" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
+                Dokumen
+              </TabsTrigger>
+              <TabsTrigger value="reports" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
+                Laporan
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="space-y-4">
-              {/* Timeline Progress */}
-              <div className="p-4 bg-muted/50 rounded-lg">
-                <DanaKematianTimelineProgress claim={claim} />
-              </div>
+            <div className="flex-1 overflow-y-auto">
+              <div className="max-w-5xl mx-auto px-8 py-6 space-y-6">
 
-              {/* Basic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <h3 className="font-semibold">Informasi Anggota</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">Nama:</span>
-                      <span>{claim.nama_anggota}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">Status MPS:</span>
-                      <Badge variant="secondary">{claim.status_mps}</Badge>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">Tanggal Meninggal:</span>
-                      <span>{formatDate(claim.tanggal_meninggal)}</span>
-                    </div>
+                {/* ── Detail Tab ── */}
+                <TabsContent value="overview" className="mt-0 space-y-6">
+                  {/* Progress bar */}
+                  <div className="border rounded-xl p-4 bg-muted/30">
+                    <DanaKematianTimelineProgress claim={activeClaim} />
                   </div>
-                </div>
 
-                <div className="space-y-3">
-                  <h3 className="font-semibold">Informasi Ahli Waris</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">Nama:</span>
-                      <span>{claim.nama_ahli_waris}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Member */}
+                    <div className="border rounded-xl p-5 space-y-3">
+                      <h3 className="font-semibold flex items-center gap-2 text-sm uppercase tracking-wide text-muted-foreground">
+                        <User className="h-4 w-4" /> Informasi Anggota
+                      </h3>
+                      <InfoRow label="Nama Anggota" value={activeClaim.nama_anggota} />
+                      <InfoRow label="Status Anggota" value={<Badge variant="secondary">{activeClaim.status_anggota}</Badge>} />
+                      <InfoRow label="Status MPS" value={<Badge variant="outline">{activeClaim.status_mps}</Badge>} />
+                      <InfoRow label="Tanggal Meninggal" value={formatDate(activeClaim.tanggal_meninggal)} />
+                      {activeClaim.penyebab_meninggal && (
+                        <InfoRow label="Penyebab Meninggal" value={activeClaim.penyebab_meninggal} />
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">Status:</span>
-                      <Badge variant="secondary">{getAhliWarisLabel(claim.status_ahli_waris)}</Badge>
+
+                    {/* Ahli Waris */}
+                    <div className="border rounded-xl p-5 space-y-3">
+                      <h3 className="font-semibold flex items-center gap-2 text-sm uppercase tracking-wide text-muted-foreground">
+                        <User className="h-4 w-4" /> Ahli Waris
+                      </h3>
+                      <InfoRow label="Nama" value={activeClaim.nama_ahli_waris} />
+                      <InfoRow label="Status" value={<Badge variant="secondary">{activeClaim.status_ahli_waris}</Badge>} />
+                      {activeClaim.no_hp_ahli_waris && (
+                        <InfoRow label="No. HP" value={
+                          <span className="flex items-center gap-1.5">
+                            <Phone className="h-3.5 w-3.5" />
+                            {activeClaim.no_hp_ahli_waris}
+                          </span>
+                        } />
+                      )}
+                      {activeClaim.nik_ahli_waris && (
+                        <InfoRow label="NIK" value={activeClaim.nik_ahli_waris} />
+                      )}
+                      {activeClaim.alamat_ahli_waris && (
+                        <InfoRow label="Alamat" value={activeClaim.alamat_ahli_waris} />
+                      )}
                     </div>
-                    {claim.no_hp_ahli_waris && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">No. HP:</span>
-                        <span>{claim.no_hp_ahli_waris}</span>
+
+                    {/* Pelaporan */}
+                    <div className="border rounded-xl p-5 space-y-3">
+                      <h3 className="font-semibold flex items-center gap-2 text-sm uppercase tracking-wide text-muted-foreground">
+                        <Building className="h-4 w-4" /> Pelaporan
+                      </h3>
+                      <InfoRow label="Cabang Pelapor" value={activeClaim.cabang_asal_melapor} />
+                      {activeClaim.cabang_nama_pelapor && (
+                        <InfoRow label="Nama Pelapor" value={activeClaim.cabang_nama_pelapor} />
+                      )}
+                      {activeClaim.cabang_nik_pelapor && (
+                        <InfoRow label="NIK Pelapor" value={activeClaim.cabang_nik_pelapor} />
+                      )}
+                      {activeClaim.tanggal_lapor_keluarga && (
+                        <InfoRow label="Tanggal Lapor Keluarga" value={formatDate(activeClaim.tanggal_lapor_keluarga)} />
+                      )}
+                      {activeClaim.cabang_tanggal_awal_terima_berkas && (
+                        <InfoRow label="Terima Berkas" value={formatDate(activeClaim.cabang_tanggal_awal_terima_berkas)} />
+                      )}
+                    </div>
+
+                    {/* Dana */}
+                    <div className="border rounded-xl p-5 space-y-3">
+                      <h3 className="font-semibold flex items-center gap-2 text-sm uppercase tracking-wide text-muted-foreground">
+                        <Banknote className="h-4 w-4" /> Dana Kematian
+                      </h3>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                        <div className="text-2xl font-bold text-green-700">
+                          {formatCurrency(activeClaim.besaran_dana_kematian)}
+                        </div>
+                        <div className="text-xs text-green-600 mt-0.5">Besaran dana yang disetujui</div>
                       </div>
-                    )}
+                      {activeClaim.cabang_tanggal_serah_ke_ahli_waris && (
+                        <InfoRow label="Tanggal Serah" value={formatDate(activeClaim.cabang_tanggal_serah_ke_ahli_waris)} />
+                      )}
+                      {activeClaim.keterangan && (
+                        <div className="pt-2 border-t">
+                          <div className="text-xs text-muted-foreground mb-1">Keterangan</div>
+                          <p className="text-sm">{activeClaim.keterangan}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+
+                  {/* Rejection info */}
+                  {activeClaim.status_proses === 'ditolak' && activeClaim.rejection_reason && (
+                    <div className="border border-destructive/30 bg-destructive/5 rounded-xl p-5 flex gap-3">
+                      <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-destructive text-sm mb-1">Alasan Penolakan</div>
+                        <p className="text-sm">{activeClaim.rejection_reason}</p>
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* ── Timeline Tab ── */}
+                <TabsContent value="timeline" className="mt-0">
+                  <div className="border rounded-xl p-6">
+                    <DanaKematianTimeline claim={activeClaim} showLabels={true} />
+                  </div>
+                </TabsContent>
+
+                {/* ── Dokumen Tab ── */}
+                <TabsContent value="documents" className="mt-0">
+                  <DocumentValidationSystem
+                    claim={activeClaim}
+                    readonly={!canAccess || activeClaim.status_proses !== 'verifikasi_cabang'}
+                    onUpdate={canAccess && activeClaim.status_proses === 'verifikasi_cabang'
+                      ? (updates) => {
+                          updateMutation.mutateAsync(updates as any).catch((err) => {
+                            showToast('Gagal menyimpan perubahan dokumen', 'error');
+                          });
+                        }
+                      : undefined
+                    }
+                  />
+                </TabsContent>
+
+                {/* ── Laporan Tab ── */}
+                <TabsContent value="reports" className="mt-0">
+                  {allowsReporting(activeClaim.status_proses) || activeClaim.file_berita_acara ? (
+                    <ReportGenerationSystem claim={activeClaim} readonly={true} />
+                  ) : (
+                    <div className="border rounded-xl p-12 text-center">
+                      <Clock className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                      <p className="font-medium text-muted-foreground">Laporan belum tersedia</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Laporan dapat dibuat pada tahap penyaluran dana.
+                        Status saat ini: <strong>{getStatusProps(activeClaim.status_proses).label}</strong>
+                      </p>
+                    </div>
+                  )}
+                </TabsContent>
+
               </div>
-
-              {/* Financial Information */}
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-green-900">Besaran Dana Kematian</h3>
-                    <p className="text-sm text-green-700">Jumlah yang disetujui untuk ahli waris</p>
-                  </div>
-                  <div className="text-2xl font-bold text-green-700">
-                    {formatCurrency(claim.besaran_dana_kematian)}
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="timeline" className="space-y-4">
-              <DanaKematianTimeline claim={claim} showLabels={true} />
-            </TabsContent>
-
-            <TabsContent value="documents" className="space-y-4">
-              <DocumentValidationSystem
-                claim={claim}
-                readonly={!canAccess}
-                onUpdate={canAccess && claim.status_proses === 'verifikasi_cabang' ? (updates) => {
-                  // Update claim when document verification changes
-                  updateMutation.mutateAsync(updates as any).catch(console.error);
-                } : undefined}
-              />
-            </TabsContent>
-
-            <TabsContent value="communication" className="space-y-4">
-              {allowsCommunicationTracking(claim.status_proses) ? (
-                <CommunicationTrackingPanel
-                  claim={claim}
-                  readonly={true}
-                />
-              ) : (
-                <div className="p-4 bg-muted/50 rounded-lg text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Komunikasi tracking hanya tersedia untuk status: Dilaporkan, Verifikasi Cabang
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Status saat ini: {getStatusProsesProps(claim.status_proses).label}
-                  </p>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="reports" className="space-y-4">
-              {allowsReporting(claim.status_proses) || claim.file_berita_acara ? (
-                <ReportGenerationSystem
-                  claim={claim}
-                  readonly={true}
-                />
-              ) : (
-                <div className="p-4 bg-muted/50 rounded-lg text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Laporan hanya dapat dibuat pada tahap penyaluran dana
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Status saat ini: {getStatusProsesProps(claim.status_proses).label}
-                  </p>
-                </div>
-              )}
-            </TabsContent>
+            </div>
           </Tabs>
-        </DialogBody>
+        </div>
 
-        <DialogFooter className="flex justify-between">
-          <div className="flex-1 flex gap-2">
+        {/* Footer */}
+        <DialogFooter className="shrink-0 border-t bg-background px-8 py-4 flex items-center justify-between">
+          <div className="flex gap-2">
             {canShowVerifyButton && (
               <Button
                 onClick={handleVerifyAndSendToPusat}
@@ -409,15 +358,9 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 {isVerifying ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Memproses...
-                  </>
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Memproses...</>
                 ) : (
-                  <>
-                    <ShieldCheck className="h-4 w-4 mr-2" />
-                    Verifikasi & Kirim ke Pusat
-                  </>
+                  <><ShieldCheck className="h-4 w-4 mr-2" />Verifikasi & Kirim ke Pusat</>
                 )}
               </Button>
             )}
@@ -428,15 +371,9 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                 className="bg-green-600 hover:bg-green-700"
               >
                 {isFinalizing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Memproses...
-                  </>
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Memproses...</>
                 ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Finalisasi & Setujui
-                  </>
+                  <><CheckCircle2 className="h-4 w-4 mr-2" />Finalisasi & Setujui</>
                 )}
               </Button>
             )}
@@ -445,15 +382,23 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
             <Button variant="outline">Tutup</Button>
           </DialogClose>
         </DialogFooter>
-
-        {/* Toast Notification */}
-        <ToastNotification
-          show={toast.show}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast({ ...toast, show: false })}
-        />
       </DialogContent>
+
+      <ToastNotification
+        show={toast.show}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast(t => ({ ...t, show: false }))}
+      />
     </Dialog>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 text-sm">
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="font-medium text-right">{value}</span>
+    </div>
   );
 }
