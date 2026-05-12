@@ -79,7 +79,7 @@ const defaultFormData: CreateDanaKematianInput = {
   file_kartu_keluarga: '',
   file_e_ktp: '',
   file_surat_nikah: '',
-  status_proses: 'verifikasi_cabang',
+  status_proses: 'dilaporkan',
   keterangan: '',
 };
 

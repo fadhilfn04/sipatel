@@ -11,6 +11,7 @@ export interface UserPermissions {
   permissions: string[];
   canVerifyPP: boolean;
   canManagePC: boolean;
+  canAccessKeuangan: boolean;
   isLoading: boolean;
 }
 
@@ -21,6 +22,7 @@ export function useUserPermissions() {
     permissions: [],
     canVerifyPP: false,
     canManagePC: false,
+    canAccessKeuangan: false,
     isLoading: true
   });
 
@@ -43,14 +45,7 @@ export function useUserPermissions() {
       // Check specific Dana Kematian permissions
       const canVerifyPP = ['ketua-1', 'ketua-2', 'admin', 'administrator'].includes(roleSlug);
       const canManagePC = ['pc_staff', 'pc_kepala', 'admin', 'administrator'].includes(roleSlug);
-
-      console.log('[useUserPermissions] Session loaded:', {
-        roleSlug,
-        roleName: userRole.name,
-        canVerifyPP,
-        canManagePC,
-        permissionsCount: userPermissions.length
-      });
+      const canAccessKeuangan = ['keuangan', 'admin', 'administrator'].includes(roleSlug);
 
       setPermissions({
         role: roleSlug,
@@ -58,6 +53,7 @@ export function useUserPermissions() {
         permissions: userPermissions,
         canVerifyPP,
         canManagePC,
+        canAccessKeuangan,
         isLoading: false
       });
     } else {
@@ -104,6 +100,20 @@ export function useCanManagePC() {
 
   return {
     canManage: permissions.canManagePC,
+    isLoading: permissions.isLoading,
+    role: permissions.role,
+    roleName: permissions.roleName
+  };
+}
+
+/**
+ * Hook to check if user has Keuangan (finance) access
+ */
+export function useCanAccessKeuangan() {
+  const permissions = useUserPermissions();
+
+  return {
+    canAccess: permissions.canAccessKeuangan,
     isLoading: permissions.isLoading,
     role: permissions.role,
     roleName: permissions.roleName

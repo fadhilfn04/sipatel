@@ -13,6 +13,8 @@ import {
   Banknote,
   Phone,
   AlertTriangle,
+  Send,
+  CreditCard,
 } from 'lucide-react';
 import {
   Dialog,
@@ -30,7 +32,7 @@ import { DanaKematianTimeline, DanaKematianTimelineProgress } from './DanaKemati
 import { DocumentValidationSystem } from './DocumentValidationSystem';
 import { ReportGenerationSystem } from './ReportGenerationSystem';
 import { allowsReporting } from '@/lib/workflow/dana-kematian-state-machine';
-import { useCanAccessPPVerification } from '@/lib/hooks/use-user-permissions';
+import { useUserPermissions } from '@/lib/hooks/use-user-permissions';
 import { useUpdateDanaKematian, useDanaKematian } from '@/lib/hooks/use-dana-kematian-api';
 import { ToastNotification } from '@/components/anggota/ToastNotification';
 
@@ -48,15 +50,18 @@ interface StatusProps {
 }
 
 export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: DanaKematianDetailModalProps) {
-  const { canAccess, isLoading: permissionLoading } = useCanAccessPPVerification();
+  const { canVerifyPP, canManagePC, canAccessKeuangan, isLoading: permissionLoading } = useUserPermissions();
 
   // Live data — auto-refreshes when mutation invalidates the query
   const { data: freshClaim } = useDanaKematian(claim?.id || '');
   const activeClaim = freshClaim ?? claim;
 
   const updateMutation = useUpdateDanaKematian(activeClaim?.id || '');
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isFinalizing, setIsFinalizing] = useState(false);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPusatApproving, setIsPusatApproving] = useState(false);
+  const [isKeuanganApproving, setIsKeuanganApproving] = useState(false);
+  const [isConfirmingTransfer, setIsConfirmingTransfer] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' as 'success' | 'error' });
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -66,68 +71,126 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
 
   if (!activeClaim) return null;
 
+  const requiredDocsUploaded =
+    !!activeClaim.file_surat_kematian &&
+    !!activeClaim.file_sk_pensiun &&
+    !!activeClaim.file_surat_pernyataan_ahli_waris &&
+    !!activeClaim.file_kartu_keluarga &&
+    !!activeClaim.file_e_ktp;
+
   const allRequiredDocsVerified =
-    activeClaim.dokumen_surat_kematian_verified &&
-    activeClaim.dokumen_sk_pensiun_verified &&
-    activeClaim.dokumen_surat_pernyataan_verified &&
-    activeClaim.dokumen_kartu_keluarga_verified &&
-    activeClaim.dokumen_ktp_ahli_waris_verified;
+    !!activeClaim.dokumen_surat_kematian_verified &&
+    !!activeClaim.dokumen_sk_pensiun_verified &&
+    !!activeClaim.dokumen_surat_pernyataan_verified &&
+    !!activeClaim.dokumen_kartu_keluarga_verified &&
+    !!activeClaim.dokumen_ktp_ahli_waris_verified;
 
-  const canShowVerifyButton =
+  // Step 1: Cabang submits to Pusat
+  const canSubmitToPusat =
     !permissionLoading &&
-    canAccess &&
-    activeClaim.status_proses === 'verifikasi_cabang' &&
-    allRequiredDocsVerified;
+    canManagePC &&
+    activeClaim.status_proses === 'dilaporkan' &&
+    requiredDocsUploaded;
 
-  const canShowFinalizeButton =
+  // Step 2: Pusat verifies docs and approves
+  const canPusatApprove =
     !permissionLoading &&
-    canAccess &&
+    canVerifyPP &&
     activeClaim.status_proses === 'proses_pusat' &&
     allRequiredDocsVerified;
 
-  const handleVerifyAndSendToPusat = async () => {
+  // Step 3: Keuangan approves penyaluran
+  const canKeuanganApprove =
+    !permissionLoading &&
+    canAccessKeuangan &&
+    activeClaim.status_proses === 'verified';
+
+  // Step 4: Pusat confirms transfer (selesai)
+  const canConfirmTransfer =
+    !permissionLoading &&
+    canVerifyPP &&
+    activeClaim.status_proses === 'penyaluran';
+
+  // Document validation editable when Pusat and status is proses_pusat
+  const canEditDocuments =
+    canVerifyPP && activeClaim.status_proses === 'proses_pusat';
+
+  const handleSubmitToPusat = async () => {
     try {
-      setIsVerifying(true);
+      setIsSubmitting(true);
       await updateMutation.mutateAsync({
         status_proses: 'proses_pusat',
         cabang_tanggal_kirim_ke_pusat: new Date().toISOString().split('T')[0],
-        pusat_tanggal_awal_terima: new Date().toISOString().split('T')[0],
       } as any);
       onRefresh?.();
-      showToast('Status berhasil diubah ke Proses Pusat', 'success');
+      showToast('Pengajuan berhasil dikirim ke Pusat', 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Gagal mengirim ke pusat', 'error');
+      showToast(err instanceof Error ? err.message : 'Gagal mengirim ke Pusat', 'error');
     } finally {
-      setIsVerifying(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleFinalize = async () => {
+  const handlePusatApprove = async () => {
     try {
-      setIsFinalizing(true);
+      setIsPusatApproving(true);
       await updateMutation.mutateAsync({
         status_proses: 'verified',
+        pusat_tanggal_validasi: new Date().toISOString().split('T')[0],
         waktu_3: new Date().toISOString(),
       } as any);
       onRefresh?.();
-      showToast('Pengajuan berhasil difinalisasi dan disetujui', 'success');
+      showToast('Pengajuan berhasil disetujui oleh Pusat', 'success');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Gagal memfinalisasi pengajuan', 'error');
+      showToast(err instanceof Error ? err.message : 'Gagal menyetujui pengajuan', 'error');
     } finally {
-      setIsFinalizing(false);
+      setIsPusatApproving(false);
+    }
+  };
+
+  const handleKeuanganApprove = async () => {
+    try {
+      setIsKeuanganApproving(true);
+      await updateMutation.mutateAsync({
+        status_proses: 'penyaluran',
+        waktu_4: new Date().toISOString(),
+      } as any);
+      onRefresh?.();
+      showToast('Penyaluran dana telah disetujui oleh Keuangan', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal menyetujui penyaluran', 'error');
+    } finally {
+      setIsKeuanganApproving(false);
+    }
+  };
+
+  const handleConfirmTransfer = async () => {
+    try {
+      setIsConfirmingTransfer(true);
+      await updateMutation.mutateAsync({
+        status_proses: 'selesai',
+        pusat_tanggal_selesai: new Date().toISOString().split('T')[0],
+        waktu_7: new Date().toISOString(),
+      } as any);
+      onRefresh?.();
+      showToast('Transfer dana telah dikonfirmasi. Pengajuan selesai.', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Gagal mengkonfirmasi transfer', 'error');
+    } finally {
+      setIsConfirmingTransfer(false);
     }
   };
 
   const getStatusProps = (status: DanaKematian['status_proses']): StatusProps => {
     const map: Record<string, StatusProps> = {
-      dilaporkan:       { variant: 'secondary',    label: 'Dilaporkan',        color: 'text-gray-600' },
-      verifikasi_cabang:{ variant: 'warning',      label: 'Verifikasi Cabang', color: 'text-amber-600' },
-      pending_dokumen:  { variant: 'warning',      label: 'Pending Dokumen',   color: 'text-amber-600' },
-      proses_pusat:     { variant: 'warning',      label: 'Proses Pusat',      color: 'text-blue-600' },
-      verified:         { variant: 'success',      label: 'Terverifikasi',     color: 'text-green-600' },
-      penyaluran:       { variant: 'warning',      label: 'Penyaluran',        color: 'text-purple-600' },
-      selesai:          { variant: 'success',      label: 'Selesai',           color: 'text-green-700' },
-      ditolak:          { variant: 'destructive',  label: 'Ditolak',           color: 'text-red-600' },
+      dilaporkan:        { variant: 'secondary',   label: 'Dilaporkan',        color: 'text-gray-600' },
+      verifikasi_cabang: { variant: 'warning',     label: 'Verifikasi Cabang', color: 'text-amber-600' },
+      pending_dokumen:   { variant: 'warning',     label: 'Pending Dokumen',   color: 'text-amber-600' },
+      proses_pusat:      { variant: 'warning',     label: 'Proses Pusat',      color: 'text-blue-600' },
+      verified:          { variant: 'success',     label: 'Terverifikasi',     color: 'text-green-600' },
+      penyaluran:        { variant: 'warning',     label: 'Penyaluran',        color: 'text-purple-600' },
+      selesai:           { variant: 'success',     label: 'Selesai',           color: 'text-green-700' },
+      ditolak:           { variant: 'destructive', label: 'Ditolak',           color: 'text-red-600' },
     };
     return map[status] ?? { variant: 'secondary', label: status, color: 'text-gray-600' };
   };
@@ -211,6 +274,9 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                     <DanaKematianTimelineProgress claim={activeClaim} />
                   </div>
 
+                  {/* Workflow status banner */}
+                  <WorkflowStatusBanner status={activeClaim.status_proses} />
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Member */}
                     <div className="border rounded-xl p-5 space-y-3">
@@ -264,8 +330,8 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                       {activeClaim.tanggal_lapor_keluarga && (
                         <InfoRow label="Tanggal Lapor Keluarga" value={formatDate(activeClaim.tanggal_lapor_keluarga)} />
                       )}
-                      {activeClaim.cabang_tanggal_awal_terima_berkas && (
-                        <InfoRow label="Terima Berkas" value={formatDate(activeClaim.cabang_tanggal_awal_terima_berkas)} />
+                      {activeClaim.cabang_tanggal_kirim_ke_pusat && (
+                        <InfoRow label="Dikirim ke Pusat" value={formatDate(activeClaim.cabang_tanggal_kirim_ke_pusat)} />
                       )}
                     </div>
 
@@ -280,6 +346,9 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                         </div>
                         <div className="text-xs text-green-600 mt-0.5">Besaran dana yang disetujui</div>
                       </div>
+                      {activeClaim.pusat_tanggal_validasi && (
+                        <InfoRow label="Tanggal Validasi Pusat" value={formatDate(activeClaim.pusat_tanggal_validasi)} />
+                      )}
                       {activeClaim.cabang_tanggal_serah_ke_ahli_waris && (
                         <InfoRow label="Tanggal Serah" value={formatDate(activeClaim.cabang_tanggal_serah_ke_ahli_waris)} />
                       )}
@@ -315,10 +384,10 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                 <TabsContent value="documents" className="mt-0">
                   <DocumentValidationSystem
                     claim={activeClaim}
-                    readonly={!canAccess || activeClaim.status_proses !== 'verifikasi_cabang'}
-                    onUpdate={canAccess && activeClaim.status_proses === 'verifikasi_cabang'
+                    readonly={!canEditDocuments}
+                    onUpdate={canEditDocuments
                       ? (updates) => {
-                          updateMutation.mutateAsync(updates as any).catch((err) => {
+                          updateMutation.mutateAsync(updates as any).catch(() => {
                             showToast('Gagal menyimpan perubahan dokumen', 'error');
                           });
                         }
@@ -350,34 +419,83 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
 
         {/* Footer */}
         <DialogFooter className="shrink-0 border-t bg-background px-8 py-4 flex items-center justify-between">
-          <div className="flex gap-2">
-            {canShowVerifyButton && (
+          <div className="flex gap-2 flex-wrap">
+
+            {/* Step 1: Cabang → submit to Pusat */}
+            {canSubmitToPusat && (
               <Button
-                onClick={handleVerifyAndSendToPusat}
-                disabled={isVerifying}
+                onClick={handleSubmitToPusat}
+                disabled={isSubmitting}
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                {isVerifying ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Memproses...</>
+                {isSubmitting ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Mengirim...</>
                 ) : (
-                  <><ShieldCheck className="h-4 w-4 mr-2" />Verifikasi & Kirim ke Pusat</>
+                  <><Send className="h-4 w-4 mr-2" />Ajukan ke Pusat</>
                 )}
               </Button>
             )}
-            {canShowFinalizeButton && (
+
+            {/* Hint when Cabang but docs incomplete */}
+            {!permissionLoading && canManagePC && activeClaim.status_proses === 'dilaporkan' && !requiredDocsUploaded && (
+              <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                Upload semua dokumen wajib untuk mengajukan
+              </span>
+            )}
+
+            {/* Step 2: Pusat approves */}
+            {!permissionLoading && canVerifyPP && activeClaim.status_proses === 'proses_pusat' && !allRequiredDocsVerified && (
+              <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                Verifikasi semua dokumen wajib di tab Dokumen terlebih dahulu
+              </span>
+            )}
+            {canPusatApprove && (
               <Button
-                onClick={handleFinalize}
-                disabled={isFinalizing}
+                onClick={handlePusatApprove}
+                disabled={isPusatApproving}
                 className="bg-green-600 hover:bg-green-700"
               >
-                {isFinalizing ? (
+                {isPusatApproving ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Memproses...</>
                 ) : (
-                  <><CheckCircle2 className="h-4 w-4 mr-2" />Finalisasi & Setujui</>
+                  <><ShieldCheck className="h-4 w-4 mr-2" />Setujui Pengajuan</>
+                )}
+              </Button>
+            )}
+
+            {/* Step 3: Keuangan approves penyaluran */}
+            {canKeuanganApprove && (
+              <Button
+                onClick={handleKeuanganApprove}
+                disabled={isKeuanganApproving}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {isKeuanganApproving ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Memproses...</>
+                ) : (
+                  <><CheckCircle2 className="h-4 w-4 mr-2" />Setujui Penyaluran</>
+                )}
+              </Button>
+            )}
+
+            {/* Step 4: Pusat confirms transfer */}
+            {canConfirmTransfer && (
+              <Button
+                onClick={handleConfirmTransfer}
+                disabled={isConfirmingTransfer}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                {isConfirmingTransfer ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Memproses...</>
+                ) : (
+                  <><CreditCard className="h-4 w-4 mr-2" />Konfirmasi Transfer Dana</>
                 )}
               </Button>
             )}
           </div>
+
           <DialogClose asChild>
             <Button variant="outline">Tutup</Button>
           </DialogClose>
@@ -391,6 +509,70 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
         onClose={() => setToast(t => ({ ...t, show: false }))}
       />
     </Dialog>
+  );
+}
+
+function WorkflowStatusBanner({ status }: { status: DanaKematian['status_proses'] }) {
+  const steps = [
+    { label: 'Input Data & Dokumen', key: 'dilaporkan' },
+    { label: 'Verifikasi Pusat', key: 'proses_pusat' },
+    { label: 'Persetujuan Keuangan', key: 'verified' },
+    { label: 'Transfer Dana', key: 'penyaluran' },
+    { label: 'Selesai', key: 'selesai' },
+  ];
+
+  const orderMap: Record<string, number> = {
+    dilaporkan: 0,
+    verifikasi_cabang: 0,
+    pending_dokumen: 0,
+    proses_pusat: 1,
+    verified: 2,
+    penyaluran: 3,
+    selesai: 4,
+    ditolak: -1,
+  };
+
+  const currentOrder = orderMap[status] ?? 0;
+
+  if (status === 'ditolak') return null;
+
+  return (
+    <div className="border rounded-xl p-4 bg-muted/20">
+      <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wide font-medium">Alur Pengajuan</p>
+      <div className="flex items-center gap-0">
+        {steps.map((step, i) => {
+          const stepOrder = i;
+          const isDone = currentOrder > stepOrder;
+          const isCurrent = currentOrder === stepOrder;
+
+          return (
+            <div key={step.key} className="flex items-center flex-1 min-w-0">
+              <div className="flex flex-col items-center gap-1 flex-1">
+                <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                  isDone ? 'bg-green-500 text-white' :
+                  isCurrent ? 'bg-primary text-primary-foreground' :
+                  'bg-muted text-muted-foreground'
+                }`}>
+                  {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
+                </div>
+                <span className={`text-xs text-center leading-tight ${
+                  isCurrent ? 'font-semibold text-primary' :
+                  isDone ? 'text-green-600' :
+                  'text-muted-foreground'
+                }`}>
+                  {step.label}
+                </span>
+              </div>
+              {i < steps.length - 1 && (
+                <div className={`h-0.5 flex-1 mx-1 shrink-0 ${
+                  currentOrder > i ? 'bg-green-400' : 'bg-muted'
+                }`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

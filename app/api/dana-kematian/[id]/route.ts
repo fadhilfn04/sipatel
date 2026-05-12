@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, UpdateDanaKematianInput } from '@/lib/supabase';
+import { UpdateDanaKematianInput } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-storage';
+
+function getClient() {
+  if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
+  return supabaseAdmin;
+}
 
 // GET /api/dana-kematian/[id] - Get single death benefit claim by ID
 export async function GET(
@@ -8,7 +14,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const { data: danaKematian, error } = await supabase
+    const { data: danaKematian, error } = await getClient()
       .from('dana_kematian')
       .select('*')
       .eq('id', id)
@@ -42,7 +48,7 @@ export async function PUT(
     const body: UpdateDanaKematianInput = await request.json();
 
     // Check if claim exists
-    const { data: existingClaim } = await supabase
+    const { data: existingClaim } = await getClient()
       .from('dana_kematian')
       .select('id')
       .eq('id', id)
@@ -57,7 +63,7 @@ export async function PUT(
     }
 
     // Update dana kematian
-    const { data: updatedDanaKematian, error } = await supabase
+    const { data: updatedDanaKematian, error } = await getClient()
       .from('dana_kematian')
       .update({
         ...body,
@@ -115,7 +121,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     // Check if claim exists
-    const { data: existingClaim } = await supabase
+    const { data: existingClaim } = await getClient()
       .from('dana_kematian')
       .select('id, status_proses')
       .eq('id', id)
@@ -138,7 +144,7 @@ export async function DELETE(
     }
 
     // Soft delete by setting deleted_at
-    const { error } = await supabase
+    const { error } = await getClient()
       .from('dana_kematian')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id);

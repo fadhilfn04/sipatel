@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, CreateDanaKematianInput, DanaKematianFilter } from '@/lib/supabase';
+import { CreateDanaKematianInput, DanaKematianFilter } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-storage';
+
+function getClient() {
+  if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
+  return supabaseAdmin;
+}
 
 // GET /api/dana-kematian - List death benefits with filtering
 export async function GET(request: NextRequest) {
@@ -13,7 +19,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = (page - 1) * limit;
 
-    let query = supabase
+    let query = getClient()
       .from('dana_kematian')
       .select('*', { count: 'exact' })
       .is('deleted_at', null);
@@ -99,7 +105,7 @@ export async function POST(request: NextRequest) {
 
     // Check if member exists (if anggota_id is provided)
     if (body.anggota_id) {
-      const { data: member } = await supabase
+      const { data: member } = await getClient()
         .from('anggota')
         .select('id')
         .eq('id', body.anggota_id)
@@ -114,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create dana kematian
-    const { data: newDanaKematian, error } = await supabase
+    const { data: newDanaKematian, error } = await getClient()
       .from('dana_kematian')
       .insert([{
         ...body,
@@ -135,7 +141,7 @@ export async function POST(request: NextRequest) {
         file_kartu_keluarga: body.file_kartu_keluarga || null,
         file_e_ktp: body.file_e_ktp || null,
         file_surat_nikah: body.file_surat_nikah || null,
-        status_proses: body.status_proses || 'verifikasi_cabang', // Default: verifikasi cabang
+        status_proses: body.status_proses || 'dilaporkan',
         keterangan: body.keterangan || null,
         data_perubahan: {
           actor_id: null,
