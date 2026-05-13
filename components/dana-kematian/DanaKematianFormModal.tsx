@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   User,
+  Users,
   FileText,
   Loader2,
   Plus,
@@ -16,6 +17,8 @@ import {
   ChevronLeft,
   Phone,
   Circle,
+  X,
+  XCircle,
 } from 'lucide-react';
 import {
   Dialog,
@@ -51,7 +54,10 @@ interface DanaKematianFormModalProps {
   mode: 'create' | 'edit';
   isPending: boolean;
   members: Anggota[];
+  existingAnggotaIds?: Set<string>;
 }
+
+type FamilyMember = { nama: string; hubungan: string };
 
 const defaultFormData: CreateDanaKematianInput = {
   nama_anggota: '',
@@ -153,6 +159,7 @@ export function DanaKematianFormModal({
   mode,
   isPending,
   members,
+  existingAnggotaIds,
 }: DanaKematianFormModalProps) {
   const [formData, setFormData] = useState<CreateDanaKematianInput>(defaultFormData);
   const [activeTab, setActiveTab] = useState('informasi-utama');
@@ -163,7 +170,14 @@ export function DanaKematianFormModal({
   const [manualTariffOverride, setManualTariffOverride] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
+  const [duplicateMemberError, setDuplicateMemberError] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+
+  const addFamilyMember = () => setFamilyMembers(prev => [...prev, { nama: '', hubungan: 'anak' }]);
+  const removeFamilyMember = (i: number) => setFamilyMembers(prev => prev.filter((_, idx) => idx !== i));
+  const updateFamilyMember = (i: number, field: keyof FamilyMember, value: string) =>
+    setFamilyMembers(prev => prev.map((m, idx) => idx === i ? { ...m, [field]: value } : m));
 
   const { data: currentUserAnggota } = useCurrentUserAnggota();
 
@@ -207,6 +221,13 @@ export function DanaKematianFormModal({
         const member = members.find(m => m.id === claim.anggota_id);
         if (member) setSelectedMember(member);
       }
+
+      try {
+        const parsed = JSON.parse(claim.susunan_keluarga || '[]');
+        setFamilyMembers(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        setFamilyMembers([]);
+      }
     } else {
       setFormData({
         ...defaultFormData,
@@ -215,9 +236,11 @@ export function DanaKematianFormModal({
         cabang_asal_melapor: currentUserAnggota?.nama_cabang ?? '',
       });
       setSelectedMember(null);
+      setFamilyMembers([]);
     }
 
     setValidationErrors({});
+    setDuplicateMemberError(null);
     setActiveTab('informasi-utama');
     setDocumentStep(0);
     setManualTariffOverride(false);
@@ -229,6 +252,13 @@ export function DanaKematianFormModal({
       setFormData(prev => ({ ...prev, besaran_dana_kematian: calculation.amount }));
     }
   }, [formData.tanggal_meninggal, formData.status_mps, manualTariffOverride, mode]);
+
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      susunan_keluarga: familyMembers.length > 0 ? JSON.stringify(familyMembers) : '',
+    }));
+  }, [familyMembers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,6 +299,15 @@ export function DanaKematianFormModal({
   };
 
   const handleMemberSelect = (member: Anggota) => {
+    if (existingAnggotaIds?.has(member.id)) {
+      setDuplicateMemberError(
+        `${member.nama_anggota} sudah memiliki pengajuan dana kematian yang aktif. Satu anggota hanya dapat memiliki satu pengajuan.`
+      );
+      setMemberSearchModalOpen(false);
+      return;
+    }
+
+    setDuplicateMemberError(null);
     setSelectedMember(member);
     setFormData({
       ...formData,
@@ -385,7 +424,13 @@ export function DanaKematianFormModal({
                               <Search className="h-4 w-4 mr-2" />
                               Cari Anggota
                             </Button>
-                            {validationErrors.member && (
+                            {duplicateMemberError && (
+                              <div className="mt-2 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/8 px-3 py-2.5">
+                                <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                                <p className="text-sm text-destructive">{duplicateMemberError}</p>
+                              </div>
+                            )}
+                            {validationErrors.member && !duplicateMemberError && (
                               <p className="text-sm text-destructive mt-2">{validationErrors.member}</p>
                             )}
                           </div>
@@ -832,7 +877,7 @@ export function DanaKematianFormModal({
                         )}
 
                         {documentStep === 1 && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-4">
                             <div className="space-y-2">
                               <label className="text-sm font-medium">NIK</label>
                               <Input
@@ -842,13 +887,103 @@ export function DanaKematianFormModal({
                                 placeholder="Pilih anggota untuk mengisi NIK"
                               />
                             </div>
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">Susunan Keluarga</label>
-                              <Input
-                                placeholder="Susunan keluarga"
-                                value={(formData as any).susunan_keluarga || ''}
-                                onChange={(e) => handleFieldChange('susunan_keluarga' as any, e.target.value)}
-                              />
+
+                            {/* Family hierarchy */}
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <label className="text-sm font-medium">Susunan Keluarga</label>
+                                <Button type="button" size="sm" variant="outline" onClick={addFamilyMember}>
+                                  <Plus className="h-3.5 w-3.5 mr-1" />
+                                  Tambah
+                                </Button>
+                              </div>
+
+                              {/* Deceased header */}
+                              {(formData.nama_anggota || selectedMember) && (
+                                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/8 border border-primary/20">
+                                  <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                                    <User className="h-4 w-4 text-primary" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold truncate">{formData.nama_anggota}</p>
+                                    <p className="text-xs text-muted-foreground">Almarhum / Almarhumah</p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Connector line */}
+                              {familyMembers.length > 0 && (
+                                <div className="flex justify-center">
+                                  <div className="w-0.5 h-4 bg-border" />
+                                </div>
+                              )}
+
+                              {familyMembers.length === 0 ? (
+                                <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                                  <Users className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                                  <p className="text-sm text-muted-foreground">Belum ada anggota keluarga ditambahkan</p>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="mt-3"
+                                    onClick={addFamilyMember}
+                                  >
+                                    <Plus className="h-3.5 w-3.5 mr-1" />
+                                    Tambah Anggota Keluarga
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {/* Column header */}
+                                  <div className="grid grid-cols-[24px_1fr_160px_32px] gap-2 px-3 text-xs font-medium text-muted-foreground">
+                                    <span>No</span>
+                                    <span>Nama</span>
+                                    <span>Hubungan</span>
+                                    <span />
+                                  </div>
+                                  {familyMembers.map((member, index) => (
+                                    <div
+                                      key={index}
+                                      className="grid grid-cols-[24px_1fr_160px_32px] items-center gap-2 px-3 py-2 border rounded-lg bg-muted/30"
+                                    >
+                                      <span className="text-xs text-muted-foreground text-center">{index + 1}</span>
+                                      <Input
+                                        placeholder="Nama anggota keluarga"
+                                        value={member.nama}
+                                        onChange={(e) => updateFamilyMember(index, 'nama', e.target.value)}
+                                        className="h-8 text-sm"
+                                      />
+                                      <Select
+                                        value={member.hubungan}
+                                        onValueChange={(v) => updateFamilyMember(index, 'hubungan', v)}
+                                      >
+                                        <SelectTrigger className="h-8 text-sm">
+                                          <SelectValue placeholder="Hubungan" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="istri">Istri</SelectItem>
+                                          <SelectItem value="suami">Suami</SelectItem>
+                                          <SelectItem value="anak">Anak</SelectItem>
+                                          <SelectItem value="ayah">Ayah</SelectItem>
+                                          <SelectItem value="ibu">Ibu</SelectItem>
+                                          <SelectItem value="saudara">Saudara</SelectItem>
+                                          <SelectItem value="menantu">Menantu</SelectItem>
+                                          <SelectItem value="cucu">Cucu</SelectItem>
+                                          <SelectItem value="lainnya">Lainnya</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <button
+                                        type="button"
+                                        onClick={() => removeFamilyMember(index)}
+                                        className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}

@@ -28,6 +28,7 @@ import {
   ChevronsRight,
   User,
   FileText,
+  Upload,
 } from 'lucide-react';
 import { Card, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,7 @@ import {
 import { DanaKematian, CreateDanaKematianInput } from '@/lib/supabase';
 import { DanaKematianDetailModal } from '@/components/dana-kematian/DanaKematianDetailModal';
 import { DanaKematianFormModal } from '@/components/dana-kematian/DanaKematianFormModal';
+import { DanaKematianImportModal } from '@/components/dana-kematian/DanaKematianImportModal';
 import { DeleteConfirmDialog } from '@/components/dana-kematian/DeleteConfirmDialog';
 import { ToastNotification } from '@/components/anggota/ToastNotification';
 import { useAnggotaList } from '@/lib/hooks/use-anggota-api';
@@ -88,6 +90,7 @@ export default function DanaKematianPage() {
   const [selectedClaim, setSelectedClaim] = useState<DanaKematian | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editClaimId, setEditClaimId] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -116,6 +119,15 @@ export default function DanaKematianPage() {
     page: 1,
     limit: 1000,
   });
+
+  // Fetch all claimed anggota IDs for duplicate prevention
+  const { data: allClaimsData } = useDanaKematianList({ page: 1, limit: 10000 });
+  const existingAnggotaIds = new Set(
+    (allClaimsData?.data || [])
+      .filter(c => c.status_proses !== 'ditolak')
+      .map(c => c.anggota_id)
+      .filter(Boolean) as string[]
+  );
 
   const { data: editClaimData } = useDanaKematian(editClaimId || '');
   const createMutation = useCreateDanaKematian();
@@ -403,6 +415,10 @@ export default function DanaKematianPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setImportModalOpen(true)}>
+                  <Upload />
+                  Import Data
+                </Button>
                 <Button onClick={() => setAddModalOpen(true)}>
                   <Plus />
                   Ajukan Dana
@@ -557,6 +573,11 @@ export default function DanaKematianPage() {
         claim={selectedClaim}
         onRefresh={() => refetch()}
       />
+      <DanaKematianImportModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={() => refetch()}
+      />
       <DanaKematianFormModal
         open={addModalOpen}
         onClose={() => setAddModalOpen(false)}
@@ -564,6 +585,7 @@ export default function DanaKematianPage() {
         mode="create"
         isPending={createMutation.isPending}
         members={membersData?.data || []}
+        existingAnggotaIds={existingAnggotaIds}
       />
       <DanaKematianFormModal
         open={editModalOpen}

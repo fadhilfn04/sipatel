@@ -26,9 +26,22 @@ export async function GET(request: NextRequest) {
 
     // Search
     if (search) {
-      query = query.or(
-        `nama_anggota.ilike.%${search}%,nama_ahli_waris.ilike.%${search}%,cabang_asal_melapor.ilike.%${search}%,cabang_nik_pelapor.ilike.%${search}%`
-      );
+      // Find anggota IDs whose NIK matches the search term (NIK lives in the anggota table, not dana_kematian)
+      const { data: nikMatches } = await getClient()
+        .from('anggota')
+        .select('id')
+        .ilike('nik', `%${search}%`)
+        .is('deleted_at', null);
+
+      const matchingIds = (nikMatches || []).map((a: { id: string }) => a.id);
+
+      let orFilter = `nama_anggota.ilike.%${search}%,nama_ahli_waris.ilike.%${search}%,cabang_asal_melapor.ilike.%${search}%,cabang_nik_pelapor.ilike.%${search}%`;
+
+      if (matchingIds.length > 0) {
+        orFilter += `,anggota_id.in.(${matchingIds.join(',')})`;
+      }
+
+      query = query.or(orFilter);
     }
 
     // Filter by status

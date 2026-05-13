@@ -10,6 +10,8 @@ import { I18nProvider } from '@/providers/i18n-provider';
 import { ModulesProvider } from '@/providers/modules-provider';
 import { QueryProvider } from '@/providers/query-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
+import { UISettingsProvider } from '@/providers/ui-settings-provider';
+import { UISettingsPanel } from '@/components/ui-settings/UISettingsPanel';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -39,16 +41,19 @@ export default async function RootLayout({
         <QueryProvider>
           <AuthProvider>
             <SettingsProvider>
-              <ThemeProvider>
-                <I18nProvider>
-                  <TooltipsProvider>
-                    <ModulesProvider>
-                      <Suspense>{children}</Suspense>
-                      <Toaster />
-                    </ModulesProvider>
-                  </TooltipsProvider>
-                </I18nProvider>
-              </ThemeProvider>
+              <UISettingsProvider>
+                <ThemeProvider>
+                  <I18nProvider>
+                    <TooltipsProvider>
+                      <ModulesProvider>
+                        <Suspense>{children}</Suspense>
+                        <UISettingsPanel />
+                        <Toaster />
+                      </ModulesProvider>
+                    </TooltipsProvider>
+                  </I18nProvider>
+                </ThemeProvider>
+              </UISettingsProvider>
             </SettingsProvider>
           </AuthProvider>
         </QueryProvider>
