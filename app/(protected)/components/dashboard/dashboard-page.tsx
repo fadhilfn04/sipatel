@@ -44,7 +44,6 @@ export function DashboardPage() {
         <Toolbar>
           <ToolbarHeading
             title="Dashboard"
-            description="Ringkasan statistik dan aktivitas terbaru sistem P2Tel"
           />
           {/* <ToolbarActions>
             <Popover open={isOpen} onOpenChange={setIsOpen}>

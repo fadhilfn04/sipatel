@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-storage';
+
+function getClient() {
+  if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
+  return supabaseAdmin;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -7,13 +12,13 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || 'both';
     const limit = parseInt(searchParams.get('limit') || '5');
 
-    let data: any = {};
+    const client = getClient();
+    const data: any = {};
 
-    // Get latest anggota
     if (type === 'anggota' || type === 'both') {
-      const { data: latestAnggota } = await supabase
+      const { data: latestAnggota } = await client
         .from('anggota')
-        .select('*')
+        .select('id, nama_anggota, nik, status_anggota, nama_cabang, created_at')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -21,11 +26,10 @@ export async function GET(request: NextRequest) {
       data.anggota = latestAnggota || [];
     }
 
-    // Get latest dana kematian claims
     if (type === 'klaim' || type === 'both') {
-      const { data: latestKlaim } = await supabase
+      const { data: latestKlaim } = await client
         .from('dana_kematian')
-        .select('*')
+        .select('id, nama_anggota, nama_ahli_waris, status_proses, besaran_dana_kematian, tanggal_meninggal, created_at')
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -33,9 +37,8 @@ export async function GET(request: NextRequest) {
       data.klaim = latestKlaim || [];
     }
 
-    // Get latest dana sosial
     if (type === 'sosial' || type === 'both') {
-      const { data: latestSosial } = await supabase
+      const { data: latestSosial } = await client
         .from('dana_sosial')
         .select('*')
         .is('deleted_at', null)

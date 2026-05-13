@@ -1,82 +1,61 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-storage';
+
+function getClient() {
+  if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
+  return supabaseAdmin;
+}
 
 export async function GET() {
   try {
-    // Get total anggota
-    const { count: totalAnggota } = await supabase
-      .from('anggota')
-      .select('*', { count: 'exact', head: true })
-      .is('deleted_at', null);
+    const client = getClient();
 
-    // Get active anggota
-    const { count: anggotaAktif } = await supabase
-      .from('anggota')
-      .select('*', { count: 'exact', head: true })
-      .neq('status_anggota', 'meninggal')
-      .is('deleted_at', null);
+    const [
+      { count: totalAnggota },
+      { count: anggotaAktif },
+      { count: anggotaMeninggal },
+      { data: klaimRows },
+      { count: totalDanaSosial },
+    ] = await Promise.all([
+      client.from('anggota').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+      client.from('anggota').select('*', { count: 'exact', head: true }).neq('status_anggota', 'meninggal').is('deleted_at', null),
+      client.from('anggota').select('*', { count: 'exact', head: true }).eq('status_anggota', 'meninggal').is('deleted_at', null),
+      client.from('dana_kematian').select('status_proses, besaran_dana_kematian').is('deleted_at', null),
+      client.from('dana_sosial').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+    ]);
 
-    // Get deceased anggota
-    const { count: anggotaMeninggal } = await supabase
-      .from('anggota')
-      .select('*', { count: 'exact', head: true })
-      .eq('status_anggota', 'meninggal')
-      .is('deleted_at', null);
+    // Aggregate dana kematian by status
+    const klaimByStatus: Record<string, number> = {};
+    let totalDicairkan = 0;
 
-    // Get total dana kematian claims
-    const { count: totalKlaim } = await supabase
-      .from('dana_kematian')
-      .select('*', { count: 'exact', head: true })
-      .is('deleted_at', null);
+    (klaimRows || []).forEach((row) => {
+      const s = row.status_proses || 'unknown';
+      klaimByStatus[s] = (klaimByStatus[s] || 0) + 1;
+      if (s === 'selesai') {
+        totalDicairkan += row.besaran_dana_kematian || 0;
+      }
+    });
 
-    // Get pending claims
-    const { count: klaimPending } = await supabase
-      .from('dana_kematian')
-      .select('*', { count: 'exact', head: true })
-      .eq('status_pengajuan', 'Pending')
-      .is('deleted_at', null);
-
-    // Get total disbursed amount
-    const { data: disbursedClaims } = await supabase
-      .from('dana_kematian')
-      .select('jumlah_uang_duka')
-      .in('status_pengajuan', ['Dibayar', 'Selesai'])
-      .is('deleted_at', null);
-
-    const totalDicairkan = disbursedClaims?.reduce((sum, claim) => sum + (claim.jumlah_uang_duka || 0), 0) || 0;
-
-    // Get total dana sosial
-    const { count: totalDanaSosial } = await supabase
-      .from('dana_sosial')
-      .select('*', { count: 'exact', head: true })
-      .is('deleted_at', null);
-
-    // Get pending dana sosial
-    const { count: danaSosialPending } = await supabase
-      .from('dana_sosial')
-      .select('*', { count: 'exact', head: true })
-      .eq('status_pengajuan', 'Pending')
-      .is('deleted_at', null);
-
-    // Get total dana sosial disbursed
-    const { data: disbursedSosial } = await supabase
-      .from('dana_sosial')
-      .select('jumlah_disetujui')
-      .in('status_pengajuan', ['Disalurkan', 'Selesai'])
-      .is('deleted_at', null);
-
-    const totalDanaSosialDicairkan = disbursedSosial?.reduce((sum, claim) => sum + (claim.jumlah_disetujui || 0), 0) || 0;
+    const totalKlaim = klaimRows?.length || 0;
+    const klaimSelesai = klaimByStatus['selesai'] || 0;
+    const klaimDitolak = klaimByStatus['ditolak'] || 0;
+    const klaimAktif = totalKlaim - klaimSelesai - klaimDitolak;
 
     return NextResponse.json({
       totalAnggota: totalAnggota || 0,
       anggotaAktif: anggotaAktif || 0,
       anggotaMeninggal: anggotaMeninggal || 0,
-      totalKlaim: totalKlaim || 0,
-      klaimPending: klaimPending || 0,
-      totalDicairkan: totalDicairkan,
+      totalKlaim,
+      klaimAktif,
+      klaimSelesai,
+      klaimDitolak,
+      klaimByStatus,
+      totalDicairkan,
       totalDanaSosial: totalDanaSosial || 0,
-      danaSosialPending: danaSosialPending || 0,
-      totalDanaSosialDicairkan: totalDanaSosialDicairkan,
+      // legacy fields kept for backward compatibility
+      klaimPending: klaimAktif,
+      danaSosialPending: 0,
+      totalDanaSosialDicairkan: 0,
     });
   } catch (error: any) {
     console.error('Error fetching dashboard stats:', error);

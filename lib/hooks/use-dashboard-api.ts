@@ -5,11 +5,16 @@ export interface DashboardStats {
   anggotaAktif: number;
   anggotaMeninggal: number;
   totalKlaim: number;
-  klaimPending: number;
+  klaimAktif: number;
+  klaimSelesai: number;
+  klaimDitolak: number;
+  klaimByStatus: Record<string, number>;
   totalDicairkan: number;
   totalDanaSosial: number;
   danaSosialPending: number;
   totalDanaSosialDicairkan: number;
+  // legacy
+  klaimPending?: number;
 }
 
 export interface LatestData {
@@ -18,7 +23,6 @@ export interface LatestData {
   sosial: any[];
 }
 
-// Fetch dashboard statistics
 export function useDashboardStats() {
   return useQuery({
     queryKey: ['dashboard-stats'],
@@ -30,11 +34,10 @@ export function useDashboardStats() {
       }
       return response.json() as Promise<DashboardStats>;
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 60000,
   });
 }
 
-// Fetch latest data (anggota, klaim, sosial)
 export function useLatestData(type: 'anggota' | 'klaim' | 'sosial' | 'both' = 'both', limit: number = 5) {
   return useQuery({
     queryKey: ['latest-data', type, limit],
@@ -46,6 +49,6 @@ export function useLatestData(type: 'anggota' | 'klaim' | 'sosial' | 'both' = 'b
       }
       return response.json() as Promise<LatestData>;
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 60000,
   });
 }

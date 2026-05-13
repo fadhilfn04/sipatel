@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/lib/supabase-storage';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+function getClient() {
+  if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
+  return supabaseAdmin;
+}
 
 export async function GET(request: NextRequest) {
   try {
     // Get active claims (not selesai, not ditolak)
-    const { data: claims, error } = await supabase
+    const { data: claims, error } = await getClient()
       .from('dana_kematian')
-      .select('*')
-      .not('status_proses', 'in', '("selesai", "ditolak")')
+      .select('*, anggota:anggota_id(nik)')
+      .not('status_proses', 'in', '(selesai,ditolak)')
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(10);
