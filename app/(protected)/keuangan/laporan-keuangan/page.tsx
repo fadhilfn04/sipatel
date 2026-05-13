@@ -8,320 +8,542 @@ import {
 } from '@/layouts/demo1/toolbar';
 import { Container } from '@/components/common/container';
 import Link from 'next/link';
-import { ChevronRight, TrendingUp, DollarSign, FileText, PiggyBank, Heart, Users, Calendar, BarChart3, RefreshCw } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import {
+  TrendingUp, DollarSign, FileText, PiggyBank, Heart, Users,
+  Calendar, BarChart3, RefreshCw, ChevronRight, ArrowRight,
+  CheckCircle2, Clock, XCircle, Activity, Banknote, Wallet,
+  AlertTriangle,
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge, BadgeDot } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useDashboardKeuangan } from '@/lib/hooks/use-dashboard-keuangan-api';
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+const formatCurrency = (n: number) =>
+  new Intl.NumberFormat('id-ID', {
+    style: 'currency', currency: 'IDR',
+    minimumFractionDigits: 0, maximumFractionDigits: 0,
+  }).format(n);
 
-function formatNumber(num: number): string {
-  return new Intl.NumberFormat('id-ID').format(num);
-}
+const formatNumber = (n: number) => new Intl.NumberFormat('id-ID').format(n);
 
-const colorClasses = {
-  blue: 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400',
-  green: 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400',
-  purple: 'bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400',
-  yellow: 'bg-yellow-500/10 text-yellow-600 dark:bg-yellow-500/20 dark:text-yellow-400',
-  emerald: 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400',
-  rose: 'bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400',
-  pink: 'bg-pink-500/10 text-pink-600 dark:bg-pink-500/20 dark:text-pink-400',
-  indigo: 'bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400',
-};
+const PERIOD_OPTIONS = [
+  { key: 'today' as const, label: 'Hari Ini' },
+  { key: 'week' as const, label: 'Minggu Ini' },
+  { key: 'month' as const, label: 'Bulan Ini' },
+  { key: 'year' as const, label: 'Tahun Ini' },
+];
+
+const STATUS_MAP = [
+  { key: 'dilaporkan', label: 'Dilaporkan', color: 'bg-slate-500', light: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
+  { key: 'verifikasi_cabang', label: 'Verifikasi Cabang', color: 'bg-blue-500', light: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },
+  { key: 'proses_pusat', label: 'Proses Pusat', color: 'bg-orange-500', light: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300' },
+  { key: 'selesai', label: 'Selesai', color: 'bg-green-500', light: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
+  { key: 'ditolak', label: 'Ditolak', color: 'bg-red-500', light: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
+];
 
 export default function LaporanKeuanganPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month' | 'year'>('month');
 
-  // Fetch dashboard data
-  const { data: dashboardData, isLoading, refetch } = useDashboardKeuangan({
-    period: selectedPeriod,
-  });
+  const { data, isLoading, refetch } = useDashboardKeuangan({ period: selectedPeriod });
+  const ov = data?.overview;
+  const klaimByStatus = data?.klaimByStatus || {};
+  const totalKlaimAll = ov?.totalKlaim || 0;
 
-  const handleRefresh = () => {
-    refetch();
-  };
-
-  // Build report categories with dynamic stats
-  const reportCategories = dashboardData ? [
+  // Report categories — use real data where available
+  const reportCategories = [
     {
       title: 'Ringkasan Keuangan',
       description: 'Ikhtisar kondisi keuangan organisasi secara real-time',
       icon: BarChart3,
       href: '/keuangan/laporan-keuangan/ringkasan',
-      color: 'blue' as const,
-      stats: [
-        { label: 'Total Pemasukan', value: formatCurrency(dashboardData.ringkasanKeuangan.totalPemasukan) },
-        { label: 'Total Pengeluaran', value: formatCurrency(dashboardData.ringkasanKeuangan.totalPengeluaran) },
-        { label: 'Saldo', value: formatCurrency(dashboardData.ringkasanKeuangan.saldo) },
-      ],
+      colorBorder: 'border-l-blue-500',
+      colorIcon: 'text-blue-600 dark:text-blue-400',
+      colorIconBg: 'bg-blue-50 dark:bg-blue-950',
+      stats: ov ? [
+        { label: 'Kas Masuk', value: formatCurrency(ov.kasMasuk) },
+        { label: 'Kas Keluar', value: formatCurrency(ov.kasKeluar) },
+        { label: 'Saldo', value: formatCurrency(ov.cashBalance) },
+      ] : null,
     },
     {
       title: 'Arus Kas',
       description: 'Laporan aliran masuk dan keluarnya uang',
       icon: TrendingUp,
       href: '/keuangan/laporan-keuangan/arus-kas',
-      color: 'green' as const,
-      stats: [
-        { label: 'Kas Masuk', value: formatCurrency(dashboardData.arusKas.kasMasuk) },
-        { label: 'Kas Keluar', value: formatCurrency(dashboardData.arusKas.kasKeluar) },
-        { label: 'Net Cash Flow', value: formatCurrency(dashboardData.arusKas.netCashFlow) },
-      ],
+      colorBorder: 'border-l-green-500',
+      colorIcon: 'text-green-600 dark:text-green-400',
+      colorIconBg: 'bg-green-50 dark:bg-green-950',
+      stats: ov ? [
+        { label: 'Kas Masuk', value: formatCurrency(ov.kasMasuk) },
+        { label: 'Kas Keluar', value: formatCurrency(ov.kasKeluar) },
+        { label: 'Net Cash Flow', value: formatCurrency(ov.kasMasuk - ov.kasKeluar) },
+      ] : null,
     },
     {
       title: 'Laba Rugi',
       description: 'Laporan pendapatan dan beban operasional',
       icon: FileText,
       href: '/keuangan/laporan-keuangan/laba-rugi',
-      color: 'purple' as const,
-      stats: [
-        { label: 'Pendapatan', value: formatCurrency(dashboardData.labaRugi.pendapatan) },
-        { label: 'Beban', value: formatCurrency(dashboardData.labaRugi.beban) },
-        { label: 'Laba Bersih', value: formatCurrency(dashboardData.labaRugi.labaBersih) },
-      ],
+      colorBorder: 'border-l-purple-500',
+      colorIcon: 'text-purple-600 dark:text-purple-400',
+      colorIconBg: 'bg-purple-50 dark:bg-purple-950',
+      stats: ov ? [
+        { label: 'Pendapatan', value: formatCurrency(ov.kasMasuk) },
+        { label: 'Beban', value: formatCurrency(ov.kasKeluar) },
+        { label: 'Laba Bersih', value: formatCurrency(ov.kasMasuk - ov.kasKeluar) },
+      ] : null,
     },
     {
       title: 'Neraca',
       description: 'Laporan posisi keuangan dan ekuitas',
-      icon: DollarSign,
+      icon: Wallet,
       href: '/keuangan/laporan-keuangan/neraca',
-      color: 'yellow' as const,
-      stats: [
-        { label: 'Total Aset', value: formatCurrency(dashboardData.neraca.totalAset) },
-        { label: 'Total Kewajiban', value: formatCurrency(dashboardData.neraca.totalKewajiban) },
-        { label: 'Ekuitas', value: formatCurrency(dashboardData.neraca.totalEkuitas) },
-      ],
-    },
-    {
-      title: 'Pembayaran Sumbangan',
-      description: 'Pembayaran sumbangan anggota',
-      icon: DollarSign,
-      href: '/keuangan/laporan-keuangan/pembayaran-sumbangan',
-      color: 'emerald' as const,
-      stats: [
-        { label: 'Total Terbayar', value: formatCurrency(dashboardData.pembayaranSumbangan.totalTerbayar) },
-        { label: 'Tertunda', value: formatCurrency(dashboardData.pembayaranSumbangan.totalTertunda) },
-        { label: 'Jumlah Transaksi', value: formatNumber(dashboardData.pembayaranSumbangan.jumlahTransaksi) },
-      ],
+      colorBorder: 'border-l-yellow-500',
+      colorIcon: 'text-yellow-600 dark:text-yellow-400',
+      colorIconBg: 'bg-yellow-50 dark:bg-yellow-950',
+      stats: data ? [
+        { label: 'Total Aset', value: formatCurrency(data.neraca.totalAset) },
+        { label: 'Kewajiban', value: formatCurrency(data.neraca.totalKewajiban) },
+        { label: 'Ekuitas', value: formatCurrency(data.neraca.totalEkuitas) },
+      ] : null,
     },
     {
       title: 'Dana Kematian',
-      description: 'Laporan dana kematian anggota',
+      description: 'Laporan dana kematian anggota berdasarkan data real',
       icon: PiggyBank,
       href: '/keuangan/laporan-keuangan/dana-kematian',
-      color: 'rose' as const,
-      stats: [
-        { label: 'Total Dana', value: formatCurrency(dashboardData.danaKematian.totalDana) },
-        { label: 'Klaim Dibayar', value: formatCurrency(dashboardData.danaKematian.klaimDibayar) },
-        { label: 'Sisa Dana', value: formatCurrency(dashboardData.danaKematian.sisaDana) },
-      ],
+      colorBorder: 'border-l-rose-500',
+      colorIcon: 'text-rose-600 dark:text-rose-400',
+      colorIconBg: 'bg-rose-50 dark:bg-rose-950',
+      stats: ov ? [
+        { label: 'Total Nilai', value: formatCurrency(ov.totalNilaiKlaim) },
+        { label: 'Sudah Selesai', value: formatCurrency(ov.nilaiSelesai) },
+        { label: 'Total Klaim', value: formatNumber(ov.totalKlaim) },
+      ] : null,
+      badge: ov && ov.klaimAktif > 0 ? `${ov.klaimAktif} aktif` : undefined,
     },
     {
       title: 'Dana Sosial',
-      description: 'Laporan dana sosial dan bantuan',
+      description: 'Laporan dana sosial dan bantuan anggota',
       icon: Heart,
       href: '/keuangan/laporan-keuangan/dana-sosial',
-      color: 'pink' as const,
-      stats: [
-        { label: 'Total Dana', value: formatCurrency(dashboardData.danaSosial.totalDana) },
-        { label: 'Bantuan Diberikan', value: formatCurrency(dashboardData.danaSosial.bantuanDiberikan) },
-        { label: 'Sisa Dana', value: formatCurrency(dashboardData.danaSosial.sisaDana) },
-      ],
+      colorBorder: 'border-l-pink-500',
+      colorIcon: 'text-pink-600 dark:text-pink-400',
+      colorIconBg: 'bg-pink-50 dark:bg-pink-950',
+      stats: data ? [
+        { label: 'Total Dana', value: formatCurrency(data.danaSosial.totalDana) },
+        { label: 'Disalurkan', value: formatCurrency(data.danaSosial.bantuanDiberikan) },
+        { label: 'Sisa', value: formatCurrency(data.danaSosial.sisaDana) },
+      ] : null,
+    },
+    {
+      title: 'Pembayaran Sumbangan',
+      description: 'Laporan pembayaran sumbangan anggota',
+      icon: Banknote,
+      href: '/keuangan/laporan-keuangan/pembayaran-sumbangan',
+      colorBorder: 'border-l-emerald-500',
+      colorIcon: 'text-emerald-600 dark:text-emerald-400',
+      colorIconBg: 'bg-emerald-50 dark:bg-emerald-950',
+      stats: data ? [
+        { label: 'Terbayar', value: formatCurrency(data.pembayaranSumbangan.totalTerbayar) },
+        { label: 'Tertunda', value: formatCurrency(data.pembayaranSumbangan.totalTertunda) },
+        { label: 'Transaksi', value: formatNumber(data.pembayaranSumbangan.jumlahTransaksi) },
+      ] : null,
     },
     {
       title: 'Laporan Periode',
       description: 'Laporan harian, bulanan, dan tahunan',
       icon: Calendar,
       href: '/keuangan/laporan-keuangan/laporan-periode',
-      color: 'indigo' as const,
-      stats: [
-        { label: 'Total Laporan', value: formatNumber(dashboardData.laporanPeriode.totalReports) },
-        { label: 'Pending', value: formatNumber(dashboardData.laporanPeriode.pendingReports) },
-        { label: 'Status', value: dashboardData.laporanPeriode.pendingReports > 0 ? 'Ada Pending' : 'Selesai' },
-      ],
+      colorBorder: 'border-l-indigo-500',
+      colorIcon: 'text-indigo-600 dark:text-indigo-400',
+      colorIconBg: 'bg-indigo-50 dark:bg-indigo-950',
+      stats: data ? [
+        { label: 'Total Laporan', value: formatNumber(data.laporanPeriode.totalReports) },
+        { label: 'Pending', value: formatNumber(data.laporanPeriode.pendingReports) },
+        { label: 'Status', value: data.laporanPeriode.pendingReports > 0 ? 'Ada Pending' : 'Selesai' },
+      ] : null,
     },
-  ] : [];
+  ];
 
-  // Quick stats for overview cards
-  const quickStats = dashboardData ? [
-    {
-      label: 'Total Aset',
-      value: formatCurrency(dashboardData.overview.totalAset),
-      trend: '+15% dari bulan lalu',
-      icon: DollarSign,
-      color: 'blue',
-    },
-    {
-      label: 'Total Dana',
-      value: formatCurrency(dashboardData.overview.totalDana),
-      trend: '+8% dari bulan lalu',
-      icon: PiggyBank,
-      color: 'green',
-    },
-    {
-      label: 'Anggota Aktif',
-      value: formatNumber(dashboardData.overview.anggotaAktif),
-      trend: 'Member aktif',
-      icon: Users,
-      color: 'purple',
-    },
-    {
-      label: 'Laporan Periode Ini',
-      value: formatNumber(dashboardData.overview.totalReports),
-      trend: `${dashboardData.overview.pendingReports} pending review`,
-      icon: FileText,
-      color: 'yellow',
-    },
-  ] : [];
   return (
     <Fragment>
       <Container>
         <Toolbar>
           <ToolbarHeading
             title="Laporan Keuangan"
-            description="Pusat Laporan Keuangan Organisasi"
+            description="Pusat laporan dan analisis keuangan organisasi P2Tel"
           />
           <ToolbarActions>
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
+              Perbarui
             </Button>
           </ToolbarActions>
         </Toolbar>
       </Container>
 
       <Container>
-        <div className="grid gap-5 lg:gap-7.5">
-          {/* Period Selector */}
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Periode:</span>
+        <div className="space-y-6 pb-8">
+
+          {/* ── Hero Banner ── */}
+          <div className="rounded-2xl bg-linear-to-br from-emerald-700 via-teal-600 to-cyan-700 p-6 shadow-lg text-white">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+              <div>
+                <p className="text-white/70 text-sm font-medium uppercase tracking-wide mb-1">
+                  Laporan Keuangan
+                </p>
+                <h2 className="text-2xl font-bold">Pusat Data Keuangan Organisasi</h2>
+                <p className="text-white/70 text-sm mt-1">
+                  Data real-time dari sistem SIPATEL · Dana Kematian & Dana Sosial P2Tel
+                </p>
+              </div>
+
+              {/* Period Selector */}
+              <div className="flex flex-wrap gap-2">
+                {PERIOD_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setSelectedPeriod(opt.key)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      selectedPeriod === opt.key
+                        ? 'bg-white text-teal-700 shadow-md'
+                        : 'bg-white/20 text-white hover:bg-white/30'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Inline KPI row in the banner */}
+            {isLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="bg-white/20 rounded-xl p-3 h-16 animate-pulse" />
+                ))}
+              </div>
+            ) : ov && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+                <div className="bg-white/15 rounded-xl p-3 border border-white/20">
+                  <p className="text-white/70 text-xs">Anggota Aktif</p>
+                  <p className="text-white text-2xl font-bold tabular-nums">{formatNumber(ov.anggotaAktif)}</p>
+                  <p className="text-white/60 text-xs">dari {formatNumber(ov.totalAnggota)} total</p>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant={selectedPeriod === 'today' ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedPeriod('today')}
-                  >
-                    Hari Ini
-                  </Button>
-                  <Button
-                    variant={selectedPeriod === 'week' ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedPeriod('week')}
-                  >
-                    Minggu Ini
-                  </Button>
-                  <Button
-                    variant={selectedPeriod === 'month' ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedPeriod('month')}
-                  >
-                    Bulan Ini
-                  </Button>
-                  <Button
-                    variant={selectedPeriod === 'year' ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedPeriod('year')}
-                  >
-                    Tahun Ini
-                  </Button>
+                <div className="bg-white/15 rounded-xl p-3 border border-white/20">
+                  <p className="text-white/70 text-xs">Total Klaim DK</p>
+                  <p className="text-white text-2xl font-bold tabular-nums">{formatNumber(ov.totalKlaim)}</p>
+                  <p className="text-white/60 text-xs">{formatNumber(ov.klaimAktif)} sedang proses</p>
+                </div>
+                <div className="bg-white/15 rounded-xl p-3 border border-white/20">
+                  <p className="text-white/70 text-xs">Nilai DK Selesai</p>
+                  <p className="text-white text-xl font-bold leading-tight">{formatCurrency(ov.nilaiSelesai)}</p>
+                  <p className="text-white/60 text-xs">{formatNumber(ov.klaimSelesai)} klaim selesai</p>
+                </div>
+                <div className={`rounded-xl p-3 border ${ov.klaimAktif > 0 ? 'bg-yellow-400/20 border-yellow-300/40' : 'bg-white/15 border-white/20'}`}>
+                  <p className="text-white/70 text-xs">Periode Ini</p>
+                  <p className="text-white text-2xl font-bold tabular-nums">{formatNumber(ov.klaimPeriod)}</p>
+                  <p className="text-white/60 text-xs">
+                    {PERIOD_OPTIONS.find(p => p.key === selectedPeriod)?.label}
+                  </p>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* ── Dana Kematian Status Distribution ── */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <PiggyBank className="h-5 w-5 text-rose-600" />
+                  Distribusi Status Dana Kematian
+                </CardTitle>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/pelayanan/dana-kematian" className="gap-1">
+                    Kelola Pengajuan
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {STATUS_MAP.map((s) => {
+                    const count = klaimByStatus[s.key] || 0;
+                    const pct = totalKlaimAll > 0 ? (count / totalKlaimAll) * 100 : 0;
+                    return (
+                      <div key={s.key} className="flex items-center gap-3">
+                        <div className={`text-xs font-medium px-2 py-1 rounded-md w-36 text-center shrink-0 ${s.light}`}>
+                          {s.label}
+                        </div>
+                        <div className="flex-1 h-7 bg-muted rounded-lg overflow-hidden relative">
+                          <div
+                            className={`h-full ${s.color} rounded-lg transition-all duration-700 flex items-center justify-end pr-2`}
+                            style={{ width: `${Math.max(pct, pct > 0 ? 4 : 0)}%` }}
+                          >
+                            {pct >= 8 && (
+                              <span className="text-xs font-semibold text-white">{pct.toFixed(0)}%</span>
+                            )}
+                          </div>
+                          {pct > 0 && pct < 8 && (
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-foreground">
+                              {pct.toFixed(0)}%
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right w-16 shrink-0">
+                          <span className="text-lg font-bold tabular-nums">{count}</span>
+                          <span className="text-xs text-muted-foreground ml-1">klaim</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {totalKlaimAll === 0 && (
+                    <p className="text-center text-muted-foreground py-6">
+                      Belum ada data pengajuan dana kematian
+                    </p>
+                  )}
+
+                  {totalKlaimAll > 0 && (
+                    <div className="pt-3 border-t flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Total semua pengajuan</span>
+                      <div className="flex items-center gap-4">
+                        <span className="font-semibold">{formatNumber(totalKlaimAll)} klaim</span>
+                        {ov && (
+                          <span className="font-bold text-rose-600">
+                            {formatCurrency(ov.totalNilaiKlaim)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {isLoading ? (
-            <Card>
-              <CardContent className="p-12">
-                <div className="flex flex-col items-center justify-center gap-4">
-                  <RefreshCw className="h-8 w-8 text-muted-foreground animate-spin" />
-                  <p className="text-muted-foreground">Memuat data keuangan...</p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {/* Quick Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {quickStats.map((stat, idx) => {
-                  const Icon = stat.icon;
-                  const colorClass = colorClasses[stat.color as keyof typeof colorClasses];
+          {/* ── Active Claims Alert ── */}
+          {!isLoading && ov && ov.klaimAktif > 0 && (
+            <div className="flex items-center gap-3 rounded-xl border-2 border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950 p-4">
+              <AlertTriangle className="h-5 w-5 text-orange-600 shrink-0" />
+              <div className="flex-1">
+                <p className="font-semibold text-orange-800 dark:text-orange-200">
+                  {formatNumber(ov.klaimAktif)} pengajuan dana kematian sedang dalam proses
+                </p>
+                <p className="text-sm text-orange-700 dark:text-orange-300">
+                  Pastikan proses verifikasi dan persetujuan berjalan tepat waktu
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-100 shrink-0" asChild>
+                <Link href="/pelayanan/dana-kematian">Tinjau</Link>
+              </Button>
+            </div>
+          )}
 
+          {/* ── Quick Stats Row ── */}
+          {!isLoading && ov && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <Card className="border-2 border-green-200 dark:border-green-800">
+                <CardContent className="p-4 text-center">
+                  <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-1" />
+                  <p className="text-2xl font-bold text-green-700 dark:text-green-400 tabular-nums">
+                    {formatNumber(ov.klaimSelesai)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Selesai</p>
+                </CardContent>
+              </Card>
+              <Card className="border-2 border-orange-200 dark:border-orange-800">
+                <CardContent className="p-4 text-center">
+                  <Clock className="h-6 w-6 text-orange-600 mx-auto mb-1" />
+                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 tabular-nums">
+                    {formatNumber(ov.klaimAktif)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Dalam Proses</p>
+                </CardContent>
+              </Card>
+              <Card className="border-2 border-red-200 dark:border-red-800">
+                <CardContent className="p-4 text-center">
+                  <XCircle className="h-6 w-6 text-red-600 mx-auto mb-1" />
+                  <p className="text-2xl font-bold text-red-600 dark:text-red-400 tabular-nums">
+                    {formatNumber(ov.klaimDitolak)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Ditolak</p>
+                </CardContent>
+              </Card>
+              <Card className="border-2 border-blue-200 dark:border-blue-800">
+                <CardContent className="p-4 text-center">
+                  <Users className="h-6 w-6 text-blue-600 mx-auto mb-1" />
+                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-400 tabular-nums">
+                    {formatNumber(ov.anggotaAktif)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Anggota Aktif</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* ── Report Categories Grid ── */}
+          <div>
+            <h2 className="text-base font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
+              Laporan Tersedia
+            </h2>
+
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <Skeleton key={i} className="h-44 rounded-xl" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {reportCategories.map((cat) => {
+                  const Icon = cat.icon;
                   return (
-                    <Card key={idx}>
-                      <CardContent className="p-5">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
-                            <p className="text-2xl font-bold">{stat.value}</p>
-                            <p className="text-xs text-green-600 mt-1">{stat.trend}</p>
+                    <Link key={cat.href} href={cat.href} className="group">
+                      <Card className={`h-full transition-all border-l-4 ${cat.colorBorder} hover:shadow-lg hover:-translate-y-0.5 duration-200`}>
+                        <CardContent className="p-5">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className={`h-10 w-10 rounded-xl ${cat.colorIconBg} flex items-center justify-center`}>
+                              <Icon className={`h-5 w-5 ${cat.colorIcon}`} />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {cat.badge && (
+                                <Badge variant="warning" appearance="ghost" className="text-xs">
+                                  {cat.badge}
+                                </Badge>
+                              )}
+                              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </div>
                           </div>
-                          <div className={`p-3 ${colorClass} rounded-lg`}>
-                            <Icon className="h-5 w-5" />
+
+                          <h3 className="font-semibold text-sm group-hover:text-primary transition-colors mb-1">
+                            {cat.title}
+                          </h3>
+                          <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
+                            {cat.description}
+                          </p>
+
+                          <div className="space-y-1.5 border-t pt-3">
+                            {cat.stats ? (
+                              cat.stats.map((stat, i) => (
+                                <div key={i} className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground">{stat.label}</span>
+                                  <span className="font-semibold tabular-nums">{stat.value}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Activity className="h-3 w-3" />
+                                <span>Memuat data...</span>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                        </CardContent>
+                      </Card>
+                    </Link>
                   );
                 })}
               </div>
-
-              {/* Report Categories Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-5">
-            {reportCategories.map((category) => {
-              const Icon = category.icon;
-              const colorClass = colorClasses[category.color as keyof typeof colorClasses];
-
-              return (
-                <Link
-                  key={category.href}
-                  href={category.href}
-                  className="group"
-                >
-                  <Card className="transition-all hover:shadow-lg hover:border-primary/50 h-full">
-                    <CardContent className="p-5">
-                      <div className="flex items-start gap-4">
-                        <div className={`p-3 rounded-lg ${colorClass}`}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">
-                              {category.title}
-                            </h3>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                          </div>
-                          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-                            {category.description}
-                          </p>
-                          <div className="space-y-1.5">
-                            {category.stats.map((stat, idx) => (
-                              <div key={idx} className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">{stat.label}</span>
-                                <span className="font-medium">{stat.value}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
+            )}
           </div>
-            </>
+
+          {/* ── Bottom: Dana Kematian + Dana Sosial side by side ── */}
+          {!isLoading && data && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Dana Kematian Deep Dive */}
+              <Card className="border-2 border-rose-200 dark:border-rose-800">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <PiggyBank className="h-5 w-5 text-rose-600" />
+                    Ikhtisar Dana Kematian
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="rounded-xl bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-800 p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Total Nilai Semua Pengajuan</p>
+                    <p className="text-3xl font-bold text-rose-700 dark:text-rose-400 tabular-nums">
+                      {formatCurrency(data.danaKematian.totalDana)}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-green-50 dark:bg-green-950 p-3">
+                      <p className="text-xs text-muted-foreground">Sudah Dicairkan</p>
+                      <p className="text-lg font-bold text-green-700 dark:text-green-400 tabular-nums">
+                        {formatCurrency(data.danaKematian.klaimDibayar)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatNumber(ov?.klaimSelesai || 0)} klaim selesai
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-orange-50 dark:bg-orange-950 p-3">
+                      <p className="text-xs text-muted-foreground">Dalam Proses</p>
+                      <p className="text-lg font-bold text-orange-600 dark:text-orange-400 tabular-nums">
+                        {formatNumber(ov?.klaimAktif || 0)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">pengajuan aktif</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href="/keuangan/laporan-keuangan/dana-kematian" className="gap-1">
+                        Lihat Laporan Lengkap
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Dana Sosial */}
+              <Card className="border-2 border-pink-200 dark:border-pink-800">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Heart className="h-5 w-5 text-pink-600" />
+                    Ikhtisar Dana Sosial
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="rounded-xl bg-pink-50 dark:bg-pink-950 border border-pink-200 dark:border-pink-800 p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Total Dana Diajukan</p>
+                    <p className="text-3xl font-bold text-pink-700 dark:text-pink-400 tabular-nums">
+                      {formatCurrency(data.danaSosial.totalDana)}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-green-50 dark:bg-green-950 p-3">
+                      <p className="text-xs text-muted-foreground">Sudah Disalurkan</p>
+                      <p className="text-lg font-bold text-green-700 dark:text-green-400 tabular-nums">
+                        {formatCurrency(data.danaSosial.bantuanDiberikan)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-purple-50 dark:bg-purple-950 p-3">
+                      <p className="text-xs text-muted-foreground">Sisa / Pending</p>
+                      <p className="text-lg font-bold text-purple-700 dark:text-purple-400 tabular-nums">
+                        {formatCurrency(data.danaSosial.sisaDana)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href="/keuangan/laporan-keuangan/dana-sosial" className="gap-1">
+                        Lihat Laporan Lengkap
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
       </Container>

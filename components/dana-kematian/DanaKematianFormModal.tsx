@@ -596,8 +596,8 @@ export function DanaKematianFormModal({
                                 </div>
                               </SelectItem>
                             )}
-                            <SelectItem value="25000000">Rp 1.500.000 (Tarif Lama)</SelectItem>
-                            <SelectItem value="50000000">Rp 2.000.000 (Tarif Baru)</SelectItem>
+                            <SelectItem value="1500000">Rp 1.500.000 (Tarif Lama)</SelectItem>
+                            <SelectItem value="2000000">Rp 2.000.000 (Tarif Baru)</SelectItem>
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">

@@ -1,19 +1,14 @@
 'use client';
 
-import { ReactNode } from 'react';
-import Link from 'next/link';
-import { Calendar, Settings, Settings2, Shield, Users } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ReactNode, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Bell, CheckCheck, FileText, PiggyBank, Heart,
+  Users, Settings, Info, AlertTriangle, CheckCircle2,
+  XCircle, Trash2, RefreshCw, BellOff, Clock,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Sheet,
@@ -25,263 +20,331 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import Item1 from './notifications/item-1';
-import Item2 from './notifications/item-2';
-import Item3 from './notifications/item-3';
-import Item4 from './notifications/item-4';
-import Item5 from './notifications/item-5';
-import Item6 from './notifications/item-6';
-import Item10 from './notifications/item-10';
-import Item11 from './notifications/item-11';
-import Item13 from './notifications/item-13';
-import Item14 from './notifications/item-14';
-import Item15 from './notifications/item-15';
-import Item16 from './notifications/item-16';
-import Item17 from './notifications/item-17';
-import Item18 from './notifications/item-18';
-import Item19 from './notifications/item-19';
-import Item20 from './notifications/item-20';
+import { cn } from '@/lib/utils';
+import {
+  useNotifications,
+  useMarkRead,
+  useMarkAllRead,
+  useDeleteNotification,
+  type Notification,
+} from '@/lib/hooks/use-notifications';
 
+// ── Relative time helper ──────────────────────────────────────────────────────
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return 'Baru saja';
+  if (mins < 60) return `${mins} menit lalu`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} jam lalu`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days} hari lalu`;
+  return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// ── Icon resolver ─────────────────────────────────────────────────────────────
+function NotifIcon({ notification }: { notification: Notification }) {
+  const { category, type, event_type } = notification;
+
+  const iconProps = 'h-4 w-4';
+
+  if (event_type === 'dana_kematian_selesai')  return <CheckCircle2 className={cn(iconProps, 'text-green-600')} />;
+  if (event_type === 'dana_kematian_ditolak')  return <XCircle className={cn(iconProps, 'text-red-600')} />;
+  if (event_type === 'dokumen_verified')        return <CheckCircle2 className={cn(iconProps, 'text-blue-600')} />;
+  if (event_type?.startsWith('dana_kematian')) return <PiggyBank className={cn(iconProps, 'text-rose-600')} />;
+  if (category === 'dana_sosial')              return <Heart className={cn(iconProps, 'text-pink-600')} />;
+  if (category === 'keanggotaan')              return <Users className={cn(iconProps, 'text-blue-600')} />;
+
+  if (type === 'success') return <CheckCircle2 className={cn(iconProps, 'text-green-600')} />;
+  if (type === 'warning') return <AlertTriangle className={cn(iconProps, 'text-yellow-600')} />;
+  if (type === 'error')   return <XCircle className={cn(iconProps, 'text-red-600')} />;
+  return <Info className={cn(iconProps, 'text-blue-600')} />;
+}
+
+const ICON_BG: Record<string, string> = {
+  info:    'bg-blue-50 dark:bg-blue-950',
+  success: 'bg-green-50 dark:bg-green-950',
+  warning: 'bg-yellow-50 dark:bg-yellow-950',
+  error:   'bg-red-50 dark:bg-red-950',
+};
+
+const CATEGORY_LABEL: Record<string, string> = {
+  dana_kematian: 'Dana Kematian',
+  dana_sosial:   'Dana Sosial',
+  keanggotaan:   'Keanggotaan',
+  system:        'Sistem',
+};
+
+const CATEGORY_BADGE_VARIANT: Record<string, 'info' | 'success' | 'warning' | 'destructive' | 'secondary'> = {
+  dana_kematian: 'info',
+  dana_sosial:   'warning',
+  keanggotaan:   'success',
+  system:        'secondary',
+};
+
+// ── Single notification item ──────────────────────────────────────────────────
+function NotifItem({
+  notification,
+  onMarkRead,
+  onDelete,
+  onNavigate,
+}: {
+  notification: Notification;
+  onMarkRead: (id: string) => void;
+  onDelete: (id: string) => void;
+  onNavigate: (notif: Notification) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      className={cn(
+        'relative flex gap-3 px-5 py-4 transition-colors cursor-pointer group',
+        !notification.is_read && 'bg-primary/5 dark:bg-primary/10',
+        'hover:bg-muted/60',
+      )}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={() => onNavigate(notification)}
+    >
+      {/* Unread dot */}
+      {!notification.is_read && (
+        <span className="absolute top-4 right-4 h-2 w-2 rounded-full bg-primary shrink-0" />
+      )}
+
+      {/* Icon */}
+      <div className={cn(
+        'h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5',
+        ICON_BG[notification.type] || ICON_BG.info,
+      )}>
+        <NotifIcon notification={notification} />
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <p className={cn('text-sm leading-snug', !notification.is_read ? 'font-semibold' : 'font-medium')}>
+          {notification.title}
+        </p>
+        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">
+          {notification.message}
+        </p>
+        <div className="flex items-center gap-2 mt-1.5">
+          <Badge
+            variant={CATEGORY_BADGE_VARIANT[notification.category] || 'secondary'}
+            appearance="ghost"
+            className="text-[10px] px-1.5 py-0 h-4"
+          >
+            {CATEGORY_LABEL[notification.category] || notification.category}
+          </Badge>
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            {timeAgo(notification.created_at)}
+          </span>
+        </div>
+      </div>
+
+      {/* Action buttons on hover */}
+      {hovered && (
+        <div
+          className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {!notification.is_read && (
+            <button
+              title="Tandai sudah dibaca"
+              onClick={() => onMarkRead(notification.id)}
+              className="h-7 w-7 rounded-lg bg-background border flex items-center justify-center hover:bg-muted transition-colors"
+            >
+              <CheckCheck className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          )}
+          <button
+            title="Hapus notifikasi"
+            onClick={() => onDelete(notification.id)}
+            className="h-7 w-7 rounded-lg bg-background border flex items-center justify-center hover:bg-red-50 hover:border-red-300 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-red-600" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Empty state ────────────────────────────────────────────────────────────────
+function EmptyState({ unreadOnly }: { unreadOnly?: boolean }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+      <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center mb-4">
+        <BellOff className="h-7 w-7 text-muted-foreground" />
+      </div>
+      <p className="font-semibold text-foreground">
+        {unreadOnly ? 'Semua sudah dibaca' : 'Belum ada notifikasi'}
+      </p>
+      <p className="text-sm text-muted-foreground mt-1">
+        {unreadOnly
+          ? 'Tidak ada notifikasi yang belum dibaca saat ini.'
+          : 'Notifikasi akan muncul di sini ketika ada aktivitas.'}
+      </p>
+    </div>
+  );
+}
+
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+function NotifSkeleton() {
+  return (
+    <div className="space-y-0">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="flex gap-3 px-5 py-4 animate-pulse">
+          <div className="h-9 w-9 rounded-xl bg-muted shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3.5 bg-muted rounded w-3/4" />
+            <div className="h-3 bg-muted rounded w-full" />
+            <div className="h-3 bg-muted rounded w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
 export function NotificationsSheet({ trigger }: { trigger: ReactNode }) {
+  const router = useRouter();
+  const [tab, setTab] = useState<'all' | 'unread' | 'dana_kematian'>('all');
+
+  const { data, isLoading, refetch, isFetching } = useNotifications({ limit: 60 });
+  const markRead   = useMarkRead();
+  const markAllRead = useMarkAllRead();
+  const deleteNotif = useDeleteNotification();
+
+  const notifications = data?.notifications || [];
+  const unreadCount   = data?.unreadCount || 0;
+
+  const filtered = {
+    all:          notifications,
+    unread:       notifications.filter((n) => !n.is_read),
+    dana_kematian: notifications.filter((n) => n.category === 'dana_kematian'),
+  };
+
+  function handleNavigate(notif: Notification) {
+    if (!notif.is_read) markRead.mutate(notif.id);
+    if (notif.link) router.push(notif.link);
+  }
+
+  function handleMarkRead(id: string) {
+    markRead.mutate(id);
+  }
+
+  function handleDelete(id: string) {
+    deleteNotif.mutate(id);
+  }
+
+  function handleMarkAllRead() {
+    markAllRead.mutate();
+  }
+
+  const listForTab = filtered[tab];
+
   return (
     <Sheet>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
-      <SheetContent className="p-0 gap-0 sm:w-[500px] sm:max-w-none inset-5 start-auto h-auto rounded-lg p-0 sm:max-w-none [&_[data-slot=sheet-close]]:top-4.5 [&_[data-slot=sheet-close]]:end-5">
-        <SheetHeader className="mb-0">
-          <SheetTitle className="p-3">
-            Notifications
-          </SheetTitle>
+      <SheetContent className="p-0 gap-0 sm:w-[480px] sm:max-w-none inset-5 start-auto h-auto rounded-lg [&_[data-slot=sheet-close]]:top-4.5 [&_[data-slot=sheet-close]]:end-5">
+
+        {/* Header */}
+        <SheetHeader className="mb-0 border-b">
+          <div className="flex items-center justify-between p-4 pb-3">
+            <div className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-primary" />
+              <SheetTitle className="text-base font-semibold">Notifikasi</SheetTitle>
+              {unreadCount > 0 && (
+                <span className="h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </div>
+            {/* <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              title="Perbarui"
+              className="h-8 w-8 rounded-lg border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5 text-muted-foreground', isFetching && 'animate-spin')} />
+            </button> */}
+          </div>
         </SheetHeader>
+
+        {/* Body */}
         <SheetBody className="p-0">
-          <ScrollArea className="h-[calc(100vh-10.5rem)]">
-            <Tabs defaultValue="all" className="w-full relative">
-              <TabsList variant="line" className="w-full px-5 mb-5">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="inbox" className="relative">
-                  Inbox
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 absolute top-1 -end-1" />
-                </TabsTrigger>
-                <TabsTrigger value="team">Team</TabsTrigger>
-                <TabsTrigger value="following">Following</TabsTrigger>
-                <div className="grow flex items-center justify-end">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        mode="icon"
-                        className="mb-1"
-                      >
-                        <Settings className="size-4.5!" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      className="w-44"
-                      side="bottom"
-                      align="end"
-                    >
-                      <DropdownMenuItem asChild>
-                        <Link href="/account/members/teams">
-                          <Users /> Invite Users
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger>
-                          <Settings2 />
-                          <span>Team Settings</span>
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                          <DropdownMenuSubContent className="w-44">
-                            <DropdownMenuItem asChild>
-                              <Link href="/account/members/import-members">
-                                <Shield />
-                                Find Members
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link href="/account/members/import-members">
-                                <Calendar /> Meetings
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link href="/account/members/import-members">
-                                <Shield /> Group Settings
-                              </Link>
-                            </DropdownMenuItem>
-                          </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                      </DropdownMenuSub>
-                      <DropdownMenuItem asChild>
-                        <Link href="/account/security/privacy-settings">
-                          <Shield /> Group Settings
-                        </Link>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </TabsList>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+            <TabsList variant="line" className="w-full px-4 mb-0">
+              <TabsTrigger value="all" className="relative">
+                Semua
+                {notifications.length > 0 && (
+                  <span className="ml-1.5 text-[10px] text-muted-foreground">
+                    ({notifications.length})
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="unread" className="relative">
+                Belum Dibaca
+                {unreadCount > 0 && (
+                  <span className="ml-1.5 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="dana_kematian" className="relative">
+                Dana Kematian
+                {filtered.dana_kematian.length > 0 && (
+                  <span className="ml-1.5 text-[10px] text-muted-foreground">
+                    ({filtered.dana_kematian.length})
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
 
-              {/* All Tab */}
-              <TabsContent value="all" className="mt-0">
-                <div className="flex flex-col gap-5">
-                  <Item1
-                    userName="Joe Lincoln"
-                    avatar="300-4.png"
-                    description="mentioned you in"
-                    link="Latest Trends"
-                    label="topic"
-                    time="18 mins ago"
-                    specialist="Web Design 2024"
-                    text="For an expert opinion, check out what Mike has to say on this topic!"
-                  />
-                  <div className="border-b border-b-border"></div>
-                  <Item2 />
-                  <div className="border-b border-b-border"></div>
-                  <Item3
-                    userName="Guy Hawkins"
-                    avatar="300-27.png"
-                    badgeColor="offline"
-                    description="requested access to"
-                    link="AirSpace"
-                    day="project"
-                    date="14 hours ago"
-                    info="Dev Team"
-                  />
-                  <div className="border-b border-b-border"></div>
-                  <Item4 />
-                  <div className="border-b border-b-border"></div>
-                  <Item5
-                    userName="Raymond Pawell"
-                    avatar="300-11.png"
-                    badgeColor="online"
-                    description="posted a new article"
-                    link="2024 Roadmap"
-                    day=""
-                    date="1 hour ago"
-                    info="Roadmap"
-                  />
-                  <div className="border-b border-b-border"></div>
-                  <Item6 />
+            <ScrollArea className="h-[calc(100vh-14rem)]">
+              {isLoading ? (
+                <NotifSkeleton />
+              ) : listForTab.length === 0 ? (
+                <EmptyState unreadOnly={tab === 'unread'} />
+              ) : (
+                <div className="divide-y divide-border">
+                  {listForTab.map((notif) => (
+                    <NotifItem
+                      key={notif.id}
+                      notification={notif}
+                      onMarkRead={handleMarkRead}
+                      onDelete={handleDelete}
+                      onNavigate={handleNavigate}
+                    />
+                  ))}
                 </div>
-              </TabsContent>
-
-              {/* Inbox Tab */}
-              <TabsContent value="inbox" className="mt-0">
-                <div className="flex flex-col gap-5">
-                  <Item13 />
-                  <div className="border-b border-b-border"></div>
-                  <Item14 />
-                  <div className="border-b border-b-border"></div>
-                  <Item15 />
-                  <div className="border-b border-b-border"></div>
-                  <Item16 />
-                  <div className="border-b border-b-border"></div>
-                  <Item3
-                    userName="Benjamin Harris"
-                    avatar="300-30.png"
-                    badgeColor="offline"
-                    description="requested to upgrade plan"
-                    link=""
-                    day=""
-                    date="4 days ago"
-                    info="Marketing"
-                  />
-                  <div className="border-b border-b-border"></div>
-                  <Item5
-                    userName="Isaac Morgan"
-                    avatar="300-24.png"
-                    badgeColor="online"
-                    description="mentioned you in"
-                    link="Data Transmission"
-                    day="topic"
-                    date="6 days ago"
-                    info="Dev Team"
-                  />
-                </div>
-              </TabsContent>
-
-              {/* Team Tab */}
-              <TabsContent value="team" className="mt-0">
-                <div className="flex flex-col gap-5">
-                  <Item10 />
-                  <div className="border-b border-b-border"></div>
-                  <Item5
-                    userName="Adrian Vale"
-                    avatar="300-6.png"
-                    badgeColor="offline"
-                    description="posted a new article"
-                    link="Marketing"
-                    day="to 13 May"
-                    date="2 days ago"
-                    info="Marketing"
-                  />
-                  <div className="border-b border-b-border"></div>
-                  <Item11 />
-                  <div className="border-b border-b-border"></div>
-                  <Item1
-                    userName="Selene Silverleaf"
-                    avatar="300-21.png"
-                    description="commented on"
-                    link="SiteSculpt"
-                    label=""
-                    time="4 days ago"
-                    specialist="Manager"
-                    text="This design is simply stunning! From layout to color, it's a work of art!"
-                  />
-                  <div className="border-b border-b-border"></div>
-                  <Item3
-                    userName="Thalia Fox"
-                    avatar="300-13.png"
-                    badgeColor="online"
-                    description="has invited you to join"
-                    link="Design Research"
-                    day=""
-                    date="4 days ago"
-                    info="Dev Team"
-                  />
-                </div>
-              </TabsContent>
-
-              {/* Following Tab */}
-              <TabsContent value="following" className="mt-0">
-                <div className="flex flex-col gap-5">
-                  <Item18 />
-                  <div className="border-b border-b-border"></div>
-                  <Item17 />
-                  <div className="border-b border-b-border"></div>
-                  <Item19 />
-                  <div className="border-b border-b-border"></div>
-                  <Item5
-                    userName="Chloe Morgan"
-                    avatar="300-34.png"
-                    badgeColor="online"
-                    description="posted a new article"
-                    link="User Experience"
-                    day=""
-                    date="1 day ago"
-                    info="Nexus"
-                  />
-                  <div className="border-b border-b-border"></div>
-                  <Item20 />
-                  <div className="border-b border-b-border"></div>
-                  <Item3
-                    userName="Thalia Fox"
-                    avatar="300-13.png"
-                    badgeColor="offline"
-                    description="has invited you to join"
-                    link="Design Research"
-                    day=""
-                    date="4 days ago"
-                    info="Dev Team"
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </ScrollArea>
+              )}
+            </ScrollArea>
+          </Tabs>
         </SheetBody>
-        <SheetFooter className="border-t border-border p-5 grid grid-cols-2 gap-2.5">
-          <Button variant="outline">Archive all</Button>
-          <Button variant="outline">Mark all as read</Button>
+
+        {/* Footer */}
+        <SheetFooter className="border-t p-4 flex gap-2">
+          <Button
+            variant="outline"
+            className="flex-1 gap-2"
+            onClick={handleMarkAllRead}
+            disabled={unreadCount === 0 || markAllRead.isPending}
+          >
+            <CheckCheck className="h-4 w-4" />
+            Tandai Semua Dibaca
+          </Button>
+          <Button
+            variant="outline"
+            className="flex-1 gap-2"
+            onClick={() => router.push('/pelayanan/dana-kematian')}
+          >
+            <FileText className="h-4 w-4" />
+            Lihat Dana Kematian
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

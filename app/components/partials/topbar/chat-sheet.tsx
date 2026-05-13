@@ -1,36 +1,9 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
-import Link from 'next/link';
-import {
-  Calendar,
-  CheckCheck,
-  MoreVertical,
-  Settings2,
-  Shield,
-  Upload,
-  Users,
-} from 'lucide-react';
-import { toAbsoluteUrl } from '@/lib/helpers';
+import { ReactNode, useEffect, useRef, useState, KeyboardEvent } from 'react';
+import { CheckCheck, MessageCircleMore, RefreshCw, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-  AvatarIndicator,
-  AvatarStatus,
-} from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   Sheet,
@@ -41,283 +14,328 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { AvatarGroup } from '../common/avatar-group';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  useChatMessages,
+  useSendMessage,
+  useChatCurrentUser,
+  type ChatMessage,
+} from '@/lib/hooks/use-chat';
 
-interface Message {
-  avatar: string;
-  text: string;
-  time: string;
-  in?: boolean;
-  out?: boolean;
-  read?: boolean;
+// ── Time helpers ──────────────────────────────────────────────────────────────
+function formatTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 }
 
-export function ChatSheet({ trigger }: { trigger: ReactNode }) {
-  const [emailInput, setEmailInput] = useState('');
+// ── Avatar with initials fallback ─────────────────────────────────────────────
+const AVATAR_COLORS = [
+  'bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500',
+  'bg-amber-500', 'bg-cyan-500', 'bg-pink-500', 'bg-indigo-500',
+];
 
-  const messages: Message[] = [
-    {
-      avatar: '/media/avatars/300-5.png',
-      time: '14:04',
-      text: 'Hello! <br> Next week we are closing the project. Do You have questions?',
-      in: true,
-    },
-    {
-      avatar: '/media/avatars/300-2.png',
-      text: 'This is excellent news!',
-      time: '14:08',
-      read: true,
-      out: true,
-    },
-    {
-      avatar: '/media/avatars/300-4.png',
-      time: '14:26',
-      text: 'I have checked the features, can not wait to demo them!',
-      in: true,
-    },
-    {
-      avatar: '/media/avatars/300-1.png',
-      time: '15:09',
-      text: 'I have looked over the rollout plan, and everything seems spot on. I am ready on my end and can not wait for the user feedback.',
-      in: true,
-    },
-    {
-      avatar: '/media/avatars/300-2.png',
-      text: "Haven't seen the build yet, I'll look now.",
-      time: '15:52',
-      read: false,
-      out: true,
-    },
-    {
-      avatar: '/media/avatars/300-2.png',
-      text: 'Checking the build now',
-      time: '15:52',
-      read: false,
-      out: true,
-    },
-    {
-      avatar: '/media/avatars/300-4.png',
-      time: '17:40',
-      text: 'Tomorrow, I will send the link for the meeting',
-      in: true,
-    },
-  ];
+function getAvatarColor(userId: string): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function getInitials(name: string): string {
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function UserAvatar({ userId, name, avatar, size = 'sm' }: {
+  userId: string;
+  name: string;
+  avatar: string | null;
+  size?: 'sm' | 'md';
+}) {
+  const cls = size === 'sm' ? 'h-8 w-8 text-xs' : 'h-9 w-9 text-sm';
+
+  if (avatar) {
+    return (
+      <img
+        src={avatar}
+        alt={name}
+        className={cn(cls, 'rounded-full object-cover shrink-0')}
+        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+      />
+    );
+  }
 
   return (
-    <Sheet>
-      <SheetTrigger asChild>{trigger}</SheetTrigger>
-      <SheetContent className="p-0 gap-0 sm:w-[450px] sm:max-w-none inset-5 start-auto h-auto rounded-lg p-0 sm:max-w-none [&_[data-slot=sheet-close]]:top-4.5 [&_[data-slot=sheet-close]]:end-5">
-        <SheetHeader>
-          <div className="flex items-center justify-between p-3 border-b border-border">
-            <SheetTitle>Chat</SheetTitle>
+    <div className={cn(cls, 'rounded-full flex items-center justify-center text-white font-semibold shrink-0', getAvatarColor(userId))}>
+      {getInitials(name)}
+    </div>
+  );
+}
+
+// ── Message bubble ────────────────────────────────────────────────────────────
+function MessageBubble({ msg, isOwn, showSender }: {
+  msg: ChatMessage;
+  isOwn: boolean;
+  showSender: boolean;
+}) {
+  if (isOwn) {
+    return (
+      <div className="flex items-end justify-end gap-2 px-4">
+        <div className="flex flex-col items-end gap-0.5 max-w-[75%]">
+          <div className="bg-primary text-primary-foreground text-sm px-3.5 py-2.5 rounded-2xl rounded-br-sm shadow-sm wrap-break-word">
+            {msg.message}
           </div>
-          <div className="border-b border-border p-3 shadow-xs">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-11 h-11 rounded-full bg-accent/60 border border-border flex items-center justify-center">
-                  <img
-                    src={toAbsoluteUrl('/media/brand-logos/gitlab.svg')}
-                    className="w-7 h-7"
-                    alt=""
-                  />
-                </div>
-                <div>
-                  <Link
-                    href="#"
-                    className="text-sm font-semibold text-mono hover:text-blue-600"
-                  >
-                    HR Team
-                  </Link>
-                  <span className="text-xs italic text-muted-foreground block">
-                    Jessy is typing...
+          <div className="flex items-center gap-1 px-1">
+            <span className="text-[10px] text-muted-foreground">{formatTime(msg.created_at)}</span>
+            <CheckCheck className="h-3 w-3 text-primary" />
+          </div>
+        </div>
+        <UserAvatar userId={msg.user_id} name={msg.user_name} avatar={msg.user_avatar} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-end gap-2 px-4">
+      <UserAvatar userId={msg.user_id} name={msg.user_name} avatar={msg.user_avatar} />
+      <div className="flex flex-col gap-0.5 max-w-[75%]">
+        {showSender && (
+          <span className="text-[11px] font-semibold text-muted-foreground px-1">
+            {msg.user_name}
+          </span>
+        )}
+        <div className="bg-muted text-foreground text-sm px-3.5 py-2.5 rounded-2xl rounded-bl-sm shadow-sm wrap-break-word">
+          {msg.message}
+        </div>
+        <span className="text-[10px] text-muted-foreground px-1">{formatTime(msg.created_at)}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Date separator ────────────────────────────────────────────────────────────
+function DateSeparator({ date }: { date: string }) {
+  const label = (() => {
+    const d = new Date(date);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    if (d.toDateString() === today.toDateString()) return 'Hari ini';
+    if (d.toDateString() === yesterday.toDateString()) return 'Kemarin';
+    return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+  })();
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-2">
+      <div className="flex-1 h-px bg-border" />
+      <span className="text-[10px] text-muted-foreground font-medium bg-background px-2 rounded-full border">
+        {label}
+      </span>
+      <div className="flex-1 h-px bg-border" />
+    </div>
+  );
+}
+
+// ── Loading skeleton ──────────────────────────────────────────────────────────
+function ChatSkeleton() {
+  return (
+    <div className="space-y-4 px-4 py-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className={cn('flex items-end gap-2 animate-pulse', i % 2 === 0 && 'flex-row-reverse')}>
+          <div className="h-8 w-8 rounded-full bg-muted shrink-0" />
+          <div className={cn('space-y-1', i % 2 === 0 && 'items-end flex flex-col')}>
+            <div className="h-9 bg-muted rounded-2xl" style={{ width: `${120 + i * 40}px` }} />
+            <div className="h-2.5 bg-muted rounded w-10" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+function EmptyChat() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full py-16 px-8 text-center">
+      <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+        <MessageCircleMore className="h-8 w-8 text-muted-foreground" />
+      </div>
+      <p className="font-semibold">Belum ada pesan</p>
+      <p className="text-sm text-muted-foreground mt-1">
+        Jadilah yang pertama memulai percakapan!
+      </p>
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+export function ChatSheet({ trigger }: { trigger: ReactNode }) {
+  const [input, setInput] = useState('');
+  const [open, setOpen] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const { data: messages = [], isLoading, refetch, isFetching } = useChatMessages();
+  const send = useSendMessage();
+  const me = useChatCurrentUser();
+
+  // Scroll to bottom when messages arrive or sheet opens
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
+  }, [messages, open]);
+
+  // Focus input when sheet opens
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 200);
+  }, [open]);
+
+  function handleSend() {
+    const text = input.trim();
+    if (!text || send.isPending) return;
+    setInput('');
+    send.mutate(text);
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  }
+
+  // Compute unique active users from messages (last 24 h)
+  const activeUsers = new Set(
+    messages
+      .filter((m) => Date.now() - new Date(m.created_at).getTime() < 86_400_000)
+      .map((m) => m.user_id),
+  ).size;
+
+  // Group messages — insert date separators and decide when to show sender name
+  type RenderedItem =
+    | { kind: 'date'; date: string; key: string }
+    | { kind: 'msg'; msg: ChatMessage; isOwn: boolean; showSender: boolean };
+
+  const items: RenderedItem[] = [];
+  let lastDate = '';
+  let lastSenderId = '';
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    const dateKey = new Date(msg.created_at).toDateString();
+
+    if (dateKey !== lastDate) {
+      items.push({ kind: 'date', date: msg.created_at, key: `date-${dateKey}` });
+      lastDate = dateKey;
+      lastSenderId = '';
+    }
+
+    const isOwn = msg.user_id === me.id;
+    const showSender = !isOwn && msg.user_id !== lastSenderId;
+    items.push({ kind: 'msg', msg, isOwn, showSender });
+    lastSenderId = msg.user_id;
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>{trigger}</SheetTrigger>
+      <SheetContent className="p-0 gap-0 sm:w-110 sm:max-w-none inset-5 start-auto h-auto rounded-lg **:data-[slot=sheet-close]:top-4.5 **:data-[slot=sheet-close]:inset-e-5 flex flex-col">
+
+        {/* Header */}
+        <SheetHeader className="mb-0 border-b shrink-0">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                <MessageCircleMore className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <SheetTitle className="text-sm font-semibold leading-tight">Internal Chat</SheetTitle>
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  {activeUsers > 0 ? `${activeUsers} aktif hari ini` : 'Grup semua pengguna'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {activeUsers > 0 && (
+                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                  <span className="text-[10px] text-green-700 dark:text-green-400 font-medium">
+                    {activeUsers} online
                   </span>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <AvatarGroup
-                  size="size-8"
-                  group={[
-                    { path: '/media/avatars/300-4.png' },
-                    { path: '/media/avatars/300-1.png' },
-                    { path: '/media/avatars/300-2.png' },
-                    {
-                      fallback: '+10',
-                      variant: 'bg-green-500 text-white',
-                    },
-                  ]}
-                />
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" mode="icon" size="sm">
-                      <MoreVertical className="size-4!" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    className="w-44"
-                    side="bottom"
-                    align="end"
-                  >
-                    <DropdownMenuItem asChild>
-                      <Link href="/account/members/teams">
-                        <Users /> Invite Users
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>
-                        <Settings2 />
-                        <span>Team Settings</span>
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuPortal>
-                        <DropdownMenuSubContent className="w-44">
-                          <DropdownMenuItem asChild>
-                            <Link href="/account/members/import-members">
-                              <Shield />
-                              Find Members
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href="/account/members/import-members">
-                              <Calendar /> Meetings
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href="/account/members/import-members">
-                              <Shield /> Group Settings
-                            </Link>
-                          </DropdownMenuItem>
-                        </DropdownMenuSubContent>
-                      </DropdownMenuPortal>
-                    </DropdownMenuSub>
-                    <DropdownMenuItem asChild>
-                      <Link href="/account/security/privacy-settings">
-                        <Shield /> Group Settings
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              )}
+              <button
+                onClick={() => refetch()}
+                disabled={isFetching}
+                title="Perbarui"
+                className="h-8 w-8 rounded-lg border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={cn('h-3.5 w-3.5 text-muted-foreground', isFetching && 'animate-spin')} />
+              </button>
             </div>
           </div>
         </SheetHeader>
-        <SheetBody className="scrollable-y-auto grow space-y-3.5">
-          {messages.map((message, index) =>
-            message.out ? (
-              <div
-                key={index}
-                className="flex items-end justify-end gap-3 px-5"
-              >
-                <div className="flex flex-col gap-1">
-                  <div
-                    className="bg-primary text-primary-foreground text-sm font-medium p-3 rounded-lg shadow-xs"
-                    dangerouslySetInnerHTML={{ __html: message.text }}
-                  />
-                  <div className="flex items-center justify-end gap-1">
-                    <span className="text-xs text-secondary-foreground">
-                      {message.time}
-                    </span>
-                    <CheckCheck
-                      className={cn(
-                        'w-4 h-4',
-                        message.read
-                          ? 'text-green-500'
-                          : 'text-muted-foreground',
-                      )}
+
+        {/* Messages */}
+        <SheetBody className="p-0 flex-1 overflow-hidden">
+          <ScrollArea className="h-[calc(100vh-14rem)]">
+            <div className="py-3 space-y-3">
+              {isLoading ? (
+                <ChatSkeleton />
+              ) : items.length === 0 ? (
+                <EmptyChat />
+              ) : (
+                items.map((item) =>
+                  item.kind === 'date' ? (
+                    <DateSeparator key={item.key} date={item.date} />
+                  ) : (
+                    <MessageBubble
+                      key={item.msg.id}
+                      msg={item.msg}
+                      isOwn={item.isOwn}
+                      showSender={item.showSender}
                     />
-                  </div>
-                </div>
-                <div className="relative">
-                  <Avatar className="size-9">
-                    <AvatarImage
-                      src={toAbsoluteUrl('/media/avatars//300-2.png')}
-                      alt=""
-                    />
-                    <AvatarFallback>CH</AvatarFallback>
-                    <AvatarIndicator className="-end-2 -bottom-2">
-                      <AvatarStatus variant="online" className="size-2.5" />
-                    </AvatarIndicator>
-                  </Avatar>
-                </div>
-              </div>
-            ) : message.in ? (
-              <div key={index} className="flex items-end gap-3 px-5">
-                <Avatar className="size-9">
-                  <AvatarImage src={toAbsoluteUrl(message.avatar)} alt="" />
-                  <AvatarFallback>CH</AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col gap-1">
-                  <div
-                    className="bg-accent/50 text-secondary-foreground text-sm font-medium p-3 rounded-lg shadow-xs"
-                    dangerouslySetInnerHTML={{ __html: message.text }}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {message.time}
-                  </span>
-                </div>
-              </div>
-            ) : null,
-          )}
+                  ),
+                )
+              )}
+              <div ref={bottomRef} />
+            </div>
+          </ScrollArea>
         </SheetBody>
-        <SheetFooter className="block p-0 sm:space-x-0">
-          <div className="p-4 bg-accent/50 flex gap-2">
-            <Avatar className="size-9">
-              <AvatarImage
-                src={toAbsoluteUrl('/media/avatars//300-14.png')}
-                alt=""
-              />
-              <AvatarFallback>CH</AvatarFallback>
-              <AvatarIndicator className="-end-2 -bottom-2">
-                <AvatarStatus variant="online" className="size-2.5" />
-              </AvatarIndicator>
-            </Avatar>
-            <div className="flex-1 flex items-center justify-between gap-0.5">
-              <div className="flex flex-col">
-                <div className="inline-flex gap-0.5 text-sm">
-                  <Link
-                    href="#"
-                    className="font-semibold text-mono hover:text-primary"
-                  >
-                    Jane Perez
-                  </Link>
-                  <span className="text-muted-foreground">
-                    wants to join chat
-                  </span>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  1 day ago • Design Team
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline">
-                  Decline
-                </Button>
-                <Button size="sm" variant="mono">
-                  Accept
-                </Button>
-              </div>
-            </div>
+
+        {/* Input */}
+        <SheetFooter className="border-t p-3 shrink-0 block sm:space-x-0">
+          {/* Sender info */}
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <UserAvatar userId={me.id ?? 'anon'} name={me.name} avatar={me.avatar} size="sm" />
+            <span className="text-xs text-muted-foreground font-medium">{me.name}</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500 ml-auto" />
           </div>
-          <div className="p-5 flex items-center gap-2 relative">
-            <img
-              src={toAbsoluteUrl('/media/avatars/300-2.png')}
-              className="w-8 h-8 rounded-full absolute left-7 top-1/2 -translate-y-1/2"
-              alt=""
-            />
+          <div className="flex items-center gap-2">
             <Input
-              type="text"
-              value={emailInput}
-              onChange={(e) => setEmailInput(e.target.value)}
-              placeholder="Write a message..."
-              className="w-full ps-12 pe-24 py-4 h-auto"
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Tulis pesan... (Enter untuk kirim)"
+              className="flex-1 h-10 text-sm"
+              disabled={send.isPending || !me.id}
+              maxLength={1000}
             />
-            <div className="absolute end-7 top-1/2 -translate-y-1/2 flex gap-2">
-              <Button size="sm" variant="ghost" mode="icon">
-                <Upload className="size-4!" />
-              </Button>
-              <Button size="sm" variant="mono">
-                Send
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              onClick={handleSend}
+              disabled={!input.trim() || send.isPending || !me.id}
+              className="h-10 px-3 gap-1.5"
+            >
+              <Send className="h-4 w-4" />
+              {send.isPending ? '...' : 'Kirim'}
+            </Button>
           </div>
+          {!me.id && (
+            <p className="text-[11px] text-muted-foreground mt-1.5 text-center">
+              Login untuk dapat mengirim pesan
+            </p>
+          )}
         </SheetFooter>
       </SheetContent>
     </Sheet>

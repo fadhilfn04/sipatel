@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-storage';
 
-// GET /api/keuangan/dashboard - Get dashboard statistics
+function getClient() {
+  if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
+  return supabaseAdmin;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const period = searchParams.get('period') || 'month'; // today, week, month, year
+    const period = searchParams.get('period') || 'month';
 
-    // Calculate date range based on period
     const now = new Date();
     const from = new Date();
 
@@ -26,180 +29,161 @@ export async function GET(request: NextRequest) {
         break;
     }
 
-    const fromDate = from.toISOString().split('T')[0];
-    const toDate = now.toISOString().split('T')[0];
+    const client = getClient();
 
-    // Fetch data from multiple tables in parallel
-    const [
-      arusKasResult,
-      pembayaranSumbanganResult,
-      laporanPeriodeResult,
-      danaKematianResult,
-      danaSosialResult,
-      anggotaResult,
-    ] = await Promise.all([
-      // Cash flow data
-      supabase
+    const [anggotaResult, danaKematianAllResult, danaKematianPeriodResult, danaSosialResult] =
+      await Promise.all([
+        client.from('anggota').select('status_anggota').is('deleted_at', null),
+
+        client.from('dana_kematian')
+          .select('besaran_dana_kematian, status_proses, created_at')
+          .is('deleted_at', null),
+
+        client.from('dana_kematian')
+          .select('besaran_dana_kematian, status_proses')
+          .is('deleted_at', null)
+          .gte('created_at', from.toISOString())
+          .lte('created_at', now.toISOString()),
+
+        client.from('dana_sosial')
+          .select('jumlah_diajukan, jumlah_disetujui, status_pengajuan, status_penyaluran')
+          .is('deleted_at', null),
+      ]);
+
+    // Anggota stats
+    const anggotaData = anggotaResult.data || [];
+    const totalAnggota = anggotaData.length;
+    const anggotaAktif = anggotaData.filter(
+      (a) => a.status_anggota !== 'meninggal' && a.status_anggota !== 'non-aktif',
+    ).length;
+
+    // Dana kematian all-time
+    const dkAll = danaKematianAllResult.data || [];
+    const klaimByStatus: Record<string, number> = {};
+    let totalNilaiKlaim = 0;
+    let nilaiSelesai = 0;
+
+    dkAll.forEach((row) => {
+      const s = row.status_proses || 'unknown';
+      klaimByStatus[s] = (klaimByStatus[s] || 0) + 1;
+      totalNilaiKlaim += row.besaran_dana_kematian || 0;
+      if (s === 'selesai') nilaiSelesai += row.besaran_dana_kematian || 0;
+    });
+
+    const totalKlaim = dkAll.length;
+    const klaimSelesai = klaimByStatus['selesai'] || 0;
+    const klaimDitolak = klaimByStatus['ditolak'] || 0;
+    const klaimAktif = totalKlaim - klaimSelesai - klaimDitolak;
+
+    // Dana kematian in period
+    const dkPeriod = danaKematianPeriodResult.data || [];
+    const klaimPeriod = dkPeriod.length;
+    const nilaiPeriod = dkPeriod.reduce((s, r) => s + (r.besaran_dana_kematian || 0), 0);
+    const selesaiPeriod = dkPeriod.filter((r) => r.status_proses === 'selesai').length;
+
+    // Dana sosial
+    const dsData = danaSosialResult.data || [];
+    const totalDanaSosial = dsData.reduce((s, r) => s + (r.jumlah_diajukan || 0), 0);
+    const bantuanDisalurkan = dsData
+      .filter((r) => r.status_penyaluran === 'Sudah Disalurkan' || r.status_pengajuan === 'Selesai')
+      .reduce((s, r) => s + (r.jumlah_disetujui || 0), 0);
+
+    // Try arus_kas (may not exist — fail gracefully)
+    let kasMasuk = 0;
+    let kasKeluar = 0;
+    let cashBalance = 0;
+    try {
+      const arusKasResult = await client
         .from('arus_kas')
-        .select('jumlah, jenis_transaksi')
+        .select('jenis_transaksi, jumlah_transaksi, saldo_akhir, tanggal_transaksi')
         .is('deleted_at', null)
-        .gte('tanggal_transaksi', fromDate)
-        .lte('tanggal_transaksi', toDate),
+        .gte('tanggal_transaksi', from.toISOString().split('T')[0])
+        .lte('tanggal_transaksi', now.toISOString().split('T')[0]);
 
-      // Contribution payments
-      supabase
-        .from('pembayaran_sumbangan')
-        .select('jumlah, status')
-        .is('deleted_at', null)
-        .gte('tanggal_pembayaran', fromDate)
-        .lte('tanggal_pembayaran', toDate),
-
-      // Period reports
-      supabase
-        .from('laporan_periode')
-        .select('*')
-        .is('deleted_at', null)
-        .gte('tanggal_mulai', fromDate)
-        .lte('tanggal_mulai', toDate),
-
-      // Death benefit funds
-      supabase
-        .from('dana_kematian')
-        .select('total_dana, total_dibayar')
-        .is('deleted_at', null)
-        .single(),
-
-      // Social funds
-      supabase
-        .from('dana_sosial')
-        .select('total_dana, total_dibayar')
-        .is('deleted_at', null)
-        .single(),
-
-      // Active members count
-      supabase
-        .from('anggota')
-        .select('id', { count: 'exact', head: true })
-        .is('deleted_at', null)
-        .eq('status_keanggotaan', 'aktif'),
-    ]);
-
-    // Calculate cash flow statistics
-    const kasMasuk = arusKasResult.data
-      ?.filter(item => item.jenis_transaksi === 'masuk')
-      .reduce((sum, item) => sum + (item.jumlah || 0), 0) || 0;
-
-    const kasKeluar = arusKasResult.data
-      ?.filter(item => item.jenis_transaksi === 'keluar')
-      .reduce((sum, item) => sum + (item.jumlah || 0), 0) || 0;
-
-    const netCashFlow = kasMasuk - kasKeluar;
-
-    // Calculate contribution payment statistics
-    const totalTerbayar = pembayaranSumbanganResult.data
-      ?.filter(item => item.status === 'paid')
-      .reduce((sum, item) => sum + (item.jumlah || 0), 0) || 0;
-
-    const totalTertunda = pembayaranSumbanganResult.data
-      ?.filter(item => item.status === 'pending')
-      .reduce((sum, item) => sum + (item.jumlah || 0), 0) || 0;
-
-    const jumlahTransaksi = pembayaranSumbanganResult.data?.length || 0;
-
-    // Calculate income statement data
-    const totalPendapatan = laporanPeriodeResult.data
-      ?.reduce((sum, item) => sum + (item.total_pemasukan || 0), 0) || 0;
-
-    const totalBeban = laporanPeriodeResult.data
-      ?.reduce((sum, item) => sum + (item.total_pengeluaran || 0), 0) || 0;
-
-    const labaBersih = totalPendapatan - totalBeban;
-
-    // Calculate balance sheet data
-    const totalAset = laporanPeriodeResult.data
-      ?.reduce((sum, item) => sum + (item.total_aset || 0), 0) || 0;
-
-    const totalKewajiban = laporanPeriodeResult.data
-      ?.reduce((sum, item) => sum + (item.total_kewajiban || 0), 0) || 0;
-
-    const totalEkuitas = laporanPeriodeResult.data
-      ?.reduce((sum, item) => sum + (item.total_ekuitas || 0), 0) || 0;
-
-    // Get death benefit fund data
-    const totalDanaKematian = danaKematianResult.data?.total_dana || 0;
-    const klaimKematianDibayar = danaKematianResult.data?.total_dibayar || 0;
-    const sisaDanaKematian = totalDanaKematian - klaimKematianDibayar;
-
-    // Get social fund data
-    const totalDanaSosial = danaSosialResult.data?.total_dana || 0;
-    const bantuanDiberikan = danaSosialResult.data?.total_dibayar || 0;
-    const sisaDanaSosial = totalDanaSosial - bantuanDiberikan;
-
-    // Count period reports by status
-    const totalReports = laporanPeriodeResult.data?.length || 0;
-    const pendingReports = laporanPeriodeResult.data
-      ?.filter(item => item.status_laporan === 'draft').length || 0;
-
-    // Active members count
-    const anggotaAktif = anggotaResult.count || 0;
-
-    // Calculate total funds (death + social)
-    const totalDana = totalDanaKematian + totalDanaSosial;
+      if (!arusKasResult.error && arusKasResult.data?.length) {
+        kasMasuk = arusKasResult.data
+          .filter((r) => r.jenis_transaksi === 'masuk')
+          .reduce((s, r) => s + (r.jumlah_transaksi || 0), 0);
+        kasKeluar = arusKasResult.data
+          .filter((r) => r.jenis_transaksi === 'keluar')
+          .reduce((s, r) => s + (r.jumlah_transaksi || 0), 0);
+        const sorted = arusKasResult.data.sort((a, b) =>
+          new Date(b.tanggal_transaksi).getTime() - new Date(a.tanggal_transaksi).getTime(),
+        );
+        cashBalance = sorted[0]?.saldo_akhir || 0;
+      }
+    } catch {
+      // table doesn't exist — keep defaults as 0
+    }
 
     return NextResponse.json({
       overview: {
-        totalAset,
-        totalDana,
+        totalAnggota,
         anggotaAktif,
-        totalReports,
-        pendingReports,
+        totalKlaim,
+        klaimAktif,
+        klaimSelesai,
+        klaimDitolak,
+        totalNilaiKlaim,
+        nilaiSelesai,
+        klaimPeriod,
+        nilaiPeriod,
+        selesaiPeriod,
+        kasMasuk,
+        kasKeluar,
+        cashBalance,
+        totalDanaSosial,
+        bantuanDisalurkan,
+        // legacy fields
+        totalAset: cashBalance,
+        totalDana: totalNilaiKlaim + totalDanaSosial,
+        totalReports: 0,
+        pendingReports: 0,
       },
+      klaimByStatus,
+      danaKematian: {
+        totalDana: totalNilaiKlaim,
+        klaimDibayar: nilaiSelesai,
+        sisaDana: totalNilaiKlaim - nilaiSelesai,
+      },
+      danaSosial: {
+        totalDana: totalDanaSosial,
+        bantuanDiberikan: bantuanDisalurkan,
+        sisaDana: totalDanaSosial - bantuanDisalurkan,
+      },
+      // Legacy shape kept for backward compat with existing sub-pages
       ringkasanKeuangan: {
         totalPemasukan: kasMasuk,
         totalPengeluaran: kasKeluar,
-        saldo: netCashFlow,
+        saldo: kasMasuk - kasKeluar,
       },
       arusKas: {
         kasMasuk,
         kasKeluar,
-        netCashFlow,
+        netCashFlow: kasMasuk - kasKeluar,
       },
       labaRugi: {
-        pendapatan: totalPendapatan,
-        beban: totalBeban,
-        labaBersih,
+        pendapatan: kasMasuk,
+        beban: kasKeluar,
+        labaBersih: kasMasuk - kasKeluar,
       },
       neraca: {
-        totalAset,
-        totalKewajiban,
-        totalEkuitas,
+        totalAset: cashBalance + totalNilaiKlaim,
+        totalKewajiban: nilaiSelesai,
+        totalEkuitas: cashBalance + totalNilaiKlaim - nilaiSelesai,
       },
       pembayaranSumbangan: {
-        totalTerbayar,
-        totalTertunda,
-        jumlahTransaksi,
-      },
-      danaKematian: {
-        totalDana: totalDanaKematian,
-        klaimDibayar: klaimKematianDibayar,
-        sisaDana: sisaDanaKematian,
-      },
-      danaSosial: {
-        totalDana: totalDanaSosial,
-        bantuanDiberikan,
-        sisaDana: sisaDanaSosial,
+        totalTerbayar: 0,
+        totalTertunda: 0,
+        jumlahTransaksi: 0,
       },
       laporanPeriode: {
-        totalReports,
-        pendingReports,
+        totalReports: 0,
+        pendingReports: 0,
       },
     });
-
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in GET /api/keuangan/dashboard:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

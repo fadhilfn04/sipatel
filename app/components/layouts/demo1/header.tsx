@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useUnreadCount } from '@/lib/hooks/use-notifications';
 import { SearchDialog } from '@/partials/dialogs/search/search-dialog';
 import { AppsDropdownMenu } from '@/partials/topbar/apps-dropdown-menu';
 import { ChatSheet } from '@/partials/topbar/chat-sheet';
@@ -40,6 +41,7 @@ export function Header() {
   const [isMegaMenuSheetOpen, setIsMegaMenuSheetOpen] = useState(false);
 
   const pathname = usePathname();
+  const unreadCount = useUnreadCount();
   const mobileMode = useIsMobile();
 
   const scrollPosition = useScrollPosition();
@@ -143,15 +145,20 @@ export function Header() {
                   }
                 />
               )} */}
-              {/* <NotificationsSheet
+              <NotificationsSheet
                 trigger={
                   <Button
                     variant="ghost"
                     mode="icon"
                     shape="circle"
-                    className="size-9 hover:bg-primary/10 hover:[&_svg]:text-primary"
+                    className="relative size-9 hover:bg-primary/10 hover:[&_svg]:text-primary"
                   >
                     <Bell className="size-4.5!" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-0.5 right-0.5 h-4 min-w-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
                   </Button>
                 }
               />
@@ -166,7 +173,7 @@ export function Header() {
                     <MessageCircleMore className="size-4.5!" />
                   </Button>
                 }
-              /> */}
+              />
               {/* <AppsDropdownMenu
                 trigger={
                   <Button

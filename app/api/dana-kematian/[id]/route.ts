@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { UpdateDanaKematianInput } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import {
+  notifyDanaKematianVerifikasiCabang,
+  notifyDanaKematianProsesPusat,
+  notifyDanaKematianSelesai,
+  notifyDanaKematianDitolak,
+  notifyDanaKematianUpdated,
+  notifyDokumenVerified,
+  notifyDanaKematianDeleted,
+} from '@/lib/server/create-notification';
 
 function getClient() {
   if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
@@ -47,10 +56,16 @@ export async function PUT(
     const { id } = await params;
     const body: UpdateDanaKematianInput = await request.json();
 
-    // Check if claim exists
+    // Fetch existing claim to compare changes for notifications
     const { data: existingClaim } = await getClient()
       .from('dana_kematian')
-      .select('id')
+      .select(`
+        id, nama_anggota, cabang_asal_melapor, status_proses, besaran_dana_kematian, keterangan,
+        dokumen_surat_kematian_verified, dokumen_sk_pensiun_verified,
+        dokumen_surat_pernyataan_verified, dokumen_kartu_keluarga_verified,
+        dokumen_ktp_ahli_waris_verified, dokumen_surat_nikah_verified,
+        dokumen_surat_keterangan_verified, dokumen_pendukung_verified
+      `)
       .eq('id', id)
       .is('deleted_at', null)
       .single();
@@ -127,6 +142,55 @@ export async function PUT(
       );
     }
 
+    // ── Fire workflow notifications (non-blocking) ────────────────────
+    const nama = existingClaim.nama_anggota;
+    const aktor = (body as any).data_perubahan?.actor_nama || '';
+    const newStatus = patch['status_proses'] as string | undefined;
+
+    if (newStatus && newStatus !== existingClaim.status_proses) {
+      switch (newStatus) {
+        case 'verifikasi_cabang':
+          notifyDanaKematianVerifikasiCabang(id, nama, aktor);
+          break;
+        case 'proses_pusat':
+          notifyDanaKematianProsesPusat(id, nama, aktor);
+          break;
+        case 'selesai':
+          notifyDanaKematianSelesai(
+            id,
+            nama,
+            updatedDanaKematian.besaran_dana_kematian || existingClaim.besaran_dana_kematian || 0,
+          );
+          break;
+        case 'ditolak':
+          notifyDanaKematianDitolak(id, nama, (body as any).keterangan || existingClaim.keterangan);
+          break;
+        default:
+          notifyDanaKematianUpdated(id, nama, aktor);
+      }
+    } else {
+      // Check if any document was verified (false → true transition)
+      const docFields: Array<{ field: string; label: string }> = [
+        { field: 'dokumen_surat_kematian_verified',    label: 'Surat Kematian' },
+        { field: 'dokumen_sk_pensiun_verified',         label: 'SK Pensiun' },
+        { field: 'dokumen_surat_pernyataan_verified',   label: 'Surat Pernyataan Ahli Waris' },
+        { field: 'dokumen_kartu_keluarga_verified',     label: 'Kartu Keluarga' },
+        { field: 'dokumen_ktp_ahli_waris_verified',     label: 'KTP Ahli Waris' },
+        { field: 'dokumen_surat_nikah_verified',        label: 'Surat Nikah' },
+        { field: 'dokumen_surat_keterangan_verified',   label: 'Surat Keterangan' },
+        { field: 'dokumen_pendukung_verified',          label: 'Dokumen Pendukung' },
+      ];
+
+      for (const { field, label } of docFields) {
+        const wasVerified = (existingClaim as any)[field];
+        const nowVerified = (body as any)[field];
+        if (!wasVerified && nowVerified === true) {
+          notifyDokumenVerified(id, nama, label);
+        }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────
+
     return NextResponse.json({
       data: updatedDanaKematian,
       message: 'Dana kematian berhasil diupdate',
@@ -151,7 +215,7 @@ export async function DELETE(
     // Check if claim exists
     const { data: existingClaim } = await getClient()
       .from('dana_kematian')
-      .select('id, status_proses')
+      .select('id, status_proses, nama_anggota')
       .eq('id', id)
       .is('deleted_at', null)
       .single();
@@ -184,6 +248,8 @@ export async function DELETE(
         { status: 500 }
       );
     }
+
+    notifyDanaKematianDeleted(existingClaim.nama_anggota);
 
     return NextResponse.json({
       message: 'Dana kematian berhasil dihapus',

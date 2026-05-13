@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CreateDanaKematianInput, DanaKematianFilter } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { notifyDanaKematianCreated } from '@/lib/server/create-notification';
 
 function getClient() {
   if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
@@ -173,6 +174,13 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Fire notification (non-blocking)
+    notifyDanaKematianCreated(
+      newDanaKematian.id,
+      newDanaKematian.nama_anggota,
+      newDanaKematian.cabang_asal_melapor || '',
+    );
 
     return NextResponse.json({
       data: newDanaKematian,
