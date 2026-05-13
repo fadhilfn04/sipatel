@@ -79,6 +79,9 @@ const defaultFormData: CreateDanaKematianInput = {
   file_kartu_keluarga: '',
   file_e_ktp: '',
   file_surat_nikah: '',
+  file_surat_keterangan: '',
+  file_dokumen_pendukung: '',
+  susunan_keluarga: '',
   status_proses: 'dilaporkan',
   keterangan: '',
 };
@@ -124,6 +127,20 @@ const DOCUMENT_STEPS = [
     field: 'file_surat_nikah' as keyof CreateDanaKematianInput,
     folder: 'surat-nikah',
     description: 'Upload surat nikah (diperlukan jika ahli waris adalah istri atau suami)',
+    required: false,
+  },
+  {
+    label: 'Surat Keterangan',
+    field: 'file_surat_keterangan' as keyof CreateDanaKematianInput,
+    folder: 'surat-keterangan',
+    description: 'Upload surat keterangan tambahan jika diperlukan',
+    required: false,
+  },
+  {
+    label: 'Dokumen Pendukung',
+    field: 'file_dokumen_pendukung' as keyof CreateDanaKematianInput,
+    folder: 'dokumen-pendukung',
+    description: 'Upload dokumen pendukung lainnya jika ada',
     required: false,
   },
 ];
@@ -179,6 +196,9 @@ export function DanaKematianFormModal({
         file_kartu_keluarga: claim.file_kartu_keluarga || '',
         file_e_ktp: claim.file_e_ktp || '',
         file_surat_nikah: claim.file_surat_nikah || '',
+        file_surat_keterangan: claim.file_surat_keterangan || '',
+        file_dokumen_pendukung: claim.file_dokumen_pendukung || '',
+        susunan_keluarga: claim.susunan_keluarga || '',
         status_proses: claim.status_proses,
         keterangan: claim.keterangan || '',
       });
@@ -257,7 +277,7 @@ export function DanaKematianFormModal({
       status_anggota: member.status_anggota,
       status_mps: member.status_mps,
       cabang_asal_melapor: member.nama_cabang,
-      status_proses: 'verifikasi_cabang',
+      status_proses: 'dilaporkan',
     });
 
     setValidationErrors(prev => {
@@ -413,7 +433,7 @@ export function DanaKematianFormModal({
                       <div className="space-y-2">
                         <label className="text-sm font-medium">NIK</label>
                         <Input
-                          value={selectedMember?.nik || formData.nama_anggota || ''}
+                          value={selectedMember?.nik || (claim as any)?.anggota?.nik || ''}
                           readOnly
                           className="bg-muted cursor-not-allowed"
                         />
@@ -531,8 +551,8 @@ export function DanaKematianFormModal({
                                 </div>
                               </SelectItem>
                             )}
-                            <SelectItem value="25000000">Rp 25.000.000 (Tarif Lama)</SelectItem>
-                            <SelectItem value="50000000">Rp 50.000.000 (Tarif Baru)</SelectItem>
+                            <SelectItem value="25000000">Rp 1.500.000 (Tarif Lama)</SelectItem>
+                            <SelectItem value="50000000">Rp 2.000.000 (Tarif Baru)</SelectItem>
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
@@ -786,27 +806,103 @@ export function DanaKematianFormModal({
                           )}
                         </div>
 
-                        {/* Nama & Tanggal Meninggal */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Nama Meninggal</label>
-                            <Input
-                              placeholder="Nama yang meninggal"
-                              value={formData.nama_anggota}
-                              onChange={(e) => handleFieldChange('nama_anggota', e.target.value)}
-                              readOnly={!!selectedMember}
-                              className={selectedMember ? 'bg-muted cursor-not-allowed' : ''}
-                            />
+                        {/* Step-specific input fields */}
+                        {documentStep === 0 && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">NIK</label>
+                              <Input
+                                value={selectedMember?.nik || (claim as any)?.anggota?.nik || ''}
+                                readOnly
+                                className="bg-muted cursor-not-allowed"
+                                placeholder="Pilih anggota untuk mengisi NIK"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Nama Meninggal</label>
+                              <Input
+                                placeholder="Nama yang meninggal"
+                                value={formData.nama_anggota}
+                                onChange={(e) => handleFieldChange('nama_anggota', e.target.value)}
+                                readOnly={!!selectedMember}
+                                className={selectedMember ? 'bg-muted cursor-not-allowed' : ''}
+                              />
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Tanggal Meninggal</label>
-                            <Input
-                              type="date"
-                              value={formData.tanggal_meninggal}
-                              onChange={(e) => handleFieldChange('tanggal_meninggal', e.target.value)}
-                            />
+                        )}
+
+                        {documentStep === 1 && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">NIK</label>
+                              <Input
+                                value={selectedMember?.nik || (claim as any)?.anggota?.nik || ''}
+                                readOnly
+                                className="bg-muted cursor-not-allowed"
+                                placeholder="Pilih anggota untuk mengisi NIK"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Susunan Keluarga</label>
+                              <Input
+                                placeholder="Susunan keluarga"
+                                value={(formData as any).susunan_keluarga || ''}
+                                onChange={(e) => handleFieldChange('susunan_keluarga' as any, e.target.value)}
+                              />
+                            </div>
                           </div>
-                        </div>
+                        )}
+
+                        {documentStep === 2 && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Nama Ahli Waris</label>
+                              <Input
+                                placeholder="Nama lengkap ahli waris"
+                                value={formData.nama_ahli_waris}
+                                onChange={(e) => handleFieldChange('nama_ahli_waris', e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Hubungan Dengan Meninggal</label>
+                              <Select
+                                value={formData.status_ahli_waris}
+                                onValueChange={(value) => handleFieldChange('status_ahli_waris', value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Pilih hubungan" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="istri">Istri</SelectItem>
+                                  <SelectItem value="suami">Suami</SelectItem>
+                                  <SelectItem value="anak">Anak</SelectItem>
+                                  <SelectItem value="keluarga">Keluarga</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        )}
+
+                        {documentStep === 3 && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Nama Ahli Waris</label>
+                              <Input
+                                value={formData.nama_ahli_waris}
+                                readOnly
+                                className="bg-muted cursor-not-allowed"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Keterangan Dengan Meninggal</label>
+                              <Input
+                                placeholder="Keterangan hubungan dengan meninggal"
+                                value={formData.keterangan}
+                                onChange={(e) => handleFieldChange('keterangan', e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        )}
 
                         {/* File Upload Zone */}
                         <div className="space-y-2">

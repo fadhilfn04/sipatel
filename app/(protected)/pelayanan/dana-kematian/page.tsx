@@ -146,13 +146,6 @@ export default function DanaKematianPage() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
@@ -211,17 +204,29 @@ export default function DanaKematianPage() {
         cell: ({ row }) => row.index + 1 + pagination.pageIndex * pagination.pageSize,
       },
       {
-        accessorKey: 'nama_anggota',
-        header: 'NAMA',
-        cell: ({ row }) => <div className="font-medium text-xs sm:text-sm">{row.original.nama_anggota}</div>,
-      },
-      {
         id: 'nik',
         header: 'NIK',
         cell: ({ row }) => {
           const nik = (row.original as any).anggota?.nik;
           return <span className="font-mono text-xs text-muted-foreground">{nik || '—'}</span>;
         },
+      },
+      {
+        accessorKey: 'nama_anggota',
+        header: 'NAMA',
+        cell: ({ row }) => <div className="font-medium text-xs sm:text-sm">{row.original.nama_anggota}</div>,
+      },
+      {
+        accessorKey: 'cabang_asal_melapor',
+        header: 'CABANG',
+        cell: ({ row }) => (
+          <span className="text-xs sm:text-sm text-muted-foreground">{row.original.cabang_asal_melapor || '—'}</span>
+        ),
+      },
+      {
+        accessorKey: 'tanggal_meninggal',
+        header: 'TGL MENINGGAL',
+        cell: ({ row }) => <span className="text-xs sm:text-sm whitespace-nowrap">{formatDate(row.original.tanggal_meninggal)}</span>,
       },
       {
         accessorKey: 'nama_ahli_waris',
@@ -231,20 +236,6 @@ export default function DanaKematianPage() {
             <div className="font-medium text-xs sm:text-sm">{row.original.nama_ahli_waris}</div>
             <div className="text-xs text-muted-foreground">{row.original.status_ahli_waris}</div>
           </div>
-        ),
-      },
-      {
-        accessorKey: 'tanggal_meninggal',
-        header: 'TGL MENINGGAL',
-        cell: ({ row }) => <span className="text-xs sm:text-sm whitespace-nowrap">{formatDate(row.original.tanggal_meninggal)}</span>,
-      },
-      {
-        accessorKey: 'besaran_dana_kematian',
-        header: 'JUMLAH',
-        cell: ({ row }) => (
-          <span className="font-semibold text-green-600 text-xs sm:text-sm">
-            {formatCurrency(row.original.besaran_dana_kematian)}
-          </span>
         ),
       },
       {

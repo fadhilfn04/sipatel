@@ -206,6 +206,7 @@ export interface DanaKematian {
   besaran_dana_kematian: number;
   cabang_tanggal_serah_ke_ahli_waris: string | null;
   cabang_tanggal_lapor_ke_pusat: string | null;
+  susunan_keluarga: string | null;
   nama_ahli_waris: string;
   status_ahli_waris: StatusAhliWarisEnum;
 
@@ -257,6 +258,7 @@ export interface DanaKematian {
   dokumen_ktp_ahli_waris_verified: boolean;
   dokumen_surat_nikah_verified: boolean;
   dokumen_surat_keterangan_verified: boolean;
+  dokumen_pendukung_verified: boolean;
   dokumen_buku_rekening_verified: boolean;
   dokumen_surat_kuasa_verified: boolean;
 
@@ -321,6 +323,7 @@ export interface CreateDanaKematianInput {
   besaran_dana_kematian: number;
   cabang_tanggal_serah_ke_ahli_waris?: string;
   cabang_tanggal_lapor_ke_pusat?: string;
+  susunan_keluarga?: string;
   nama_ahli_waris: string;
   status_ahli_waris: StatusAhliWarisEnum;
 
@@ -372,6 +375,7 @@ export interface CreateDanaKematianInput {
   dokumen_ktp_ahli_waris_verified?: boolean;
   dokumen_surat_nikah_verified?: boolean;
   dokumen_surat_keterangan_verified?: boolean;
+  dokumen_pendukung_verified?: boolean;
   dokumen_buku_rekening_verified?: boolean;
   dokumen_surat_kuasa_verified?: boolean;
 

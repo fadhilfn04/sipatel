@@ -81,6 +81,20 @@ const DOCUMENT_REQUIREMENTS: DocumentRequirement[] = [
     description: 'Buku nikah atau akta pernikahan',
     condition: 'Wajib jika ahli waris suami/istri',
   },
+  {
+    key: 'file_surat_keterangan',
+    verifiedKey: 'dokumen_surat_keterangan_verified',
+    name: 'Surat Keterangan',
+    required: false,
+    description: 'Surat keterangan tambahan yang mendukung pengajuan jika diperlukan',
+  },
+  {
+    key: 'file_dokumen_pendukung',
+    verifiedKey: 'dokumen_pendukung_verified',
+    name: 'Dokumen Pendukung',
+    required: false,
+    description: 'Dokumen pendukung lainnya yang relevan dengan pengajuan',
+  },
 ];
 
 export function DocumentValidationSystem({

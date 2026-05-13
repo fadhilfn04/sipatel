@@ -8,13 +8,13 @@ export const TARIFF_CONFIG = {
   cutoffDate: '2023-03-01', // Batas tarif lama vs baru
 
   oldTariff: {
-    baseAmount: 25000000, // Rp 25 juta
-    mpsAmount: 25000000,
+    baseAmount: 1500000, // Rp 1.5 juta
+    mpsAmount: 1500000,
   },
 
   newTariff: {
-    baseAmount: 50000000, // Rp 50 juta
-    mpsAmount: 50000000,
+    baseAmount: 2000000, // Rp 2 juta
+    mpsAmount: 2000000,
   },
 
   // Threshold otomatis

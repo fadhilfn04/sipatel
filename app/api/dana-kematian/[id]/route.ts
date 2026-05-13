@@ -16,7 +16,7 @@ export async function GET(
     const { id } = await params;
     const { data: danaKematian, error } = await getClient()
       .from('dana_kematian')
-      .select('*')
+      .select('*, anggota:anggota_id(nik)')
       .eq('id', id)
       .is('deleted_at', null)
       .single();
@@ -62,31 +62,59 @@ export async function PUT(
       );
     }
 
+    // undefined = field not sent (skip), '' = clear to null, value = update
+    const toDate = (v: string | null | undefined) => v === undefined ? undefined : (v || null);
+    const toText = (v: string | null | undefined) => v === undefined ? undefined : v;
+
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const d = (k: string, v: ReturnType<typeof toDate>) => { if (v !== undefined) patch[k] = v; };
+    const t = (k: string, v: ReturnType<typeof toText>) => { if (v !== undefined) patch[k] = v; };
+
+    t('nama_anggota', toText(body.nama_anggota));
+    t('status_anggota', toText(body.status_anggota));
+    t('status_mps', toText(body.status_mps));
+    d('tanggal_meninggal', toDate(body.tanggal_meninggal));
+    t('penyebab_meninggal', toText(body.penyebab_meninggal));
+    d('tanggal_lapor_keluarga', toDate(body.tanggal_lapor_keluarga));
+    t('cabang_asal_melapor', toText(body.cabang_asal_melapor));
+    t('cabang_nama_pelapor', toText(body.cabang_nama_pelapor));
+    t('cabang_nik_pelapor', toText(body.cabang_nik_pelapor));
+    d('cabang_tanggal_awal_terima_berkas', toDate(body.cabang_tanggal_awal_terima_berkas));
+    d('cabang_tanggal_kirim_ke_pusat', toDate(body.cabang_tanggal_kirim_ke_pusat));
+    d('pusat_tanggal_awal_terima', toDate(body.pusat_tanggal_awal_terima));
+    d('pusat_tanggal_validasi', toDate(body.pusat_tanggal_validasi));
+    d('pusat_tanggal_selesai', toDate(body.pusat_tanggal_selesai));
+    if (body.besaran_dana_kematian !== undefined) patch['besaran_dana_kematian'] = body.besaran_dana_kematian;
+    d('cabang_tanggal_serah_ke_ahli_waris', toDate(body.cabang_tanggal_serah_ke_ahli_waris));
+    d('cabang_tanggal_lapor_ke_pusat', toDate(body.cabang_tanggal_lapor_ke_pusat));
+    t('nama_ahli_waris', toText(body.nama_ahli_waris));
+    t('status_ahli_waris', toText(body.status_ahli_waris));
+    t('file_sk_pensiun', toText(body.file_sk_pensiun));
+    t('file_surat_kematian', toText(body.file_surat_kematian));
+    t('file_surat_pernyataan_ahli_waris', toText(body.file_surat_pernyataan_ahli_waris));
+    t('file_kartu_keluarga', toText(body.file_kartu_keluarga));
+    t('file_e_ktp', toText(body.file_e_ktp));
+    t('file_surat_nikah', toText(body.file_surat_nikah));
+    t('file_surat_keterangan', toText(body.file_surat_keterangan));
+    t('file_dokumen_pendukung', toText(body.file_dokumen_pendukung));
+    t('susunan_keluarga', toText(body.susunan_keluarga));
+    t('status_proses', toText(body.status_proses));
+    t('keterangan', toText(body.keterangan));
+    if ((body as any).waktu_3 !== undefined) patch['waktu_3'] = (body as any).waktu_3;
+    if ((body as any).waktu_4 !== undefined) patch['waktu_4'] = (body as any).waktu_4;
+    if ((body as any).waktu_7 !== undefined) patch['waktu_7'] = (body as any).waktu_7;
+    const boolFields = [
+      'dokumen_surat_kematian_verified', 'dokumen_sk_pensiun_verified',
+      'dokumen_surat_pernyataan_verified', 'dokumen_kartu_keluarga_verified',
+      'dokumen_ktp_ahli_waris_verified', 'dokumen_surat_nikah_verified',
+      'dokumen_surat_keterangan_verified', 'dokumen_pendukung_verified',
+    ];
+    boolFields.forEach(f => { if ((body as any)[f] !== undefined) patch[f] = (body as any)[f]; });
+
     // Update dana kematian
     const { data: updatedDanaKematian, error } = await getClient()
       .from('dana_kematian')
-      .update({
-        ...body,
-        penyebab_meninggal: body.penyebab_meninggal !== undefined ? body.penyebab_meninggal : undefined,
-        tanggal_lapor_keluarga: body.tanggal_lapor_keluarga !== undefined ? body.tanggal_lapor_keluarga : undefined,
-        cabang_nama_pelapor: body.cabang_nama_pelapor !== undefined ? body.cabang_nama_pelapor : undefined,
-        cabang_nik_pelapor: body.cabang_nik_pelapor !== undefined ? body.cabang_nik_pelapor : undefined,
-        cabang_tanggal_awal_terima_berkas: body.cabang_tanggal_awal_terima_berkas !== undefined ? body.cabang_tanggal_awal_terima_berkas : undefined,
-        cabang_tanggal_kirim_ke_pusat: body.cabang_tanggal_kirim_ke_pusat !== undefined ? body.cabang_tanggal_kirim_ke_pusat : undefined,
-        pusat_tanggal_awal_terima: body.pusat_tanggal_awal_terima !== undefined ? body.pusat_tanggal_awal_terima : undefined,
-        pusat_tanggal_validasi: body.pusat_tanggal_validasi !== undefined ? body.pusat_tanggal_validasi : undefined,
-        pusat_tanggal_selesai: body.pusat_tanggal_selesai !== undefined ? body.pusat_tanggal_selesai : undefined,
-        cabang_tanggal_serah_ke_ahli_waris: body.cabang_tanggal_serah_ke_ahli_waris !== undefined ? body.cabang_tanggal_serah_ke_ahli_waris : undefined,
-        cabang_tanggal_lapor_ke_pusat: body.cabang_tanggal_lapor_ke_pusat !== undefined ? body.cabang_tanggal_lapor_ke_pusat : undefined,
-        file_sk_pensiun: body.file_sk_pensiun !== undefined ? body.file_sk_pensiun : undefined,
-        file_surat_kematian: body.file_surat_kematian !== undefined ? body.file_surat_kematian : undefined,
-        file_surat_pernyataan_ahli_waris: body.file_surat_pernyataan_ahli_waris !== undefined ? body.file_surat_pernyataan_ahli_waris : undefined,
-        file_kartu_keluarga: body.file_kartu_keluarga !== undefined ? body.file_kartu_keluarga : undefined,
-        file_e_ktp: body.file_e_ktp !== undefined ? body.file_e_ktp : undefined,
-        file_surat_nikah: body.file_surat_nikah !== undefined ? body.file_surat_nikah : undefined,
-        keterangan: body.keterangan !== undefined ? body.keterangan : undefined,
-        updated_at: new Date().toISOString(),
-      })
+      .update(patch)
       .eq('id', id)
       .select()
       .single();
