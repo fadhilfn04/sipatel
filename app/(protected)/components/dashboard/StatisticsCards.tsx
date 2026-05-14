@@ -54,11 +54,11 @@ export function StatisticsCards({ stats, isLoading }: StatisticsCardsProps) {
     },
     {
       title: 'Klaim Pending',
-      value: formatNumber(stats.klaimPending),
+      value: formatNumber(stats.klaimPending ?? 0),
       icon: Clock,
       color: 'yellow',
       description: 'Menunggu proses',
-      showBadge: stats.klaimPending > 0,
+      showBadge: (stats.klaimPending ?? 0) > 0,
     },
     {
       title: 'Total Dana Kematian Dicairkan',
