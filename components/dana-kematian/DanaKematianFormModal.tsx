@@ -115,10 +115,10 @@ const DOCUMENT_STEPS = [
     required: true,
   },
   {
-    label: 'Kartu Keluarga',
+    label: 'Kartu Keluarga Ahli Waris',
     field: 'file_kartu_keluarga' as keyof CreateDanaKematianInput,
     folder: 'kartu-keluarga',
-    description: 'Upload kartu keluarga yang masih berlaku',
+    description: 'Upload kartu keluarga ahli waris yang masih berlaku',
     required: true,
   },
   {
@@ -126,21 +126,21 @@ const DOCUMENT_STEPS = [
     field: 'file_e_ktp' as keyof CreateDanaKematianInput,
     folder: 'e-ktp',
     description: 'Upload fotokopi E-KTP ahli waris yang masih berlaku',
-    required: false,
+    required: true,
   },
   {
     label: 'Surat Nikah',
     field: 'file_surat_nikah' as keyof CreateDanaKematianInput,
     folder: 'surat-nikah',
     description: 'Upload surat nikah (diperlukan jika ahli waris adalah istri atau suami)',
-    required: false,
+    required: true,
   },
   {
     label: 'Surat Keterangan',
     field: 'file_surat_keterangan' as keyof CreateDanaKematianInput,
     folder: 'surat-keterangan',
     description: 'Upload surat keterangan tambahan jika diperlukan',
-    required: false,
+    required: true,
   },
   {
     label: 'Dokumen Pendukung',
@@ -608,46 +608,6 @@ export function DanaKematianFormModal({
                         </p>
                       </div>
                     </div>
-
-                    {/* Data Ahli Waris */}
-                    <div>
-                      <h3 className="text-md font-semibold mb-4 flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        Data Ahli Waris
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Nama Ahli Waris *</label>
-                          <Input
-                            placeholder="Nama lengkap ahli waris"
-                            value={formData.nama_ahli_waris}
-                            onChange={(e) => handleFieldChange('nama_ahli_waris', e.target.value)}
-                            required
-                          />
-                          {validationErrors.nama_ahli_waris && (
-                            <p className="text-sm text-destructive">{validationErrors.nama_ahli_waris}</p>
-                          )}
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Status Ahli Waris *</label>
-                          <Select
-                            value={formData.status_ahli_waris}
-                            onValueChange={(value) => handleFieldChange('status_ahli_waris', value)}
-                            required
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pilih status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="istri">Istri</SelectItem>
-                              <SelectItem value="suami">Suami</SelectItem>
-                              <SelectItem value="anak">Anak</SelectItem>
-                              <SelectItem value="keluarga">Keluarga</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
                   </TabsContent>
 
                   {/* Tab 2: Dokumen */}
@@ -869,8 +829,6 @@ export function DanaKematianFormModal({
                                 placeholder="Nama yang meninggal"
                                 value={formData.nama_anggota}
                                 onChange={(e) => handleFieldChange('nama_anggota', e.target.value)}
-                                readOnly={!!selectedMember}
-                                className={selectedMember ? 'bg-muted cursor-not-allowed' : ''}
                               />
                             </div>
                           </div>
@@ -1030,11 +988,20 @@ export function DanaKematianFormModal({
                             </div>
                             <div className="space-y-2">
                               <label className="text-sm font-medium">Keterangan Dengan Meninggal</label>
-                              <Input
-                                placeholder="Keterangan hubungan dengan meninggal"
+                              <Select
                                 value={formData.keterangan}
-                                onChange={(e) => handleFieldChange('keterangan', e.target.value)}
-                              />
+                                onValueChange={(value) => handleFieldChange('keterangan', value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Pilih keterangan hubungan" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="istri">Istri</SelectItem>
+                                  <SelectItem value="suami">Suami</SelectItem>
+                                  <SelectItem value="anak">Anak</SelectItem>
+                                  <SelectItem value="keluarga">Keluarga</SelectItem>
+                                </SelectContent>
+                              </Select>
                             </div>
                           </div>
                         )}
