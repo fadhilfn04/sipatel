@@ -408,8 +408,8 @@ export function DanaKematianFormModal({
                   <TabsContent value="informasi-utama" className="mt-0 space-y-6">
                     {/* Member Search Section - Only in create mode */}
                     {mode === 'create' && (
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                      <div className="rounded-lg border border-slate-200/80 bg-slate-50 p-4 dark:border-slate-800/80 dark:bg-slate-950/80">
+                        <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2 dark:text-slate-100">
                           <Search className="h-4 w-4" />
                           Pilih Data Anggota
                         </h4>
