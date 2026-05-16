@@ -847,14 +847,14 @@ export function getTimelineEvents(claim: any): Array<{
       label: 'Dokumen Awal',
       date: claim.waktu_1 || claim.cabang_tanggal_awal_terima_berkas,
       description: 'Penerimaan dokumen pertama dari ahli waris',
-      completed: !!claim.waktu_1
+      completed: !!(claim.waktu_1 || claim.cabang_tanggal_awal_terima_berkas)
     },
     {
       waktu: 'Waktu-2',
       label: 'Pengiriman ke PP',
       date: claim.waktu_2 || claim.cabang_tanggal_kirim_ke_pusat,
       description: 'Berkas lengkap dikirim ke Pusat',
-      completed: !!claim.waktu_2
+      completed: !!(claim.waktu_2 || claim.cabang_tanggal_kirim_ke_pusat)
     },
     {
       waktu: 'Waktu-3',

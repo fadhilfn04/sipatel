@@ -94,17 +94,17 @@ const defaultFormData: CreateDanaKematianInput = {
 
 const DOCUMENT_STEPS = [
   {
-    label: 'Surat Kematian',
-    field: 'file_surat_kematian' as keyof CreateDanaKematianInput,
-    folder: 'surat-kematian',
-    description: 'Upload surat kematian resmi yang dikeluarkan oleh pejabat berwenang (kelurahan/RS/dsb)',
-    required: true,
-  },
-  {
     label: 'SK Pensiun',
     field: 'file_sk_pensiun' as keyof CreateDanaKematianInput,
     folder: 'sk-pensiun',
     description: 'Upload Surat Keputusan Pensiun anggota yang bersangkutan',
+    required: true,
+  },
+  {
+    label: 'Surat Kematian',
+    field: 'file_surat_kematian' as keyof CreateDanaKematianInput,
+    folder: 'surat-kematian',
+    description: 'Upload surat kematian resmi yang dikeluarkan oleh pejabat berwenang (kelurahan/RS/dsb)',
     required: true,
   },
   {
@@ -139,7 +139,7 @@ const DOCUMENT_STEPS = [
     label: 'Surat Keterangan',
     field: 'file_surat_keterangan' as keyof CreateDanaKematianInput,
     folder: 'surat-keterangan',
-    description: 'Upload surat keterangan tambahan jika diperlukan',
+    description: 'Upload surat keterangan tambahan',
     required: true,
   },
   {
@@ -234,6 +234,7 @@ export function DanaKematianFormModal({
         cabang_nama_pelapor: currentUserAnggota?.nama_anggota ?? '',
         cabang_nik_pelapor: currentUserAnggota?.nik ?? '',
         cabang_asal_melapor: currentUserAnggota?.nama_cabang ?? '',
+        cabang_tanggal_awal_terima_berkas: new Date().toISOString().split('T')[0],
       });
       setSelectedMember(null);
       setFamilyMembers([]);
@@ -551,63 +552,6 @@ export function DanaKematianFormModal({
                         </p>
                       </div>
                     </div>
-
-                    {/* Tanggal Meninggal & Besaran Dana */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Tanggal Meninggal *</label>
-                        <Input
-                          type="date"
-                          value={formData.tanggal_meninggal}
-                          onChange={(e) => handleFieldChange('tanggal_meninggal', e.target.value)}
-                          required
-                        />
-                        {validationErrors.tanggal_meninggal && (
-                          <p className="text-sm text-destructive">{validationErrors.tanggal_meninggal}</p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Besaran Dana Kematian *</label>
-                        <Select
-                          value={formData.besaran_dana_kematian.toString()}
-                          onValueChange={(value) => {
-                            if (value !== 'auto') setManualTariffOverride(true);
-                            handleFieldChange(
-                              'besaran_dana_kematian',
-                              value === 'auto'
-                                ? calculateTariff(formData.tanggal_meninggal || '', formData.status_mps).amount
-                                : parseFloat(value)
-                            );
-                          }}
-                          required
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Pilih besaran dana" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {mode === 'create' && formData.tanggal_meninggal && (
-                              <SelectItem value="auto">
-                                <div className="flex items-center gap-2">
-                                  <Sparkles className="h-4 w-4 text-yellow-500" />
-                                  <span>
-                                    Otomatis ({formatTariffLabel(calculateTariff(formData.tanggal_meninggal, formData.status_mps).amount)})
-                                  </span>
-                                </div>
-                              </SelectItem>
-                            )}
-                            <SelectItem value="1500000">Rp 1.500.000 (Tarif Lama)</SelectItem>
-                            <SelectItem value="2000000">Rp 2.000.000 (Tarif Baru)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          {mode === 'create' && !manualTariffOverride && formData.tanggal_meninggal
-                            ? `⚡ Otomatis dihitung berdasarkan tanggal meninggal (${getTariffDisplayLabel(calculateTariff(formData.tanggal_meninggal, formData.status_mps).tariffType)})`
-                            : 'Tarif dana kematian berdasarkan tanggal meninggal dan status MPS'
-                          }
-                        </p>
-                      </div>
-                    </div>
                   </TabsContent>
 
                   {/* Tab 2: Dokumen */}
@@ -654,14 +598,6 @@ export function DanaKematianFormModal({
                               placeholder="Penyebab meninggal"
                               value={formData.penyebab_meninggal}
                               onChange={(e) => handleFieldChange('penyebab_meninggal', e.target.value)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Tanggal Lapor Keluarga</label>
-                            <Input
-                              type="date"
-                              value={formData.tanggal_lapor_keluarga}
-                              onChange={(e) => handleFieldChange('tanggal_lapor_keluarga', e.target.value)}
                             />
                           </div>
                           <div className="space-y-2">
@@ -813,28 +749,6 @@ export function DanaKematianFormModal({
 
                         {/* Step-specific input fields */}
                         {documentStep === 0 && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">NIK</label>
-                              <Input
-                                value={selectedMember?.nik || (claim as any)?.anggota?.nik || ''}
-                                readOnly
-                                className="bg-muted cursor-not-allowed"
-                                placeholder="Pilih anggota untuk mengisi NIK"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">Nama Meninggal</label>
-                              <Input
-                                placeholder="Nama yang meninggal"
-                                value={formData.nama_anggota}
-                                onChange={(e) => handleFieldChange('nama_anggota', e.target.value)}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {documentStep === 1 && (
                           <div className="space-y-4">
                             <div className="space-y-2">
                               <label className="text-sm font-medium">NIK</label>
@@ -946,6 +860,82 @@ export function DanaKematianFormModal({
                           </div>
                         )}
 
+                        {documentStep === 1 && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">NIK</label>
+                              <Input
+                                value={selectedMember?.nik || (claim as any)?.anggota?.nik || ''}
+                                readOnly
+                                className="bg-muted cursor-not-allowed"
+                                placeholder="Pilih anggota untuk mengisi NIK"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Nama Meninggal</label>
+                              <Input
+                                placeholder="Nama yang meninggal"
+                                value={formData.nama_anggota}
+                                onChange={(e) => handleFieldChange('nama_anggota', e.target.value)}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Tanggal Meninggal *</label>
+                              <Input
+                                type="date"
+                                value={formData.tanggal_meninggal}
+                                onChange={(e) => handleFieldChange('tanggal_meninggal', e.target.value)}
+                                required
+                              />
+                              {validationErrors.tanggal_meninggal && (
+                                <p className="text-sm text-destructive">{validationErrors.tanggal_meninggal}</p>
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">Besaran Dana Kematian *</label>
+                              <Select
+                                value={formData.besaran_dana_kematian.toString()}
+                                onValueChange={(value) => {
+                                  if (value !== 'auto') setManualTariffOverride(true);
+                                  handleFieldChange(
+                                    'besaran_dana_kematian',
+                                    value === 'auto'
+                                      ? calculateTariff(formData.tanggal_meninggal || '', formData.status_mps).amount
+                                      : parseFloat(value)
+                                  );
+                                }}
+                                required
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Pilih besaran dana" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {mode === 'create' && formData.tanggal_meninggal && (
+                                    <SelectItem value="auto">
+                                      <div className="flex items-center gap-2">
+                                        <Sparkles className="h-4 w-4 text-yellow-500" />
+                                        <span>
+                                          Otomatis ({formatTariffLabel(calculateTariff(formData.tanggal_meninggal, formData.status_mps).amount)})
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  )}
+                                  <SelectItem value="1500000">Rp 1.500.000 (Tarif Lama)</SelectItem>
+                                  <SelectItem value="2000000">Rp 2.000.000 (Tarif Baru)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">
+                                {mode === 'create' && !manualTariffOverride && formData.tanggal_meninggal
+                                  ? `⚡ Otomatis dihitung berdasarkan tanggal meninggal (${getTariffDisplayLabel(calculateTariff(formData.tanggal_meninggal, formData.status_mps).tariffType)})`
+                                  : 'Tarif dana kematian berdasarkan tanggal meninggal dan status MPS'
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
                         {documentStep === 2 && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
@@ -1005,6 +995,56 @@ export function DanaKematianFormModal({
                             </div>
                           </div>
                         )}
+
+                        {/* Hint for optional Dokumen Pendukung step */}
+                        {!currentDocStep.required && (() => {
+                          const requiredSteps = DOCUMENT_STEPS.filter(s => s.required);
+                          const missingRequired = requiredSteps.filter(s => !(formData[s.field] as string));
+                          const allDone = missingRequired.length === 0;
+
+                          return (
+                            <div className={`rounded-lg border p-4 space-y-3 ${allDone ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/40' : 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40'}`}>
+                              <div className="flex items-start gap-2.5">
+                                {allDone
+                                  ? <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                                  : <Circle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                                }
+                                <div className="space-y-1">
+                                  <p className={`text-sm font-semibold ${allDone ? 'text-green-800 dark:text-green-300' : 'text-amber-800 dark:text-amber-300'}`}>
+                                    {allDone
+                                      ? 'Semua dokumen wajib sudah terupload!'
+                                      : 'Selesaikan dokumen wajib terlebih dahulu'
+                                    }
+                                  </p>
+                                  <p className={`text-xs ${allDone ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                                    {allDone
+                                      ? 'Dokumen Pendukung bersifat opsional — Anda dapat melewati langkah ini jika tidak ada dokumen tambahan.'
+                                      : 'Dokumen ini bersifat opsional dan tidak diwajibkan. Pastikan semua dokumen wajib di bawah sudah terupload sebelum menyelesaikan pengajuan.'
+                                    }
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Required docs checklist */}
+                              <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-current/10">
+                                {requiredSteps.map((s) => {
+                                  const uploaded = !!(formData[s.field] as string);
+                                  return (
+                                    <div key={s.field} className="flex items-center gap-1.5">
+                                      {uploaded
+                                        ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                                        : <Circle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                                      }
+                                      <span className={`text-xs ${uploaded ? 'text-green-700 dark:text-green-400 line-through opacity-70' : 'text-amber-700 dark:text-amber-400 font-medium'}`}>
+                                        {s.label}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
 
                         {/* File Upload Zone */}
                         <div className="space-y-2">

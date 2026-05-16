@@ -117,6 +117,8 @@ export async function PUT(
     t('keterangan', toText(body.keterangan));
     if ((body as any).waktu_3 !== undefined) patch['waktu_3'] = (body as any).waktu_3;
     if ((body as any).waktu_4 !== undefined) patch['waktu_4'] = (body as any).waktu_4;
+    if ((body as any).waktu_5 !== undefined) patch['waktu_5'] = (body as any).waktu_5;
+    if ((body as any).waktu_6 !== undefined) patch['waktu_6'] = (body as any).waktu_6;
     if ((body as any).waktu_7 !== undefined) patch['waktu_7'] = (body as any).waktu_7;
     const boolFields = [
       'dokumen_surat_kematian_verified', 'dokumen_sk_pensiun_verified',
