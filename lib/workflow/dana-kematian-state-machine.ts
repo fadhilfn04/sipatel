@@ -836,61 +836,68 @@ export function getTimelineEvents(claim: any): Array<{
 }> {
   return [
     {
-      waktu: 'Waktu-0',
+      waktu: 'waktu_0',
       label: 'Laporan Kematian',
-      date: claim.waktu_0 || claim.tanggal_lapor_keluarga,
-      description: 'Laporan kematian diterima dari keluarga',
-      completed: !!(claim.waktu_0 || claim.tanggal_lapor_keluarga)
+      date: claim.waktu_0 || claim.created_at || claim.tanggal_lapor_keluarga,
+      description: 'Laporan kematian diterima dan data pengajuan dibuat',
+      completed: !!(claim.waktu_0 || claim.created_at || claim.tanggal_lapor_keluarga),
     },
     {
-      waktu: 'Waktu-1',
-      label: 'Dokumen Awal',
+      waktu: 'waktu_1',
+      label: 'Proses Pengurus Cabang',
       date: claim.waktu_1 || claim.cabang_tanggal_awal_terima_berkas,
-      description: 'Penerimaan dokumen pertama dari ahli waris',
-      completed: !!(claim.waktu_1 || claim.cabang_tanggal_awal_terima_berkas)
+      description: 'Pengurus cabang memproses berkas dari ahli waris',
+      completed: !!(claim.waktu_1 || claim.cabang_tanggal_awal_terima_berkas),
     },
     {
-      waktu: 'Waktu-2',
+      waktu: 'waktu_2',
       label: 'Pengiriman ke PP',
       date: claim.waktu_2 || claim.cabang_tanggal_kirim_ke_pusat,
-      description: 'Berkas lengkap dikirim ke Pusat',
-      completed: !!(claim.waktu_2 || claim.cabang_tanggal_kirim_ke_pusat)
+      description: 'Berkas lengkap dikirim ke Pusat Pelayanan',
+      completed: !!(claim.waktu_2 || claim.cabang_tanggal_kirim_ke_pusat),
     },
     {
-      waktu: 'Waktu-3',
-      label: 'Validasi PP',
+      waktu: 'waktu_3',
+      label: 'PP Terima Berkas PC',
       date: claim.waktu_3 || claim.pusat_tanggal_validasi,
-      description: 'Validasi dan verifikasi oleh Pusat',
-      completed: !!claim.waktu_3
+      description: 'PP menerima dan memvalidasi berkas dari pengurus cabang',
+      completed: !!claim.waktu_3,
     },
     {
-      waktu: 'Waktu-4',
-      label: 'Finalisasi',
+      waktu: 'waktu_4',
+      label: 'Proses PP (Pelayanan)',
       date: claim.waktu_4 || claim.pusat_tanggal_selesai,
-      description: 'Persetujuan dan koordinasi keuangan',
-      completed: !!claim.waktu_4
+      description: 'PP Pelayanan memproses persetujuan pengajuan dana kematian',
+      completed: !!claim.waktu_4,
     },
     {
-      waktu: 'Waktu-5',
-      label: 'Transfer Dana',
-      date: claim.waktu_5 || claim.tanggal_transfer_dana,
-      description: 'Transfer dana dari PP ke PC',
-      completed: !!claim.waktu_5
+      waktu: 'waktu_5',
+      label: 'Kirim ke PP (Keuangan)',
+      date: claim.waktu_5,
+      description: 'PP Pelayanan mengirimkan dana ke bagian keuangan untuk diproses',
+      completed: !!claim.waktu_5,
     },
     {
-      waktu: 'Waktu-6',
-      label: 'Penyerahan ke Ahli Waris',
-      date: claim.waktu_6 || claim.tanggal_penyaluran_actual,
-      description: 'Dana diserahkan kepada ahli waris',
-      completed: !!claim.waktu_6
+      waktu: 'waktu_6',
+      label: 'PP (Keuangan) Kirim ke Para PC',
+      date: claim.waktu_6,
+      description: 'PP Keuangan mengirimkan dana kematian ke pengurus cabang',
+      completed: !!claim.waktu_6,
     },
     {
-      waktu: 'Waktu-7',
-      label: 'Laporan Lengkap',
-      date: claim.waktu_7 || claim.tanggal_laporan_lengkap,
-      description: 'Semua laporan telah diserahkan',
-      completed: !!claim.waktu_7
-    }
+      waktu: 'waktu_7',
+      label: 'PC Menyerahkan Dakem ke AW',
+      date: claim.waktu_7 || claim.cabang_tanggal_serah_ke_ahli_waris,
+      description: 'Pengurus cabang menyerahkan dana kematian kepada ahli waris',
+      completed: !!(claim.waktu_7 || claim.cabang_tanggal_serah_ke_ahli_waris),
+    },
+    {
+      waktu: 'laporan_akhir',
+      label: 'PC Upload Laporan Akhir Dakem Sesuai Periode Laporan',
+      date: claim.cabang_tanggal_lapor_ke_pusat,
+      description: 'PC mengupload laporan akhir dana kematian sesuai periode laporan',
+      completed: claim.status_proses === 'selesai',
+    },
   ];
 }
 

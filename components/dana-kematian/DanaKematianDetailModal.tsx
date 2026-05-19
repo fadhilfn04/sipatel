@@ -189,9 +189,12 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
       } else if (action === 'confirm_transfer') {
         setIsConfirmingTransfer(true);
         const now = new Date().toISOString();
+        const today = now.split('T')[0];
         await updateMutation.mutateAsync({
           status_proses: 'selesai',
-          pusat_tanggal_selesai: now.split('T')[0],
+          pusat_tanggal_selesai: today,
+          cabang_tanggal_serah_ke_ahli_waris: today,
+          cabang_tanggal_lapor_ke_pusat: today,
           waktu_5: now,
           waktu_6: now,
           waktu_7: now,
@@ -477,7 +480,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                   {/* ── Timeline Tab ── */}
                   <TabsContent value="timeline" className="mt-0">
                     <div className="border rounded-xl p-6">
-                      <DanaKematianTimeline claim={activeClaim} showLabels={true} />
+                      <DanaKematianTimeline claim={activeClaim} />
                     </div>
                   </TabsContent>
 

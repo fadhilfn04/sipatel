@@ -9,11 +9,10 @@ import { getTimelineEvents, getCurrentStageInfo } from '@/lib/workflow/dana-kema
 
 interface DanaKematianTimelineProps {
   claim: DanaKematian;
-  showLabels?: boolean;
   compact?: boolean;
 }
 
-export function DanaKematianTimeline({ claim, showLabels = true, compact = false }: DanaKematianTimelineProps) {
+export function DanaKematianTimeline({ claim, compact = false }: DanaKematianTimelineProps) {
   const timelineEvents = getTimelineEvents(claim);
   const stageInfo = getCurrentStageInfo(claim);
 
@@ -47,17 +46,17 @@ export function DanaKematianTimeline({ claim, showLabels = true, compact = false
       <div className="flex items-center gap-2 overflow-x-auto pb-2">
         {timelineEvents.map((event, index) => (
           <React.Fragment key={event.waktu}>
-            <div className="flex items-center gap-1 min-w-fit">
+            <div className="flex items-center gap-1 min-w-fit" title={event.label}>
               {getWaktuIcon(event.completed, index)}
               <div className="flex flex-col">
-                <span className="text-xs font-medium">{event.waktu}</span>
+                <span className="text-xs font-medium truncate max-w-20">{event.label}</span>
                 <span className="text-xs text-muted-foreground">
                   {formatWaktuDate(event.date)}
                 </span>
               </div>
             </div>
             {index < timelineEvents.length - 1 && (
-              <div className={`h-0.5 w-8 ${event.completed ? 'bg-green-500' : 'bg-gray-200'}`} />
+              <div className={`h-0.5 w-8 shrink-0 ${event.completed ? 'bg-green-500' : 'bg-gray-200'}`} />
             )}
           </React.Fragment>
         ))}
@@ -116,15 +115,6 @@ export function DanaKematianTimeline({ claim, showLabels = true, compact = false
                       }`}>
                         {event.label}
                       </h4>
-                      {showLabels && (
-                        <Badge variant={
-                          status === 'completed' ? 'success' :
-                          isCurrent ? 'secondary' :
-                          'secondary'
-                        } className="text-xs">
-                          {event.waktu}
-                        </Badge>
-                      )}
                       {isCurrent && (
                         <Badge variant="secondary" className="text-xs">
                           Current
@@ -165,7 +155,7 @@ export function DanaKematianTimeline({ claim, showLabels = true, compact = false
 
 // Export a simpler version for inline use
 export function DanaKematianTimelineCompact({ claim }: { claim: DanaKematian }) {
-  return <DanaKematianTimeline claim={claim} compact={true} showLabels={false} />;
+  return <DanaKematianTimeline claim={claim} compact={true} />;
 }
 
 // Export status badge component
@@ -201,8 +191,8 @@ export function DanaKematianTimelineProgress({ claim }: { claim: DanaKematian })
         />
       </div>
       <div className="flex justify-between text-xs text-muted-foreground">
-        <span>Waktu-0</span>
-        <span>Waktu-7</span>
+        <span>Laporan Kematian</span>
+        <span>Laporan Akhir</span>
       </div>
     </div>
   );

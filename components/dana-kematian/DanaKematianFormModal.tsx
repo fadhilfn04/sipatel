@@ -19,6 +19,7 @@ import {
   Circle,
   X,
   XCircle,
+  Lock,
 } from 'lucide-react';
 import {
   Dialog,
@@ -627,20 +628,42 @@ export function DanaKematianFormModal({
                                 />
                               </div>
                               <div className="space-y-2">
-                                <label className="text-sm font-medium">Tanggal Serah ke Ahli Waris</label>
+                                <label className="text-sm font-medium flex items-center gap-1.5">
+                                  Tanggal Serah ke Ahli Waris
+                                  {claim?.status_proses !== 'selesai' && (
+                                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                                  )}
+                                </label>
                                 <Input
                                   type="date"
                                   value={formData.cabang_tanggal_serah_ke_ahli_waris}
-                                  onChange={(e) => handleFieldChange('cabang_tanggal_serah_ke_ahli_waris', e.target.value)}
+                                  readOnly={claim?.status_proses !== 'selesai'}
+                                  disabled={claim?.status_proses !== 'selesai'}
+                                  className={claim?.status_proses !== 'selesai' ? 'bg-muted cursor-not-allowed opacity-60' : ''}
+                                  onChange={(e) => claim?.status_proses === 'selesai' && handleFieldChange('cabang_tanggal_serah_ke_ahli_waris', e.target.value)}
                                 />
+                                {claim?.status_proses !== 'selesai' && (
+                                  <p className="text-xs text-muted-foreground">Otomatis terisi saat konfirmasi transfer selesai</p>
+                                )}
                               </div>
                               <div className="space-y-2">
-                                <label className="text-sm font-medium">Tanggal Lapor ke Pusat</label>
+                                <label className="text-sm font-medium flex items-center gap-1.5">
+                                  Tanggal Lapor ke Pusat
+                                  {claim?.status_proses !== 'selesai' && (
+                                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                                  )}
+                                </label>
                                 <Input
                                   type="date"
                                   value={formData.cabang_tanggal_lapor_ke_pusat}
-                                  onChange={(e) => handleFieldChange('cabang_tanggal_lapor_ke_pusat', e.target.value)}
+                                  readOnly={claim?.status_proses !== 'selesai'}
+                                  disabled={claim?.status_proses !== 'selesai'}
+                                  className={claim?.status_proses !== 'selesai' ? 'bg-muted cursor-not-allowed opacity-60' : ''}
+                                  onChange={(e) => claim?.status_proses === 'selesai' && handleFieldChange('cabang_tanggal_lapor_ke_pusat', e.target.value)}
                                 />
+                                {claim?.status_proses !== 'selesai' && (
+                                  <p className="text-xs text-muted-foreground">Otomatis terisi saat konfirmasi transfer selesai</p>
+                                )}
                               </div>
                             </>
                           )}
