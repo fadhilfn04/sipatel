@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { DanaSosialFilter } from '@/lib/supabase';
+import { notifyDanaSosialCreated } from '@/lib/server/create-notification';
 
 export async function GET(request: NextRequest) {
   try {
@@ -132,6 +133,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Fire notification (non-blocking)
+    notifyDanaSosialCreated(data.id, data.nama_pemohon, data.jenis_bantuan);
 
     return NextResponse.json(data, { status: 201 });
   } catch (error: any) {

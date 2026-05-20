@@ -142,7 +142,7 @@ const UserProfile = ({
           </dl>
           <Button
             variant="outline"
-            disabled={user.role?.isProtected}
+            // disabled={user.role?.isProtected}
             onClick={() => setEditDialogOpen(true)}
           >
             Perbarui detail pengguna

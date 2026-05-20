@@ -58,7 +58,7 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
               src={'/media/avatars/300-2.png'}
               alt="User avatar"
             />
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-0.5">
               <Link
                 href="/account/home/get-started"
                 className="text-sm text-mono hover:text-primary font-semibold"
@@ -71,6 +71,11 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
               >
                 {session?.user.email || ''}
               </Link>
+              {session?.user?.role?.name && (
+                <Badge variant="primary" appearance="light" size="sm" className="w-fit mt-0.5">
+                  {session.user.role.name}
+                </Badge>
+              )}
             </div>
           </div>
           {/* <Badge variant="primary" appearance="light" size="sm">

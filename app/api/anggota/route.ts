@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { CreateAnggotaInput, AnggotaFilter } from '@/lib/supabase';
 import { requirePermission, requireAnyPermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS, ROLES } from '@/lib/rbac';
+import { notifyAnggotaBaru } from '@/lib/server/create-notification';
 
 // GET /api/anggota - Get all members with filtering and pagination
 export async function GET(request: NextRequest) {
@@ -214,6 +215,9 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Fire notification (non-blocking)
+    notifyAnggotaBaru(newAnggota.id, newAnggota.nama_anggota, newAnggota.nama_cabang ?? '');
 
     return NextResponse.json({
       data: newAnggota,

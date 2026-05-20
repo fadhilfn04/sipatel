@@ -378,6 +378,12 @@ export const MENU_SIDEBAR: MenuConfig = [
       // },
     ],
   },
+  {
+    title: 'Manajemen Notifikasi',
+    icon: Bell,
+    path: '/user-management/notification-routing',
+    permissions: [PERMISSIONS.ACCESS_USER_MANAGEMENT],
+  },
 ];
 
 export const MENU_SIDEBAR_CUSTOM: MenuConfig = [

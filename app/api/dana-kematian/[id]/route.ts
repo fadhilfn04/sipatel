@@ -4,6 +4,8 @@ import { supabaseAdmin } from '@/lib/supabase-storage';
 import {
   notifyDanaKematianVerifikasiCabang,
   notifyDanaKematianProsesPusat,
+  notifyDanaKematianVerified,
+  notifyDanaKematianPenyaluran,
   notifyDanaKematianSelesai,
   notifyDanaKematianDitolak,
   notifyDanaKematianUpdated,
@@ -156,6 +158,12 @@ export async function PUT(
           break;
         case 'proses_pusat':
           notifyDanaKematianProsesPusat(id, nama, aktor);
+          break;
+        case 'verified':
+          notifyDanaKematianVerified(id, nama, aktor);
+          break;
+        case 'penyaluran':
+          notifyDanaKematianPenyaluran(id, nama, aktor);
           break;
         case 'selesai':
           notifyDanaKematianSelesai(

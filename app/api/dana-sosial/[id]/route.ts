@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import {
+  notifyDanaSosialDisetujui,
+  notifyDanaSosialDitolak,
+  notifyDanaSosialDisalurkan,
+} from '@/lib/server/create-notification';
 
 export async function GET(
   request: NextRequest,
@@ -101,6 +106,16 @@ export async function PUT(
       .single();
 
     if (error) throw error;
+
+    // Fire notification on status_pengajuan change (non-blocking)
+    const newStatus = body.status_pengajuan;
+    if (newStatus && newStatus !== existing.status_pengajuan) {
+      const nama = existing.nama_pemohon;
+      const jumlah = data.jumlah_disetujui ?? 0;
+      if (newStatus === 'Disetujui') notifyDanaSosialDisetujui(id, nama, jumlah);
+      else if (newStatus === 'Ditolak') notifyDanaSosialDitolak(id, nama);
+      else if (newStatus === 'Disalurkan' || newStatus === 'Selesai') notifyDanaSosialDisalurkan(id, nama, jumlah);
+    }
 
     return NextResponse.json(data);
   } catch (error: any) {

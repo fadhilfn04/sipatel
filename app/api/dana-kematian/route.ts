@@ -20,9 +20,15 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = (page - 1) * limit;
 
+    const orderBy = searchParams.get('orderBy') || 'created_at';
+    const orderDirection = searchParams.get('orderDirection') || 'desc';
+
     let query = getClient()
       .from('dana_kematian')
       .select('*, anggota:anggota_id(nik)', { count: 'exact' })
+      .order(orderBy, {
+        ascending: orderDirection === 'asc',
+      })
       .is('deleted_at', null);
 
     // Search
