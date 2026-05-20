@@ -135,6 +135,22 @@ const permissions = [
 		description:
 			'Permission to view and edit all system settings, including general, notifications, and integrations.',
 	},
+	// Dana Kematian capability permissions
+	{
+		slug: 'dana_kematian.verify_pp',
+		name: 'Verifikasi PP Dana Kematian',
+		description: 'Dapat memverifikasi dan menyetujui pengajuan dana kematian sebagai Pusat Pelayanan.',
+	},
+	{
+		slug: 'dana_kematian.manage_pc',
+		name: 'Kelola PC Dana Kematian',
+		description: 'Dapat membuat, mengelola, dan mengajukan pengajuan dana kematian sebagai Pengurus Cabang.',
+	},
+	{
+		slug: 'dana_kematian.access_keuangan',
+		name: 'Akses Keuangan Dana Kematian',
+		description: 'Dapat mengakses fitur keuangan dan menyetujui penyaluran dana kematian.',
+	},
 ];
 
 module.exports = permissions;

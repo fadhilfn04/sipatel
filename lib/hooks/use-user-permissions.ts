@@ -42,10 +42,14 @@ export function useUserPermissions() {
       const roleSlug = userRole.slug || 'guest';
       const userPermissions = userRole.permissions?.map((p: any) => p.permission?.slug || p.slug) || [];
 
-      // Check specific Dana Kematian permissions
-      const canVerifyPP = ['ketua-1', 'ketua-2', 'admin', 'administrator'].includes(roleSlug);
-      const canManagePC = ['pc_staff', 'pc_kepala', 'admin', 'administrator'].includes(roleSlug);
-      const canAccessKeuangan = ['keuangan', 'admin', 'administrator'].includes(roleSlug);
+      // Superuser roles always get all capabilities
+      const isSuperuser = ['admin', 'administrator', 'owner'].includes(roleSlug);
+
+      // Dana Kematian capabilities are driven by permission slugs assigned via Hak Akses UI.
+      // To grant a capability: go to Role → Edit → add the relevant permission.
+      const canVerifyPP = isSuperuser || userPermissions.includes('dana_kematian.verify_pp');
+      const canManagePC = isSuperuser || userPermissions.includes('dana_kematian.manage_pc');
+      const canAccessKeuangan = isSuperuser || userPermissions.includes('dana_kematian.access_keuangan');
 
       setPermissions({
         role: roleSlug,
