@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import authOptions from '@/app/api/auth/[...nextauth]/auth-options';
 import { UpdateDanaKematianInput } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-storage';
 import {
@@ -148,7 +150,8 @@ export async function PUT(
 
     // ── Fire workflow notifications (non-blocking) ────────────────────
     const nama = existingClaim.nama_anggota;
-    const aktor = (body as any).data_perubahan?.actor_nama || '';
+    const session = await getServerSession(authOptions);
+    const aktor = session?.user?.name || '';
     const newStatus = patch['status_proses'] as string | undefined;
 
     if (newStatus && newStatus !== existingClaim.status_proses) {
