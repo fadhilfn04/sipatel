@@ -12,6 +12,7 @@ export type DanaKematianStatus =
   | 'dilaporkan'
   | 'pending_dokumen'
   | 'verifikasi_cabang'
+  | 'revisi_pusat'
   | 'proses_pusat'
   | 'verified'
   | 'penyaluran'
@@ -507,6 +508,10 @@ export class DanaKematianStateMachine {
         'Verifikasi kelengkapan dokumen',
         'Lengkapi data ahli waris'
       ],
+      'revisi_pusat': [
+        'Upload ulang dokumen yang ditolak oleh PP',
+        'Klik Update Data setelah dokumen diupload'
+      ],
       'pending_dokumen': [
         'Segera lengkapi dokumen yang kurang',
         'Hubungi ahli waris jika diperlukan'
@@ -573,8 +578,9 @@ export class DanaKematianStateMachine {
 export function getStateLabel(status: DanaKematianStatus): string {
   const labels: Record<DanaKematianStatus, string> = {
     'dilaporkan': 'Dilaporkan',
-    'pending_dokumen': 'Pending Dokumen',
+    'pending_dokumen': 'Revisi Dokumen',
     'verifikasi_cabang': 'Verifikasi Cabang',
+    'revisi_pusat': 'Revisi Pusat',
     'proses_pusat': 'Proses Pusat',
     'verified': 'Terverifikasi',
     'penyaluran': 'Penyaluran',
@@ -590,11 +596,12 @@ export function getStateLabel(status: DanaKematianStatus): string {
 export function getStateDescription(status: DanaKematianStatus): string {
   const descriptions: Record<DanaKematianStatus, string> = {
     'dilaporkan': 'Laporan kematian telah diterima (Waktu-0)',
-    'pending_dokumen': 'Menunggu pelengkapan dokumen (Waktu-1)',
+    'pending_dokumen': 'PP menolak dokumen, cabang perlu upload ulang',
     'verifikasi_cabang': 'PC melakukan validasi dan komunikasi aktif dengan ahli waris',
+    'revisi_pusat': 'PP menolak dokumen, cabang perlu upload ulang dan kirim kembali',
     'proses_pusat': 'Berkas sedang diverifikasi oleh PP (Waktu-2 → Waktu-3)',
     'verified': 'Terverifikasi oleh PP, menunggu penyaluran dana',
-    'penyaluran': 'Dana sedang diproses dan disalurkan (Waktu-4 → Waktu-6)',
+    'penyaluran': 'Dana disetujui PP, menunggu penyerahan ke ahli waris',
     'selesai': 'Dana telah diserahkan dan semua laporan lengkap (Waktu-7)',
     'ditolak': 'Pengajuan ditolak'
   };
@@ -607,8 +614,9 @@ export function getStateDescription(status: DanaKematianStatus): string {
 export function getStateColor(status: DanaKematianStatus): string {
   const colors: Record<DanaKematianStatus, string> = {
     'dilaporkan': 'blue',
-    'pending_dokumen': 'yellow',
+    'pending_dokumen': 'red',
     'verifikasi_cabang': 'cyan',
+    'revisi_pusat': 'red',
     'proses_pusat': 'purple',
     'verified': 'indigo',
     'penyaluran': 'orange',
@@ -626,7 +634,8 @@ export function getStateBadgeVariant(status: DanaKematianStatus): 'success' | 'w
     'selesai': 'success',
     'verified': 'success',
     'ditolak': 'destructive',
-    'pending_dokumen': 'warning',
+    'pending_dokumen': 'destructive',
+    'revisi_pusat': 'destructive',
     'penyaluran': 'warning',
     'dilaporkan': 'secondary',
     'verifikasi_cabang': 'secondary',
@@ -642,10 +651,11 @@ export function getCurrentPhase(status: DanaKematianStatus): string {
   const phaseMap: Record<DanaKematianStatus, string> = {
     'dilaporkan': 'A. Laporan Kematian',
     'verifikasi_cabang': 'B. Pengajuan Dakem',
-    'pending_dokumen': 'C. Kompilasi Berkas',
+    'pending_dokumen': 'C. Revisi Dokumen',
+    'revisi_pusat': 'C. Revisi Dokumen',
     'proses_pusat': 'D. Verifikasi Pengajuan',
     'verified': 'E. Finalisasi Pengajuan',
-    'penyaluran': 'F. Laporan Dakem',
+    'penyaluran': 'F. Penyerahan ke Ahli Waris',
     'selesai': 'Selesai',
     'ditolak': 'Ditolak'
   };
@@ -660,9 +670,10 @@ export function getNextWaktu(status: DanaKematianStatus): string {
     'dilaporkan': 'Waktu-1 (Initial Documents)',
     'verifikasi_cabang': 'Waktu-1 (Initial Documents)',
     'pending_dokumen': 'Waktu-2 (Final Documents)',
+    'revisi_pusat': 'Waktu-2 (Revised Documents)',
     'proses_pusat': 'Waktu-3 (PP Validation)',
     'verified': 'Waktu-4 (Processing Complete)',
-    'penyaluran': 'Waktu-7 (Reporting Complete)',
+    'penyaluran': 'Waktu-6 (Delivery to Heir)',
     'selesai': 'Complete',
     'ditolak': 'N/A'
   };
