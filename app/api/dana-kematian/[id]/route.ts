@@ -68,7 +68,10 @@ export async function PUT(
         dokumen_surat_kematian_verified, dokumen_sk_pensiun_verified,
         dokumen_surat_pernyataan_verified, dokumen_kartu_keluarga_verified,
         dokumen_ktp_ahli_waris_verified, dokumen_surat_nikah_verified,
-        dokumen_surat_keterangan_verified, dokumen_pendukung_verified
+        dokumen_surat_keterangan_verified, dokumen_pendukung_verified,
+        file_sk_pensiun, file_surat_kematian, file_surat_pernyataan_ahli_waris,
+        file_kartu_keluarga, file_e_ktp, file_surat_nikah, file_surat_keterangan,
+        file_dokumen_pendukung, document_metadata
       `)
       .eq('id', id)
       .is('deleted_at', null)
@@ -124,6 +127,8 @@ export async function PUT(
     if ((body as any).waktu_5 !== undefined) patch['waktu_5'] = (body as any).waktu_5;
     if ((body as any).waktu_6 !== undefined) patch['waktu_6'] = (body as any).waktu_6;
     if ((body as any).waktu_7 !== undefined) patch['waktu_7'] = (body as any).waktu_7;
+    if ((body as any).file_bukti_penyerahan !== undefined) patch['file_bukti_penyerahan'] = (body as any).file_bukti_penyerahan;
+    if ((body as any).document_metadata !== undefined) patch['document_metadata'] = (body as any).document_metadata;
     const boolFields = [
       'dokumen_surat_kematian_verified', 'dokumen_sk_pensiun_verified',
       'dokumen_surat_pernyataan_verified', 'dokumen_kartu_keluarga_verified',
@@ -131,6 +136,38 @@ export async function PUT(
       'dokumen_surat_keterangan_verified', 'dokumen_pendukung_verified',
     ];
     boolFields.forEach(f => { if ((body as any)[f] !== undefined) patch[f] = (body as any)[f]; });
+
+    // Auto-revert status to proses_pusat when a document is re-uploaded after rejection
+    const docFileFields: Record<string, string> = {
+      file_sk_pensiun:                  'file_sk_pensiun_rejection_note',
+      file_surat_kematian:              'file_surat_kematian_rejection_note',
+      file_surat_pernyataan_ahli_waris: 'file_surat_pernyataan_ahli_waris_rejection_note',
+      file_kartu_keluarga:              'file_kartu_keluarga_rejection_note',
+      file_e_ktp:                       'file_e_ktp_rejection_note',
+      file_surat_nikah:                 'file_surat_nikah_rejection_note',
+      file_surat_keterangan:            'file_surat_keterangan_rejection_note',
+      file_dokumen_pendukung:           'file_dokumen_pendukung_rejection_note',
+    };
+    if (
+      existingClaim.status_proses === 'pending_dokumen' &&
+      // Only skip if the caller is explicitly advancing to a different status
+      (!patch['status_proses'] || patch['status_proses'] === 'pending_dokumen')
+    ) {
+      const updatedFileKeys = Object.keys(docFileFields).filter(
+        field => patch[field] !== undefined && patch[field] !== (existingClaim as any)[field]
+      );
+      if (updatedFileKeys.length > 0) {
+        patch['status_proses'] = 'proses_pusat';
+        // Clear rejection notes for the re-uploaded documents
+        const existingMeta: Record<string, any> = (existingClaim as any).document_metadata || {};
+        const clearedMeta = { ...existingMeta };
+        updatedFileKeys.forEach(field => {
+          delete clearedMeta[docFileFields[field]];
+          delete clearedMeta[`${field}_rejected_at`];
+        });
+        patch['document_metadata'] = clearedMeta;
+      }
+    }
 
     // Update dana kematian
     const { data: updatedDanaKematian, error } = await getClient()

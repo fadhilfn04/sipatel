@@ -4,11 +4,20 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import {
   FileText,
   CheckCircle2,
   XCircle,
   AlertCircle,
   ExternalLink,
+  AlertTriangle,
 } from 'lucide-react';
 import { DanaKematian } from '@/lib/supabase';
 
@@ -103,17 +112,44 @@ export function DocumentValidationSystem({
   readonly = false,
 }: DocumentValidationSystemProps) {
   const [pendingKeys, setPendingKeys] = useState<Set<string>>(new Set());
+  const [rejectTarget, setRejectTarget] = useState<DocumentRequirement | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
+  const [isRejecting, setIsRejecting] = useState(false);
 
   const toggleVerification = (doc: DocumentRequirement, verified: boolean) => {
     if (pendingKeys.has(doc.key)) return;
     setPendingKeys(prev => new Set(prev).add(doc.key));
     onUpdate?.({ [doc.verifiedKey]: verified } as Partial<DanaKematian>);
-    // Remove pending after a short delay to allow query refresh
     setTimeout(() => setPendingKeys(prev => {
       const next = new Set(prev);
       next.delete(doc.key);
       return next;
     }), 1500);
+  };
+
+  const openRejectDialog = (doc: DocumentRequirement) => {
+    setRejectTarget(doc);
+    setRejectNote('');
+  };
+
+  const handleRejectConfirm = () => {
+    if (!rejectTarget || !rejectNote.trim()) return;
+    setIsRejecting(true);
+    const existingMeta = (claim.document_metadata as Record<string, any>) || {};
+    onUpdate?.({
+      [rejectTarget.verifiedKey]: false,
+      status_proses: 'pending_dokumen',
+      document_metadata: {
+        ...existingMeta,
+        [`${rejectTarget.key}_rejection_note`]: rejectNote.trim(),
+        [`${rejectTarget.key}_rejected_at`]: new Date().toISOString(),
+      },
+    } as Partial<DanaKematian>);
+    setTimeout(() => {
+      setIsRejecting(false);
+      setRejectTarget(null);
+      setRejectNote('');
+    }, 1500);
   };
 
   const verifyAll = () => {
@@ -140,6 +176,7 @@ export function DocumentValidationSystem({
       return url;
     }
   };
+
 
   return (
     <div className="space-y-4">
@@ -189,8 +226,11 @@ export function DocumentValidationSystem({
           const fileUrl = claim[doc.key] as string | null;
           const isVerified = claim[doc.verifiedKey] as boolean;
           const isPending = pendingKeys.has(doc.key);
+          const meta = (claim.document_metadata as Record<string, any>) || {};
+          const rejectionNote = meta[`${doc.key}_rejection_note`] as string | undefined;
+          const isRejected = !!rejectionNote && !isVerified;
 
-          const state = !fileUrl ? 'missing' : isVerified ? 'verified' : 'uploaded';
+          const state = !fileUrl ? 'missing' : isVerified ? 'verified' : isRejected ? 'rejected' : 'uploaded';
 
           return (
             <div
@@ -198,20 +238,25 @@ export function DocumentValidationSystem({
               className={`border rounded-xl p-4 transition-colors ${
                 state === 'verified'
                   ? 'bg-green-50 border-green-200'
-                  : state === 'uploaded'
-                    ? 'bg-blue-50/50 border-blue-200'
-                    : 'bg-muted/40 border-muted'
+                  : state === 'rejected'
+                    ? 'bg-red-50/60 border-red-200'
+                    : state === 'uploaded'
+                      ? 'bg-blue-50/50 border-blue-200'
+                      : 'bg-muted/40 border-muted'
               }`}
             >
               <div className="flex items-start gap-3">
                 {/* Status icon */}
                 <div className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${
                   state === 'verified' ? 'bg-green-100' :
+                  state === 'rejected' ? 'bg-red-100' :
                   state === 'uploaded' ? 'bg-blue-100' :
                   'bg-muted'
                 }`}>
                   {state === 'verified' ? (
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  ) : state === 'rejected' ? (
+                    <XCircle className="h-4 w-4 text-red-600" />
                   ) : state === 'uploaded' ? (
                     <FileText className="h-4 w-4 text-blue-600" />
                   ) : (
@@ -232,10 +277,10 @@ export function DocumentValidationSystem({
                       <Badge variant="outline" className="text-xs px-1.5 py-0">{doc.condition}</Badge>
                     )}
                     <Badge
-                      variant={state === 'verified' ? 'success' : state === 'uploaded' ? 'secondary' : 'outline'}
+                      variant={state === 'verified' ? 'success' : state === 'rejected' ? 'destructive' : state === 'uploaded' ? 'secondary' : 'outline'}
                       className="text-xs px-1.5 py-0"
                     >
-                      {state === 'verified' ? 'Terverifikasi' : state === 'uploaded' ? 'Menunggu Verifikasi' : 'Belum Diunggah'}
+                      {state === 'verified' ? 'Terverifikasi' : state === 'rejected' ? 'Ditolak' : state === 'uploaded' ? 'Menunggu Verifikasi' : 'Belum Diunggah'}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">{doc.description}</p>
@@ -243,6 +288,13 @@ export function DocumentValidationSystem({
                     <p className="text-xs text-muted-foreground mt-1 truncate max-w-sm">
                       {getFileName(fileUrl)}
                     </p>
+                  )}
+                  {/* Rejection note */}
+                  {rejectionNote && !isVerified && (
+                    <div className="mt-2 flex items-start gap-1.5 rounded-md bg-red-100/60 border border-red-200 px-2.5 py-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5 text-red-600 shrink-0 mt-0.5" />
+                      <p className="text-xs text-red-700">{rejectionNote}</p>
+                    </div>
                   )}
                 </div>
 
@@ -258,6 +310,18 @@ export function DocumentValidationSystem({
                     >
                       <ExternalLink className="h-4 w-4" />
                     </a>
+                  )}
+
+                  {!readonly && isValidUrl(fileUrl) && !isVerified && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs gap-1.5 border-red-200 text-red-600 hover:bg-red-50"
+                      onClick={() => openRejectDialog(doc)}
+                      disabled={isPending}
+                    >
+                      <XCircle className="h-3.5 w-3.5" />Tolak
+                    </Button>
                   )}
 
                   {!readonly && isValidUrl(fileUrl) && (
@@ -290,10 +354,47 @@ export function DocumentValidationSystem({
           <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
           <div>
             <p className="font-medium text-green-800 text-sm">Semua dokumen wajib telah terverifikasi</p>
-            <p className="text-xs text-green-700 mt-0.5">Pengajuan siap dikirimkan ke Pusat untuk diproses lebih lanjut</p>
+            <p className="text-xs text-green-700 mt-0.5">Pengajuan siap disetujui dan disalurkan ke ahli waris</p>
           </div>
         </div>
       )}
+
+      {/* Reject Dialog */}
+      <Dialog open={!!rejectTarget} onOpenChange={(open) => { if (!open) setRejectTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Tolak Dokumen: {rejectTarget?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-sm text-muted-foreground">
+              Berikan keterangan mengapa dokumen ini ditolak. Status pengajuan akan berubah ke{' '}
+              <strong className="text-destructive">Revisi Pusat</strong> dan cabang perlu mengupload ulang dokumen yang benar.
+            </p>
+            <Textarea
+              placeholder="Contoh: Dokumen tidak terbaca, foto buram, dokumen kadaluarsa, tanda tangan tidak ada, dll."
+              value={rejectNote}
+              onChange={(e) => setRejectNote(e.target.value)}
+              rows={4}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectTarget(null)} disabled={isRejecting}>
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRejectConfirm}
+              disabled={!rejectNote.trim() || isRejecting}
+            >
+              {isRejecting ? 'Menyimpan...' : 'Tolak Dokumen'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

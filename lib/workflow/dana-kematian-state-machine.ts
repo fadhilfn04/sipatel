@@ -523,13 +523,12 @@ export class DanaKematianStateMachine {
       ],
       'verified': [
         'Persiapkan penyaluran dana',
-        'Koordinasi dengan keuangan untuk transfer',
         'Jadwalkan penyerahan ke ahli waris'
       ],
       'penyaluran': [
-        'Terima dana dari pusat',
-        'Jadwalkan penyerahan ke ahli waris',
-        'Serahkan dana dan dokumentasikan'
+        'Input tanggal penyerahan ke ahli waris',
+        'Upload bukti penyerahan dana',
+        'Konfirmasi penyerahan untuk menyelesaikan pengajuan'
       ],
       'selesai': [
         'Arsipkan berkas klaim',
@@ -791,19 +790,26 @@ export function getCurrentStageInfo(claim: any): {
       percentComplete: 50,
       nextStep: 'Menunggu validasi dan persetujuan dari PP'
     },
+    'revisi_pusat': {
+      stage: 'Revisi Dokumen',
+      description: 'PP menolak satu atau lebih dokumen, cabang perlu mengupload ulang',
+      waktu: 'Waktu-2',
+      percentComplete: 40,
+      nextStep: 'Upload ulang dokumen yang ditolak lalu klik Update Data'
+    },
     'verified': {
       stage: 'E. Finalisasi Pengajuan',
-      description: 'Dokumen telah divalidasi, menunggu persetujuan dan transfer dana',
-      waktu: 'Waktu-3 → Waktu-5',
+      description: 'Terverifikasi oleh PP, siap disalurkan',
+      waktu: 'Waktu-3 → Waktu-4',
       percentComplete: 62.5,
-      nextStep: 'Menunggu transfer dana dari PP ke PC'
+      nextStep: 'PP menyetujui dan menyalurkan dana ke cabang'
     },
     'penyaluran': {
-      stage: 'F. Laporan Dakem',
-      description: 'Dana telah ditransfer ke PC, siap disalurkan ke ahli waris',
-      waktu: 'Waktu-5 → Waktu-6',
-      percentComplete: 75,
-      nextStep: 'Menyerahkan dana ke ahli waris dan membuat laporan'
+      stage: 'F. Penyerahan ke Ahli Waris',
+      description: 'Dana disetujui PP, menunggu cabang menyerahkan ke ahli waris',
+      waktu: 'Waktu-4 → Waktu-6',
+      percentComplete: 80,
+      nextStep: 'PC input tanggal penyerahan dan upload bukti penyerahan'
     },
     'selesai': {
       stage: 'Selesai',
@@ -865,31 +871,17 @@ export function getTimelineEvents(claim: any): Array<{
     },
     {
       waktu: 'waktu_4',
-      label: 'Proses PP (Pelayanan)',
-      date: claim.waktu_4 || claim.pusat_tanggal_selesai,
-      description: 'PP Pelayanan memproses persetujuan pengajuan dana kematian',
+      label: 'PP Setujui & Salurkan',
+      date: claim.waktu_4 || claim.pusat_tanggal_validasi,
+      description: 'PP menyetujui pengajuan dan dana siap disalurkan ke ahli waris',
       completed: !!claim.waktu_4,
     },
     {
-      waktu: 'waktu_5',
-      label: 'Kirim ke PP (Keuangan)',
-      date: claim.waktu_5,
-      description: 'PP Pelayanan mengirimkan dana ke bagian keuangan untuk diproses',
-      completed: !!claim.waktu_5,
-    },
-    {
       waktu: 'waktu_6',
-      label: 'PP (Keuangan) Kirim ke Para PC',
-      date: claim.waktu_6,
-      description: 'PP Keuangan mengirimkan dana kematian ke pengurus cabang',
-      completed: !!claim.waktu_6,
-    },
-    {
-      waktu: 'waktu_7',
-      label: 'PC Menyerahkan Dakem ke AW',
-      date: claim.waktu_7 || claim.cabang_tanggal_serah_ke_ahli_waris,
-      description: 'Pengurus cabang menyerahkan dana kematian kepada ahli waris',
-      completed: !!(claim.waktu_7 || claim.cabang_tanggal_serah_ke_ahli_waris),
+      label: 'PC Serahkan Dana ke Ahli Waris',
+      date: claim.waktu_6 || claim.cabang_tanggal_serah_ke_ahli_waris,
+      description: 'Pengurus cabang menyerahkan dana kematian kepada ahli waris dan mengupload bukti penyerahan',
+      completed: !!(claim.waktu_6 || claim.cabang_tanggal_serah_ke_ahli_waris),
     },
     {
       waktu: 'laporan_akhir',

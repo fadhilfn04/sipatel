@@ -50,6 +50,8 @@ export async function POST(request: NextRequest) {
         'surat-nikah',
         'surat-keterangan',
         'dokumen-pendukung',
+        'bukti-penyerahan',
+        'laporan-periode',
       ];
       if (!validFolders.includes(folder as DanaKematianFolder)) {
         return NextResponse.json(

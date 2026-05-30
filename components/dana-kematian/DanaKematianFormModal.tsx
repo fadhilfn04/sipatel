@@ -126,21 +126,21 @@ const DOCUMENT_STEPS = [
     label: 'E-KTP',
     field: 'file_e_ktp' as keyof CreateDanaKematianInput,
     folder: 'e-ktp',
-    description: 'Upload fotokopi E-KTP ahli waris yang masih berlaku',
+    description: 'Upload fotokopi E-KTP ahli waris yang masih berlaku (jika E-KTP lebih dari satu, maka gabungkan dalam satu file PDF/dibuat kolase terlebih dahulu)',
     required: true,
   },
   {
     label: 'Surat Nikah',
     field: 'file_surat_nikah' as keyof CreateDanaKematianInput,
     folder: 'surat-nikah',
-    description: 'Upload surat nikah (diperlukan jika ahli waris adalah istri atau suami)',
+    description: 'Upload surat nikah (diperlukan jika ahli waris adalah istri, suami, atau cerai)',
     required: true,
   },
   {
-    label: 'Surat Keterangan',
+    label: 'Surat Permohonan',
     field: 'file_surat_keterangan' as keyof CreateDanaKematianInput,
     folder: 'surat-keterangan',
-    description: 'Upload surat keterangan tambahan',
+    description: 'Upload surat permohonan tambahan',
     required: true,
   },
   {
@@ -173,6 +173,7 @@ export function DanaKematianFormModal({
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
   const [duplicateMemberError, setDuplicateMemberError] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const uploadDocsSectionRef = useRef<HTMLDivElement>(null);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
 
   const addFamilyMember = () => setFamilyMembers(prev => [...prev, { nama: '', hubungan: 'anak' }]);
@@ -374,7 +375,7 @@ export function DanaKematianFormModal({
 
   const currentDocStep = DOCUMENT_STEPS[documentStep];
 
-  const title = mode === 'create' ? 'Ajukan Dana Kematian Baru' : 'Edit Data Dana Kematian';
+  const title = mode === 'create' ? 'Selesai Isi Kematian Baru' : 'Edit Data Dana Kematian';
   const description = mode === 'create'
     ? 'Isi formulir di bawah ini untuk mengajukan dana kematian. Status akan otomatis diatur ke "Verifikasi Cabang".'
     : 'Ubah data pengajuan dana kematian. Status proses dikelola otomatis melalui workflow.';
@@ -594,14 +595,6 @@ export function DanaKematianFormModal({
                             />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-sm font-medium">Penyebab Meninggal</label>
-                            <Input
-                              placeholder="Penyebab meninggal"
-                              value={formData.penyebab_meninggal}
-                              onChange={(e) => handleFieldChange('penyebab_meninggal', e.target.value)}
-                            />
-                          </div>
-                          <div className="space-y-2">
                             <label className="text-sm font-medium">
                               Tanggal Terima Berkas dari Ahli Waris *
                             </label>
@@ -683,7 +676,7 @@ export function DanaKematianFormModal({
                     </div>
 
                     {/* Divider */}
-                    <div className="border-t pt-2">
+                    <div ref={uploadDocsSectionRef} className="border-t pt-2">
                       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-6">
                         Upload Dokumen Persyaratan
                       </h3>
@@ -945,8 +938,8 @@ export function DanaKematianFormModal({
                                       </div>
                                     </SelectItem>
                                   )}
-                                  <SelectItem value="1500000">Rp 1.500.000 (Tarif Lama)</SelectItem>
-                                  <SelectItem value="2000000">Rp 2.000.000 (Tarif Baru)</SelectItem>
+                                  <SelectItem value="1500000">Rp 1.500.000</SelectItem>
+                                  <SelectItem value="2000000">Rp 2.000.000</SelectItem>
                                 </SelectContent>
                               </Select>
                               <p className="text-xs text-muted-foreground">
@@ -1001,20 +994,14 @@ export function DanaKematianFormModal({
                             </div>
                             <div className="space-y-2">
                               <label className="text-sm font-medium">Keterangan Dengan Meninggal</label>
-                              <Select
-                                value={formData.keterangan}
-                                onValueChange={(value) => handleFieldChange('keterangan', value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Pilih keterangan hubungan" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="istri">Istri</SelectItem>
-                                  <SelectItem value="suami">Suami</SelectItem>
-                                  <SelectItem value="anak">Anak</SelectItem>
-                                  <SelectItem value="keluarga">Keluarga</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              <Input
+                                value={formData.status_ahli_waris
+                                  ? formData.status_ahli_waris.charAt(0).toUpperCase() + formData.status_ahli_waris.slice(1)
+                                  : ''}
+                                readOnly
+                                className="bg-muted cursor-not-allowed"
+                                placeholder="Diisi otomatis dari Keterangan Ahli Waris"
+                              />
                             </div>
                           </div>
                         )}
@@ -1161,7 +1148,10 @@ export function DanaKematianFormModal({
                           {documentStep < DOCUMENT_STEPS.length - 1 ? (
                             <Button
                               type="button"
-                              onClick={() => setDocumentStep(prev => Math.min(DOCUMENT_STEPS.length - 1, prev + 1))}
+                              onClick={() => {
+                                setDocumentStep(prev => Math.min(DOCUMENT_STEPS.length - 1, prev + 1));
+                                uploadDocsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                              }}
                             >
                               Selanjutnya
                               <ChevronRight className="h-4 w-4 ml-1" />

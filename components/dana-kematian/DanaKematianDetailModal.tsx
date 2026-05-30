@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   User,
   Users,
@@ -15,14 +15,17 @@ import {
   Phone,
   AlertTriangle,
   Send,
-  CreditCard,
   Info,
   Heart,
+  Star,
+  Upload,
+  HandshakeIcon,
 } from 'lucide-react';
 import {
   Dialog,
   DialogClose,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -38,6 +41,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge, BadgeDot } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DanaKematian } from '@/lib/supabase';
@@ -62,7 +66,7 @@ interface StatusProps {
   color: string;
 }
 
-type PendingAction = 'submit_pusat' | 'pusat_approve' | 'keuangan_approve' | 'confirm_transfer' | null;
+type PendingAction = 'submit_pusat' | 'pusat_approve' | null;
 
 // ── Confirm config per action ─────────────────────────────────────────────────
 const CONFIRM_CONFIG: Record<NonNullable<PendingAction>, {
@@ -73,37 +77,23 @@ const CONFIRM_CONFIG: Record<NonNullable<PendingAction>, {
   icon: React.ReactNode;
 }> = {
   submit_pusat: {
-    title: 'Ajukan ke Pusat?',
-    description: 'Pengajuan ini akan dikirim ke tim Pusat untuk diverifikasi. Pastikan semua dokumen wajib sudah diupload dan data sudah benar sebelum melanjutkan.',
-    confirmLabel: 'Ya, Ajukan ke Pusat',
+    title: 'Kirim ke PP?',
+    description: 'Pengajuan ini akan dikirim ke PP untuk diverifikasi. Pastikan semua dokumen wajib sudah diupload dan data sudah benar sebelum melanjutkan.',
+    confirmLabel: 'Ya, Kirim ke PP',
     confirmClass: 'bg-blue-600 hover:bg-blue-700 text-white',
     icon: <Send className="h-5 w-5 text-blue-600" />,
   },
   pusat_approve: {
-    title: 'Setujui Pengajuan?',
-    description: 'Anda akan menyetujui pengajuan dana kematian ini. Tindakan ini akan meneruskan proses ke tahap Persetujuan Keuangan. Pastikan seluruh dokumen telah diverifikasi.',
-    confirmLabel: 'Ya, Setujui Pengajuan',
+    title: 'Setujui & Salurkan Dana?',
+    description: 'Anda akan menyetujui pengajuan ini. Dana langsung masuk tahap penyaluran — tidak ada langkah persetujuan keuangan terpisah. Pastikan seluruh dokumen telah diverifikasi.',
+    confirmLabel: 'Ya, Setujui & Salurkan',
     confirmClass: 'bg-green-600 hover:bg-green-700 text-white',
     icon: <ShieldCheck className="h-5 w-5 text-green-600" />,
-  },
-  keuangan_approve: {
-    title: 'Setujui Penyaluran Dana?',
-    description: 'Anda akan menyetujui penyaluran dana kematian ini dari sisi Keuangan. Proses akan berlanjut ke tahap Transfer Dana oleh Pusat.',
-    confirmLabel: 'Ya, Setujui Penyaluran',
-    confirmClass: 'bg-purple-600 hover:bg-purple-700 text-white',
-    icon: <CheckCircle2 className="h-5 w-5 text-purple-600" />,
-  },
-  confirm_transfer: {
-    title: 'Konfirmasi Transfer Dana?',
-    description: 'Anda akan mengkonfirmasi bahwa transfer dana kematian telah dilakukan. Status pengajuan akan berubah menjadi Selesai dan tidak dapat diubah kembali.',
-    confirmLabel: 'Ya, Konfirmasi Transfer',
-    confirmClass: 'bg-emerald-600 hover:bg-emerald-700 text-white',
-    icon: <CreditCard className="h-5 w-5 text-emerald-600" />,
   },
 };
 
 export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: DanaKematianDetailModalProps) {
-  const { canVerifyPP, canManagePC, canAccessKeuangan, isLoading: permissionLoading } = useUserPermissions();
+  const { canVerifyPP, canManagePC, isLoading: permissionLoading } = useUserPermissions();
 
   const { data: freshClaim } = useDanaKematian(claim?.id || '');
   const activeClaim = freshClaim ?? claim;
@@ -112,10 +102,16 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPusatApproving, setIsPusatApproving] = useState(false);
-  const [isKeuanganApproving, setIsKeuanganApproving] = useState(false);
-  const [isConfirmingTransfer, setIsConfirmingTransfer] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' as 'success' | 'error' });
+
+  // Delivery dialog state (PC fills delivery date + uploads proof)
+  const [showDeliveryDialog, setShowDeliveryDialog] = useState(false);
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryFileUrl, setDeliveryFileUrl] = useState('');
+  const [deliveryUploading, setDeliveryUploading] = useState(false);
+  const [isConfirmingDelivery, setIsConfirmingDelivery] = useState(false);
+  const deliveryFileRef = useRef<HTMLInputElement>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ show: true, message, type });
@@ -142,22 +138,21 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
     !permissionLoading && canManagePC &&
     activeClaim.status_proses === 'dilaporkan' && requiredDocsUploaded;
 
+  // PP can approve from proses_pusat (normal) or verified (legacy, skip keuangan)
   const canPusatApprove =
     !permissionLoading && canVerifyPP &&
-    activeClaim.status_proses === 'proses_pusat' && allRequiredDocsVerified;
+    ((activeClaim.status_proses === 'proses_pusat' && allRequiredDocsVerified) ||
+      activeClaim.status_proses === 'verified');
 
-  const canKeuanganApprove =
-    !permissionLoading && canAccessKeuangan &&
-    activeClaim.status_proses === 'verified';
-
-  const canConfirmTransfer =
-    !permissionLoading && canVerifyPP &&
+  // PC does the final delivery confirmation
+  const canConfirmDelivery =
+    !permissionLoading && canManagePC &&
     activeClaim.status_proses === 'penyaluran';
 
   const canEditDocuments =
     canVerifyPP && activeClaim.status_proses === 'proses_pusat';
 
-  // ── Action handlers (called after confirmation) ───────────────────────────
+  // ── Action handlers ───────────────────────────────────────────────────────
   const handleConfirmedAction = async () => {
     if (!pendingAction) return;
     const action = pendingAction;
@@ -170,36 +165,17 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
           status_proses: 'proses_pusat',
           cabang_tanggal_kirim_ke_pusat: new Date().toISOString().split('T')[0],
         } as any);
-        showToast('Pengajuan berhasil dikirim ke Pusat', 'success');
+        showToast('Pengajuan berhasil dikirim ke PP', 'success');
       } else if (action === 'pusat_approve') {
         setIsPusatApproving(true);
-        await updateMutation.mutateAsync({
-          status_proses: 'verified',
-          pusat_tanggal_validasi: new Date().toISOString().split('T')[0],
-          waktu_3: new Date().toISOString(),
-        } as any);
-        showToast('Pengajuan berhasil disetujui oleh Pusat', 'success');
-      } else if (action === 'keuangan_approve') {
-        setIsKeuanganApproving(true);
+        const now = new Date().toISOString();
         await updateMutation.mutateAsync({
           status_proses: 'penyaluran',
-          waktu_4: new Date().toISOString(),
+          pusat_tanggal_validasi: now.split('T')[0],
+          waktu_3: now,
+          waktu_4: now,
         } as any);
-        showToast('Penyaluran dana telah disetujui oleh Keuangan', 'success');
-      } else if (action === 'confirm_transfer') {
-        setIsConfirmingTransfer(true);
-        const now = new Date().toISOString();
-        const today = now.split('T')[0];
-        await updateMutation.mutateAsync({
-          status_proses: 'selesai',
-          pusat_tanggal_selesai: today,
-          cabang_tanggal_serah_ke_ahli_waris: today,
-          cabang_tanggal_lapor_ke_pusat: today,
-          waktu_5: now,
-          waktu_6: now,
-          waktu_7: now,
-        } as any);
-        showToast('Transfer dana telah dikonfirmasi. Pengajuan selesai.', 'success');
+        showToast('Pengajuan disetujui, dana siap disalurkan ke ahli waris', 'success');
       }
       onRefresh?.();
     } catch (err) {
@@ -207,19 +183,63 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
     } finally {
       setIsSubmitting(false);
       setIsPusatApproving(false);
-      setIsKeuanganApproving(false);
-      setIsConfirmingTransfer(false);
     }
   };
 
-  const isAnyPending = isSubmitting || isPusatApproving || isKeuanganApproving || isConfirmingTransfer;
+  const handleDeliveryFileUpload = async (file: File) => {
+    setDeliveryUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('bucket', 'dana-kematian');
+      fd.append('folder', 'bukti-penyerahan');
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Upload gagal');
+      setDeliveryFileUrl(json.url);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Upload gagal', 'error');
+    } finally {
+      setDeliveryUploading(false);
+    }
+  };
+
+  const handleDeliveryConfirm = async () => {
+    if (!deliveryDate) {
+      showToast('Tanggal penyerahan wajib diisi', 'error');
+      return;
+    }
+    setIsConfirmingDelivery(true);
+    try {
+      const now = new Date().toISOString();
+      await updateMutation.mutateAsync({
+        status_proses: 'selesai',
+        cabang_tanggal_serah_ke_ahli_waris: deliveryDate,
+        cabang_tanggal_lapor_ke_pusat: deliveryDate,
+        pusat_tanggal_selesai: deliveryDate,
+        ...(deliveryFileUrl ? { file_bukti_penyerahan: deliveryFileUrl } : {}),
+        waktu_6: now,
+        waktu_7: now,
+      } as any);
+      setShowDeliveryDialog(false);
+      showToast('Dana berhasil diserahkan ke ahli waris. Pengajuan selesai.', 'success');
+      onRefresh?.();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Terjadi kesalahan', 'error');
+    } finally {
+      setIsConfirmingDelivery(false);
+    }
+  };
+
+  const isAnyPending = isSubmitting || isPusatApproving || isConfirmingDelivery;
 
   const getStatusProps = (status: DanaKematian['status_proses']): StatusProps => {
     const map: Record<string, StatusProps> = {
       dilaporkan:        { variant: 'secondary',   label: 'Dilaporkan',        color: 'text-gray-600' },
       verifikasi_cabang: { variant: 'warning',     label: 'Verifikasi Cabang', color: 'text-amber-600' },
-      pending_dokumen:   { variant: 'warning',     label: 'Pending Dokumen',   color: 'text-amber-600' },
+      pending_dokumen:   { variant: 'destructive',  label: 'Revisi Dokumen',    color: 'text-red-600' },
       proses_pusat:      { variant: 'warning',     label: 'Proses Pusat',      color: 'text-blue-600' },
+      revisi_pusat:      { variant: 'destructive', label: 'Revisi Pusat',      color: 'text-red-600' },
       verified:          { variant: 'success',     label: 'Terverifikasi',     color: 'text-green-600' },
       penyaluran:        { variant: 'warning',     label: 'Penyaluran',        color: 'text-purple-600' },
       selesai:           { variant: 'success',     label: 'Selesai',           color: 'text-green-700' },
@@ -235,6 +255,20 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
     if (!d) return '—';
     return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
   };
+
+  // Speed rating — only shown when status is selesai
+  const speedRating = (() => {
+    if (activeClaim.status_proses !== 'selesai') return null;
+    const start = activeClaim.cabang_tanggal_awal_terima_berkas || activeClaim.tanggal_meninggal;
+    const end = activeClaim.cabang_tanggal_serah_ke_ahli_waris || activeClaim.pusat_tanggal_selesai;
+    if (!start || !end) return null;
+    const days = Math.max(0, Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)));
+    if (days <= 7)  return { days, stars: 5, label: 'Sangat Cepat', color: 'text-green-700',  bg: 'bg-green-50 border-green-200 dark:bg-green-950/40 dark:border-green-800' };
+    if (days <= 14) return { days, stars: 4, label: 'Cepat',        color: 'text-green-600',  bg: 'bg-green-50/70 border-green-200 dark:bg-green-950/30 dark:border-green-800' };
+    if (days <= 21) return { days, stars: 3, label: 'Normal',       color: 'text-yellow-700', bg: 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/40 dark:border-yellow-800' };
+    if (days <= 30) return { days, stars: 2, label: 'Lambat',       color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200 dark:bg-orange-950/40 dark:border-orange-800' };
+    return             { days, stars: 1, label: 'Sangat Lambat', color: 'text-red-700',    bg: 'bg-red-50 border-red-200 dark:bg-red-950/40 dark:border-red-800' };
+  })();
 
   // Parse susunan keluarga
   let familyMembers: Array<{ nama: string; hubungan: string }> = [];
@@ -319,6 +353,50 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                     {/* Workflow status banner */}
                     <WorkflowStatusBanner status={activeClaim.status_proses} />
 
+                    {/* Speed rating — shown only when selesai */}
+                    {speedRating && (
+                      <div className={`border rounded-xl p-5 ${speedRating.bg}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Penilaian Kecepatan Proses</p>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-lg font-bold ${speedRating.color}`}>{speedRating.label}</span>
+                              <span className="text-sm text-muted-foreground">({speedRating.days} hari)</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Dihitung dari terima berkas hingga penyerahan ke ahli waris</p>
+                          </div>
+                          <div className="flex items-center gap-0.5">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-6 w-6 ${i < speedRating.stars ? `fill-current ${speedRating.color}` : 'text-muted-foreground/30'}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-current/10 grid grid-cols-3 gap-4 text-center text-xs">
+                          {activeClaim.cabang_tanggal_awal_terima_berkas && (
+                            <div>
+                              <p className="text-muted-foreground">Terima Berkas</p>
+                              <p className="font-medium">{formatDate(activeClaim.cabang_tanggal_awal_terima_berkas)}</p>
+                            </div>
+                          )}
+                          {activeClaim.pusat_tanggal_validasi && (
+                            <div>
+                              <p className="text-muted-foreground">Validasi PP</p>
+                              <p className="font-medium">{formatDate(activeClaim.pusat_tanggal_validasi)}</p>
+                            </div>
+                          )}
+                          {activeClaim.cabang_tanggal_serah_ke_ahli_waris && (
+                            <div>
+                              <p className="text-muted-foreground">Serah ke AW</p>
+                              <p className="font-medium">{formatDate(activeClaim.cabang_tanggal_serah_ke_ahli_waris)}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Row 1: Data Anggota + Susunan Keluarga */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Data Almarhum */}
@@ -355,7 +433,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                             <InfoRow label="Terima Berkas" value={formatDate(activeClaim.cabang_tanggal_awal_terima_berkas)} />
                           )}
                           {activeClaim.cabang_tanggal_kirim_ke_pusat && (
-                            <InfoRow label="Dikirim ke Pusat" value={formatDate(activeClaim.cabang_tanggal_kirim_ke_pusat)} />
+                            <InfoRow label="Dikirim ke PP" value={formatDate(activeClaim.cabang_tanggal_kirim_ke_pusat)} />
                           )}
                         </div>
                       </div>
@@ -460,10 +538,36 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                           <InfoRow label="Tanggal Selesai" value={formatDate(activeClaim.pusat_tanggal_selesai)} />
                         )}
                         {activeClaim.cabang_tanggal_lapor_ke_pusat && (
-                          <InfoRow label="Lapor ke Pusat" value={formatDate(activeClaim.cabang_tanggal_lapor_ke_pusat)} />
+                          <InfoRow label="Lapor ke PP" value={formatDate(activeClaim.cabang_tanggal_lapor_ke_pusat)} />
+                        )}
+                        {activeClaim.file_bukti_penyerahan && (
+                          <div className="pt-2 border-t">
+                            <a
+                              href={activeClaim.file_bukti_penyerahan}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              Lihat Bukti Penyerahan
+                            </a>
+                          </div>
                         )}
                       </div>
                     </div>
+
+                    {/* Revisi Pusat info */}
+                    {(activeClaim.status_proses === 'revisi_pusat' || activeClaim.status_proses === 'pending_dokumen') && (
+                      <div className="border border-destructive/30 bg-destructive/5 rounded-xl p-5 flex gap-3">
+                        <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-semibold text-destructive text-sm mb-1">Dokumen Perlu Direvisi</div>
+                          <p className="text-sm text-muted-foreground">
+                            PP telah menolak satu atau lebih dokumen. Cabang perlu mengupload ulang dokumen yang benar, lalu mengirimkan kembali ke PP.
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Rejection info */}
                     {activeClaim.status_proses === 'ditolak' && activeClaim.rejection_reason && (
@@ -491,7 +595,9 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                       readonly={!canEditDocuments}
                       onUpdate={canEditDocuments
                         ? (updates) => {
-                            updateMutation.mutateAsync(updates as any).catch(() => {
+                            updateMutation.mutateAsync(updates as any).then(() => {
+                              onRefresh?.();
+                            }).catch(() => {
                               showToast('Gagal menyimpan perubahan dokumen', 'error');
                             });
                           }
@@ -535,7 +641,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                   {isSubmitting ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Mengirim...</>
                   ) : (
-                    <><Send className="h-4 w-4 mr-2" />Ajukan ke Pusat</>
+                    <><Send className="h-4 w-4 mr-2" />Ajukan ke PP</>
                   )}
                 </Button>
               )}
@@ -556,7 +662,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                 </span>
               )}
 
-              {/* Step 2: Pusat approves */}
+              {/* Step 2: Pusat approves → penyaluran */}
               {canPusatApprove && (
                 <Button
                   onClick={() => setPendingAction('pusat_approve')}
@@ -566,37 +672,26 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                   {isPusatApproving ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Memproses...</>
                   ) : (
-                    <><ShieldCheck className="h-4 w-4 mr-2" />Setujui Pengajuan</>
+                    <><ShieldCheck className="h-4 w-4 mr-2" />Setujui & Salurkan</>
                   )}
                 </Button>
               )}
 
-              {/* Step 3: Keuangan approves penyaluran */}
-              {canKeuanganApprove && (
+              {/* Step 3: PC confirms delivery to ahli waris */}
+              {canConfirmDelivery && (
                 <Button
-                  onClick={() => setPendingAction('keuangan_approve')}
-                  disabled={isAnyPending}
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  {isKeuanganApproving ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Memproses...</>
-                  ) : (
-                    <><CheckCircle2 className="h-4 w-4 mr-2" />Setujui Penyaluran</>
-                  )}
-                </Button>
-              )}
-
-              {/* Step 4: Pusat confirms transfer */}
-              {canConfirmTransfer && (
-                <Button
-                  onClick={() => setPendingAction('confirm_transfer')}
+                  onClick={() => {
+                    setDeliveryDate(new Date().toISOString().split('T')[0]);
+                    setDeliveryFileUrl('');
+                    setShowDeliveryDialog(true);
+                  }}
                   disabled={isAnyPending}
                   className="bg-emerald-600 hover:bg-emerald-700"
                 >
-                  {isConfirmingTransfer ? (
+                  {isConfirmingDelivery ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Memproses...</>
                   ) : (
-                    <><CreditCard className="h-4 w-4 mr-2" />Konfirmasi Transfer Dana</>
+                    <><HandshakeIcon className="h-4 w-4 mr-2" />Serahkan ke Ahli Waris</>
                   )}
                 </Button>
               )}
@@ -616,7 +711,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
         />
       </Dialog>
 
-      {/* ── Confirmation AlertDialog ─────────────────────────────────────── */}
+      {/* ── Confirmation AlertDialog (submit/pusat_approve) ─────────────── */}
       <AlertDialog open={!!pendingAction} onOpenChange={(v) => { if (!v) setPendingAction(null); }}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
@@ -664,6 +759,110 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Delivery Dialog (PC fills date + uploads proof) ────────────── */}
+      <Dialog open={showDeliveryDialog} onOpenChange={(v) => { if (!v) setShowDeliveryDialog(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HandshakeIcon className="h-5 w-5 text-emerald-600" />
+              Penyerahan Dana ke Ahli Waris
+            </DialogTitle>
+            <DialogDescription>
+              Isi tanggal penyerahan dan upload bukti dokumen. Status pengajuan akan berubah menjadi <strong>Selesai</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Claim summary */}
+          <div className="rounded-lg border bg-muted/40 px-4 py-3 space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Nama Anggota</span>
+              <span className="font-semibold">{activeClaim.nama_anggota}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Ahli Waris</span>
+              <span className="font-medium">{activeClaim.nama_ahli_waris}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Besaran Dana</span>
+              <span className="font-semibold text-green-700 dark:text-green-400">
+                {formatCurrency(activeClaim.besaran_dana_kematian)}
+              </span>
+            </div>
+          </div>
+
+          {/* Form */}
+          <div className="space-y-4 py-1">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tanggal Penyerahan *</label>
+              <Input
+                type="date"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Bukti Penyerahan</label>
+              <input
+                ref={deliveryFileRef}
+                type="file"
+                className="hidden"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleDeliveryFileUpload(file);
+                  e.target.value = '';
+                }}
+              />
+              <div
+                className={`border-2 border-dashed rounded-lg p-5 text-center cursor-pointer transition-colors ${
+                  deliveryUploading ? 'border-primary/50 bg-primary/5 cursor-wait' :
+                  deliveryFileUrl ? 'border-green-400 bg-green-50 hover:bg-green-100' :
+                  'border-muted-foreground/25 hover:border-primary hover:bg-primary/5'
+                }`}
+                onClick={() => !deliveryUploading && deliveryFileRef.current?.click()}
+              >
+                {deliveryUploading ? (
+                  <div className="flex items-center justify-center gap-2 text-primary">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Mengupload...</span>
+                  </div>
+                ) : deliveryFileUrl ? (
+                  <div className="flex items-center justify-center gap-2 text-green-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="text-sm">Dokumen terupload — klik untuk ganti</span>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <Upload className="h-6 w-6 mx-auto text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">Klik untuk upload bukti penyerahan</p>
+                    <p className="text-xs text-muted-foreground">PDF, JPG, PNG (opsional)</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeliveryDialog(false)} disabled={isConfirmingDelivery}>
+              Batal
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={handleDeliveryConfirm}
+              disabled={!deliveryDate || isConfirmingDelivery || deliveryUploading}
+            >
+              {isConfirmingDelivery ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Menyimpan...</>
+              ) : (
+                <><CheckCircle2 className="h-4 w-4 mr-2" />Konfirmasi Penyerahan</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -671,15 +870,15 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
 function WorkflowStatusBanner({ status }: { status: DanaKematian['status_proses'] }) {
   const steps = [
     { label: 'Input Data & Dokumen', key: 'dilaporkan' },
-    { label: 'Verifikasi Pusat', key: 'proses_pusat' },
-    { label: 'Persetujuan Keuangan', key: 'verified' },
-    { label: 'Transfer Dana', key: 'penyaluran' },
-    { label: 'Selesai', key: 'selesai' },
+    { label: 'Verifikasi PP',        key: 'proses_pusat' },
+    { label: 'Penyaluran Dana',      key: 'penyaluran' },
+    { label: 'Selesai',              key: 'selesai' },
   ];
 
   const orderMap: Record<string, number> = {
-    dilaporkan: 0, verifikasi_cabang: 0, pending_dokumen: 0,
-    proses_pusat: 1, verified: 2, penyaluran: 3, selesai: 4, ditolak: -1,
+    dilaporkan: 0, verifikasi_cabang: 0,
+    proses_pusat: 1, pending_dokumen: 1, revisi_pusat: 1, verified: 1,
+    penyaluran: 2, selesai: 3, ditolak: -1,
   };
 
   const currentOrder = orderMap[status] ?? 0;
@@ -687,7 +886,12 @@ function WorkflowStatusBanner({ status }: { status: DanaKematian['status_proses'
 
   return (
     <div className="border rounded-xl p-4 bg-muted/20">
-      <p className="text-xs text-muted-foreground mb-3 uppercase tracking-wide font-medium">Alur Pengajuan</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Alur Pengajuan</p>
+        {status === 'revisi_pusat' && (
+          <Badge variant="destructive" className="text-xs">Perlu Revisi Dokumen</Badge>
+        )}
+      </div>
       <div className="flex items-center gap-0">
         {steps.map((step, i) => {
           const isDone = currentOrder > i;

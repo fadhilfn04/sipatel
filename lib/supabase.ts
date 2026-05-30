@@ -184,7 +184,7 @@ export interface AnggotaFilter {
 
 // Death benefits types
 export type StatusAhliWarisEnum = 'istri' | 'suami' | 'anak' | 'keluarga';
-export type StatusProsesDakemEnum = 'dilaporkan' | 'verifikasi_cabang' | 'pending_dokumen' | 'proses_pusat' | 'verified' | 'penyaluran' | 'selesai' | 'ditolak';
+export type StatusProsesDakemEnum = 'dilaporkan' | 'verifikasi_cabang' | 'pending_dokumen' | 'proses_pusat' | 'revisi_pusat' | 'verified' | 'penyaluran' | 'selesai' | 'ditolak';
 
 export interface DanaKematian {
   id: string;
@@ -426,6 +426,32 @@ export interface DanaKematianFilter {
   tanggal_meninggal_to?: string;
   page?: number;
   limit?: number;
+}
+
+// Laporan Periode Dakem types
+export interface LaporanPeriodeDakem {
+  id: string;
+  periode: string;           // 'YYYY-MM'
+  periode_label: string;     // 'Januari 2025'
+  cabang: string;
+  file_laporan: string | null;
+  catatan: string | null;
+  jumlah_klaim: number;
+  total_dana: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateLaporanPeriodeDakemInput {
+  periode: string;
+  periode_label: string;
+  cabang: string;
+  file_laporan?: string;
+  catatan?: string;
+  jumlah_klaim: number;
+  total_dana: number;
+  created_by?: string;
 }
 
 // Social assistance types
