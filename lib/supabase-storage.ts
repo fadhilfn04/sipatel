@@ -22,7 +22,9 @@ export type DanaKematianFolder =
   | 'e-ktp'
   | 'surat-nikah'
   | 'surat-keterangan'
-  | 'dokumen-pendukung';
+  | 'dokumen-pendukung'
+  | 'bukti-penyerahan'
+  | 'laporan-periode';
 
 // Folder structure in anggota bucket
 export type AnggotaFolder =

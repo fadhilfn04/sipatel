@@ -12,6 +12,7 @@ export type DanaKematianStatus =
   | 'dilaporkan'
   | 'pending_dokumen'
   | 'verifikasi_cabang'
+  | 'revisi_pusat'
   | 'proses_pusat'
   | 'verified'
   | 'penyaluran'
@@ -507,6 +508,10 @@ export class DanaKematianStateMachine {
         'Verifikasi kelengkapan dokumen',
         'Lengkapi data ahli waris'
       ],
+      'revisi_pusat': [
+        'Upload ulang dokumen yang ditolak oleh PP',
+        'Klik Update Data setelah dokumen diupload'
+      ],
       'pending_dokumen': [
         'Segera lengkapi dokumen yang kurang',
         'Hubungi ahli waris jika diperlukan'
@@ -523,13 +528,12 @@ export class DanaKematianStateMachine {
       ],
       'verified': [
         'Persiapkan penyaluran dana',
-        'Koordinasi dengan keuangan untuk transfer',
         'Jadwalkan penyerahan ke ahli waris'
       ],
       'penyaluran': [
-        'Terima dana dari pusat',
-        'Jadwalkan penyerahan ke ahli waris',
-        'Serahkan dana dan dokumentasikan'
+        'Input tanggal penyerahan ke ahli waris',
+        'Upload bukti penyerahan dana',
+        'Konfirmasi penyerahan untuk menyelesaikan pengajuan'
       ],
       'selesai': [
         'Arsipkan berkas klaim',
@@ -574,8 +578,9 @@ export class DanaKematianStateMachine {
 export function getStateLabel(status: DanaKematianStatus): string {
   const labels: Record<DanaKematianStatus, string> = {
     'dilaporkan': 'Dilaporkan',
-    'pending_dokumen': 'Pending Dokumen',
+    'pending_dokumen': 'Revisi Dokumen',
     'verifikasi_cabang': 'Verifikasi Cabang',
+    'revisi_pusat': 'Revisi Pusat',
     'proses_pusat': 'Proses Pusat',
     'verified': 'Terverifikasi',
     'penyaluran': 'Penyaluran',
@@ -591,11 +596,12 @@ export function getStateLabel(status: DanaKematianStatus): string {
 export function getStateDescription(status: DanaKematianStatus): string {
   const descriptions: Record<DanaKematianStatus, string> = {
     'dilaporkan': 'Laporan kematian telah diterima (Waktu-0)',
-    'pending_dokumen': 'Menunggu pelengkapan dokumen (Waktu-1)',
+    'pending_dokumen': 'PP menolak dokumen, cabang perlu upload ulang',
     'verifikasi_cabang': 'PC melakukan validasi dan komunikasi aktif dengan ahli waris',
+    'revisi_pusat': 'PP menolak dokumen, cabang perlu upload ulang dan kirim kembali',
     'proses_pusat': 'Berkas sedang diverifikasi oleh PP (Waktu-2 → Waktu-3)',
     'verified': 'Terverifikasi oleh PP, menunggu penyaluran dana',
-    'penyaluran': 'Dana sedang diproses dan disalurkan (Waktu-4 → Waktu-6)',
+    'penyaluran': 'Dana disetujui PP, menunggu penyerahan ke ahli waris',
     'selesai': 'Dana telah diserahkan dan semua laporan lengkap (Waktu-7)',
     'ditolak': 'Pengajuan ditolak'
   };
@@ -608,8 +614,9 @@ export function getStateDescription(status: DanaKematianStatus): string {
 export function getStateColor(status: DanaKematianStatus): string {
   const colors: Record<DanaKematianStatus, string> = {
     'dilaporkan': 'blue',
-    'pending_dokumen': 'yellow',
+    'pending_dokumen': 'red',
     'verifikasi_cabang': 'cyan',
+    'revisi_pusat': 'red',
     'proses_pusat': 'purple',
     'verified': 'indigo',
     'penyaluran': 'orange',
@@ -627,7 +634,8 @@ export function getStateBadgeVariant(status: DanaKematianStatus): 'success' | 'w
     'selesai': 'success',
     'verified': 'success',
     'ditolak': 'destructive',
-    'pending_dokumen': 'warning',
+    'pending_dokumen': 'destructive',
+    'revisi_pusat': 'destructive',
     'penyaluran': 'warning',
     'dilaporkan': 'secondary',
     'verifikasi_cabang': 'secondary',
@@ -643,10 +651,11 @@ export function getCurrentPhase(status: DanaKematianStatus): string {
   const phaseMap: Record<DanaKematianStatus, string> = {
     'dilaporkan': 'A. Laporan Kematian',
     'verifikasi_cabang': 'B. Pengajuan Dakem',
-    'pending_dokumen': 'C. Kompilasi Berkas',
+    'pending_dokumen': 'C. Revisi Dokumen',
+    'revisi_pusat': 'C. Revisi Dokumen',
     'proses_pusat': 'D. Verifikasi Pengajuan',
     'verified': 'E. Finalisasi Pengajuan',
-    'penyaluran': 'F. Laporan Dakem',
+    'penyaluran': 'F. Penyerahan ke Ahli Waris',
     'selesai': 'Selesai',
     'ditolak': 'Ditolak'
   };
@@ -661,9 +670,10 @@ export function getNextWaktu(status: DanaKematianStatus): string {
     'dilaporkan': 'Waktu-1 (Initial Documents)',
     'verifikasi_cabang': 'Waktu-1 (Initial Documents)',
     'pending_dokumen': 'Waktu-2 (Final Documents)',
+    'revisi_pusat': 'Waktu-2 (Revised Documents)',
     'proses_pusat': 'Waktu-3 (PP Validation)',
     'verified': 'Waktu-4 (Processing Complete)',
-    'penyaluran': 'Waktu-7 (Reporting Complete)',
+    'penyaluran': 'Waktu-6 (Delivery to Heir)',
     'selesai': 'Complete',
     'ditolak': 'N/A'
   };
@@ -791,19 +801,26 @@ export function getCurrentStageInfo(claim: any): {
       percentComplete: 50,
       nextStep: 'Menunggu validasi dan persetujuan dari PP'
     },
+    'revisi_pusat': {
+      stage: 'Revisi Dokumen',
+      description: 'PP menolak satu atau lebih dokumen, cabang perlu mengupload ulang',
+      waktu: 'Waktu-2',
+      percentComplete: 40,
+      nextStep: 'Upload ulang dokumen yang ditolak lalu klik Update Data'
+    },
     'verified': {
       stage: 'E. Finalisasi Pengajuan',
-      description: 'Dokumen telah divalidasi, menunggu persetujuan dan transfer dana',
-      waktu: 'Waktu-3 → Waktu-5',
+      description: 'Terverifikasi oleh PP, siap disalurkan',
+      waktu: 'Waktu-3 → Waktu-4',
       percentComplete: 62.5,
-      nextStep: 'Menunggu transfer dana dari PP ke PC'
+      nextStep: 'PP menyetujui dan menyalurkan dana ke cabang'
     },
     'penyaluran': {
-      stage: 'F. Laporan Dakem',
-      description: 'Dana telah ditransfer ke PC, siap disalurkan ke ahli waris',
-      waktu: 'Waktu-5 → Waktu-6',
-      percentComplete: 75,
-      nextStep: 'Menyerahkan dana ke ahli waris dan membuat laporan'
+      stage: 'F. Penyerahan ke Ahli Waris',
+      description: 'Dana disetujui PP, menunggu cabang menyerahkan ke ahli waris',
+      waktu: 'Waktu-4 → Waktu-6',
+      percentComplete: 80,
+      nextStep: 'PC input tanggal penyerahan dan upload bukti penyerahan'
     },
     'selesai': {
       stage: 'Selesai',
@@ -865,31 +882,17 @@ export function getTimelineEvents(claim: any): Array<{
     },
     {
       waktu: 'waktu_4',
-      label: 'Proses PP (Pelayanan)',
-      date: claim.waktu_4 || claim.pusat_tanggal_selesai,
-      description: 'PP Pelayanan memproses persetujuan pengajuan dana kematian',
+      label: 'PP Setujui & Salurkan',
+      date: claim.waktu_4 || claim.pusat_tanggal_validasi,
+      description: 'PP menyetujui pengajuan dan dana siap disalurkan ke ahli waris',
       completed: !!claim.waktu_4,
     },
     {
-      waktu: 'waktu_5',
-      label: 'Kirim ke PP (Keuangan)',
-      date: claim.waktu_5,
-      description: 'PP Pelayanan mengirimkan dana ke bagian keuangan untuk diproses',
-      completed: !!claim.waktu_5,
-    },
-    {
       waktu: 'waktu_6',
-      label: 'PP (Keuangan) Kirim ke Para PC',
-      date: claim.waktu_6,
-      description: 'PP Keuangan mengirimkan dana kematian ke pengurus cabang',
-      completed: !!claim.waktu_6,
-    },
-    {
-      waktu: 'waktu_7',
-      label: 'PC Menyerahkan Dakem ke AW',
-      date: claim.waktu_7 || claim.cabang_tanggal_serah_ke_ahli_waris,
-      description: 'Pengurus cabang menyerahkan dana kematian kepada ahli waris',
-      completed: !!(claim.waktu_7 || claim.cabang_tanggal_serah_ke_ahli_waris),
+      label: 'PC Serahkan Dana ke Ahli Waris',
+      date: claim.waktu_6 || claim.cabang_tanggal_serah_ke_ahli_waris,
+      description: 'Pengurus cabang menyerahkan dana kematian kepada ahli waris dan mengupload bukti penyerahan',
+      completed: !!(claim.waktu_6 || claim.cabang_tanggal_serah_ke_ahli_waris),
     },
     {
       waktu: 'laporan_akhir',

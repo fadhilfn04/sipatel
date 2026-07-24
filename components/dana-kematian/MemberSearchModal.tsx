@@ -64,23 +64,23 @@ export function MemberSearchModal({
       setTimeout(() => {
         let results: Anggota[] = [];
 
-        if (mode === 'nik') {
-          // Exact match for NIK
-          results = members.filter(m => m.nik === query.trim());
+        // Only show regular MPS members for dana kematian eligibility
+        const eligible = members.filter(
+          m => m.kategori_anggota === 'biasa' && m.status_mps === 'mps'
+        );
 
+        if (mode === 'nik') {
+          results = eligible.filter(m => m.nik === query.trim());
           if (results.length === 0) {
-            setSearchError('Data anggota dengan NIK tersebut tidak ditemukan');
+            setSearchError('Data anggota dengan NIK tersebut tidak ditemukan, atau anggota tidak memenuhi syarat (harus kategori Biasa & MPS)');
           }
-          // Note: Removed auto-select behavior. Results will be shown in table.
         } else {
-          // Partial match for Nama
           const queryLower = query.toLowerCase();
-          results = members.filter(m =>
+          results = eligible.filter(m =>
             m.nama_anggota.toLowerCase().includes(queryLower)
           );
-
           if (results.length === 0) {
-            setSearchError('Tidak ada data anggota yang cocok dengan nama tersebut');
+            setSearchError('Tidak ada data anggota yang cocok, atau anggota tidak memenuhi syarat (harus kategori Biasa & MPS)');
           }
         }
 

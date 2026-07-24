@@ -61,6 +61,7 @@ import { DanaKematianDetailModal } from '@/components/dana-kematian/DanaKematian
 import { DanaKematianFormModal } from '@/components/dana-kematian/DanaKematianFormModal';
 import { DanaKematianImportModal } from '@/components/dana-kematian/DanaKematianImportModal';
 import { DeleteConfirmDialog } from '@/components/dana-kematian/DeleteConfirmDialog';
+import { LaporanPeriodeModal } from '@/components/dana-kematian/LaporanPeriodeModal';
 import { ToastNotification } from '@/components/anggota/ToastNotification';
 import { useAnggotaList } from '@/lib/hooks/use-anggota-api';
 
@@ -95,6 +96,7 @@ export default function DanaKematianPage() {
   const [editClaimId, setEditClaimId] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [claimToDelete, setClaimToDelete] = useState<DanaKematian | null>(null);
+  const [laporanPeriodeOpen, setLaporanPeriodeOpen] = useState(false);
 
   // Toast state
   const [toast, setToast] = useState<{
@@ -415,6 +417,10 @@ export default function DanaKematianPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setLaporanPeriodeOpen(true)}>
+                  <FileText />
+                  Laporan Periode
+                </Button>
                 <Button variant="outline" onClick={() => setImportModalOpen(true)}>
                   <Upload />
                   Import Data
@@ -608,6 +614,11 @@ export default function DanaKematianPage() {
         onConfirm={handleDelete}
         claim={claimToDelete}
         isPending={deleteMutation.isPending}
+      />
+
+      <LaporanPeriodeModal
+        open={laporanPeriodeOpen}
+        onClose={() => setLaporanPeriodeOpen(false)}
       />
 
       {/* Toast Notification */}
