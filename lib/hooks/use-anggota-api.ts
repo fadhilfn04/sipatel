@@ -122,7 +122,8 @@ export function useAnggotaList(params: {
       }
       return response.json() as Promise<AnggotaListResponse>;
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 0, // Always refetch — ensures fresh data after mutations
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -229,6 +230,133 @@ export function useDeleteAnggota() {
     },
     onSuccess: () => {
       // Invalidate and refetch anggota list
+      queryClient.invalidateQueries({ queryKey: ['anggota'] });
+    },
+  });
+}
+
+// Bulk delete anggota
+export function useBulkDeleteAnggota() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      ids?: string[];
+      deleteAll?: boolean;
+      filters?: {
+        search?: string;
+        kategori_anggota?: string;
+        status_anggota?: string;
+        status_mps?: string;
+        status_iuran?: string;
+        nama_cabang?: string;
+      };
+    }) => {
+      const response = await fetch('/api/anggota/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+
+      if (!response.ok) {
+        const error: ApiError = await response.json();
+        throw new Error(error.error || 'Failed to bulk delete anggota');
+      }
+
+      return response.json() as Promise<{ message: string; deletedCount: number }>;
+    },
+    onSuccess: () => {
+      // Invalidate and refetch anggota list
+      queryClient.invalidateQueries({ queryKey: ['anggota'] });
+    },
+  });
+}
+
+const IMPORT_CHUNK_SIZE = 500;
+
+// Batch import anggota — splits records into chunks and sends them sequentially.
+// Stops immediately on the first error (e.g. duplicate NIK) to avoid wasting time.
+export function useBatchImportAnggota() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      records: CreateAnggotaInput[];
+      onProgress?: (imported: number, total: number) => void;
+    }) => {
+      // ... chunking logic is in mutationFn body
+      const { records, onProgress } = params;
+      const allErrors: { row: number; error: string }[] = [];
+      let totalSuccess = 0;
+      let stopped = false;
+
+      for (let i = 0; i < records.length; i += IMPORT_CHUNK_SIZE) {
+        // Stop if a previous chunk had an error
+        if (stopped) break;
+
+        const chunk = records.slice(i, i + IMPORT_CHUNK_SIZE);
+
+        const response = await fetch('/api/anggota/batch-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ records: chunk }),
+        });
+
+        if (!response.ok) {
+          // Network/server error on this batch — stop immediately
+          const errorBody = await response.json().catch(() => ({ error: 'Unknown error' }));
+          allErrors.push({
+            row: i + 1,
+            error: errorBody.error || 'Gagal mengirim batch',
+          });
+          stopped = true;
+          break;
+        }
+
+        const result = await response.json();
+
+        if (result.errorCount > 0 && result.successCount === 0) {
+          // Entire chunk failed with a genuine error — stop immediately
+          if (result.errors) {
+            for (const err of result.errors) {
+              allErrors.push({
+                row: i + (err.row || 1),
+                error: err.error,
+              });
+            }
+          }
+          stopped = true;
+          break;
+        }
+
+        // Partial or full success
+        totalSuccess += result.successCount || 0;
+        if (result.errors) {
+          for (const err of result.errors) {
+            allErrors.push({
+              row: i + (err.row || 1),
+              error: err.error,
+            });
+          }
+        }
+
+        // Report progress
+        if (onProgress) {
+          onProgress(totalSuccess, records.length);
+        }
+      }
+
+      return {
+        message: stopped
+          ? `Import dihentikan: ${totalSuccess} data berhasil diimpor sebelum error`
+          : `${totalSuccess} data anggota berhasil diimpor`,
+        successCount: totalSuccess,
+        errorCount: allErrors.length,
+        errors: allErrors.length > 0 ? allErrors : undefined,
+        stopped,
+      };
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['anggota'] });
     },
   });

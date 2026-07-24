@@ -34,11 +34,6 @@ type FieldConfig = {
 };
 
 export function ExportExcelModal({ open, onClose, data, totalCount, onFetchAllData }: ExportExcelModalProps) {
-  const [selectedFields, setSelectedFields] = useState<string[]>([
-    'nik',
-    'nama_anggota',
-    'nama_cabang'
-  ]);
   const [exporting, setExporting] = useState(false);
 
   // Export options state
@@ -131,6 +126,10 @@ export function ExportExcelModal({ open, onClose, data, totalCount, onFetchAllDa
     { key: 'media_datul', label: 'Media Datul', required: false, category: 'Informasi Datul' },
   ];
 
+  // Default: all fields selected so user gets complete data by default
+  const allFieldKeys = fieldConfigs.map((f) => f.key);
+  const [selectedFields, setSelectedFields] = useState<string[]>(allFieldKeys);
+
   // Group fields by category
   const fieldsByCategory = fieldConfigs.reduce((acc, field) => {
     if (!acc[field.category]) {
@@ -163,10 +162,7 @@ export function ExportExcelModal({ open, onClose, data, totalCount, onFetchAllDa
   };
 
   const handleSelectAll = () => {
-    const allOptionalFields = fieldConfigs
-      .filter(f => !f.required)
-      .map(f => f.key);
-    setSelectedFields(['nik', 'nama_anggota', 'nama_cabang', ...allOptionalFields]);
+    setSelectedFields(allFieldKeys);
   };
 
   const handleDeselectAll = () => {
@@ -267,7 +263,7 @@ export function ExportExcelModal({ open, onClose, data, totalCount, onFetchAllDa
   };
 
   const handleClose = () => {
-    setSelectedFields(['nik', 'nama_anggota', 'nama_cabang']);
+    setSelectedFields(allFieldKeys);
     onClose();
   };
 
@@ -284,9 +280,9 @@ export function ExportExcelModal({ open, onClose, data, totalCount, onFetchAllDa
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col gap-4">
+        <div className="flex-1 overflow-hidden flex flex-col gap-4 min-h-0">
           {/* Stats */}
-          <div className="bg-muted/50 rounded-lg p-4">
+          <div className="bg-muted/50 rounded-lg p-4 shrink-0">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
                 <p className="text-sm font-medium">Total Data di Halaman: <span className="text-primary">{data.length}</span> anggota</p>
@@ -321,7 +317,7 @@ export function ExportExcelModal({ open, onClose, data, totalCount, onFetchAllDa
           </div>
 
           {/* Export Options */}
-          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4 shrink-0">
             <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
               Pilih Jumlah Data yang Akan Diexport
             </h4>
@@ -370,7 +366,7 @@ export function ExportExcelModal({ open, onClose, data, totalCount, onFetchAllDa
           </div>
 
           {/* Required Fields Info */}
-          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 shrink-0">
             <div className="flex items-start gap-2">
               <CheckCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="text-xs text-blue-800 dark:text-blue-200">
@@ -382,12 +378,12 @@ export function ExportExcelModal({ open, onClose, data, totalCount, onFetchAllDa
             </div>
           </div>
 
-          {/* Field Selection */}
-          <ScrollArea className="flex-1 pr-4">
+          {/* Field Selection — scrollable area */}
+          <div className="flex-1 overflow-y-auto min-h-0 pr-2">
             <div className="space-y-4">
               {Object.entries(fieldsByCategory).map(([category, fields]) => (
                 <div key={category} className="space-y-2">
-                  <h4 className="text-sm font-semibold text-muted-foreground sticky top-0 bg-background py-1">
+                  <h4 className="text-sm font-semibold text-muted-foreground sticky top-0 bg-background py-1 z-10">
                     {category}
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -427,7 +423,7 @@ export function ExportExcelModal({ open, onClose, data, totalCount, onFetchAllDa
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         <DialogFooter>

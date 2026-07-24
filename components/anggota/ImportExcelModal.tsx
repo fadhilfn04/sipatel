@@ -17,7 +17,15 @@ import { Badge } from '@/components/ui/badge';
 interface ImportExcelModalProps {
   open: boolean;
   onClose: () => void;
-  onImport: (data: any[]) => Promise<{ success: number; error: number }>;
+  onImport: (
+    data: any[],
+    onProgress?: (imported: number, total: number) => void
+  ) => Promise<{
+    success: number;
+    error: number;
+    errors?: { row: number; error: string }[];
+    stopped?: boolean;
+  }>;
 }
 
 export function ImportExcelModal({ open, onClose, onImport }: ImportExcelModalProps) {
@@ -159,16 +167,34 @@ export function ImportExcelModal({ open, onClose, onImport }: ImportExcelModalPr
     setImportProgress({ current: 0, total: importPreview.length });
 
     try {
-      const result = await onImport(importPreview);
+      const result = await onImport(importPreview, (imported, total) => {
+        // Update progress in real-time as each chunk is processed
+        setImportProgress({ current: imported, total });
+      });
 
-      if (result.success > 0) {
+      if (result.stopped) {
+        // Import was stopped due to an error (e.g. duplicate NIK)
+        if (result.success > 0) {
+          toast.warning('Import dihentikan', {
+            description: `${result.success} data berhasil diimpor sebelum ditemukan error. ${
+              result.errors && result.errors[0] ? `Error: ${result.errors[0].error}` : ''
+            }`,
+            icon: <AlertCircle className="h-4 w-4" />
+          });
+        } else {
+          toast.error('Import gagal', {
+            description: result.errors && result.errors[0]
+              ? result.errors[0].error
+              : 'Terjadi error saat import. Proses dihentikan.',
+            icon: <AlertCircle className="h-4 w-4" />
+          });
+        }
+      } else if (result.success > 0) {
         toast.success('Import berhasil!', {
           description: `${result.success} data anggota berhasil ditambahkan${result.error > 0 ? ` dan ${result.error} gagal` : ''}`,
           icon: <CheckCircle className="h-4 w-4" />
         });
-      }
-
-      if (result.error > 0 && result.success === 0) {
+      } else if (result.error > 0) {
         toast.error('Import gagal', {
           description: `${result.error} data gagal diimport. Silakan coba lagi.`,
           icon: <AlertCircle className="h-4 w-4" />

@@ -52,11 +52,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   useAnggotaList,
   useCreateAnggota,
   useDeleteAnggota,
   useUpdateAnggota,
+  useBulkDeleteAnggota,
+  useBatchImportAnggota,
   useAnggota,
 } from '@/lib/hooks/use-anggota-api';
 import { Anggota, CreateAnggotaInput } from '@/lib/supabase';
@@ -68,6 +71,16 @@ import { ExportExcelModal } from '@/components/anggota/ExportExcelModal';
 import { ToastNotification } from '@/components/anggota/ToastNotification';
 import { ExpandableRow } from '@/components/anggota/ExpandableRow';
 import { DocumentStatusBadge } from '@/components/anggota/DocumentStatusBadge';
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function PengelolaanDataPage() {
   // State
@@ -82,6 +95,16 @@ export default function PengelolaanDataPage() {
   const [selectedMps, setSelectedMps] = useState<string>('all');
   const [selectedIuran, setSelectedIuran] = useState<string>('all');
   const [selectedCabang, setSelectedCabang] = useState<string>('all');
+
+  // Selection state
+  // rowSelection tracks per-page checkbox (managed by tanstack table)
+  // selectAllFiltered = true means "across all pages, select everything matching current filters"
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [selectAllFiltered, setSelectAllFiltered] = useState(false);
+
+  // Bulk delete state
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [bulkDeleteMode, setBulkDeleteMode] = useState<'selected' | 'all'>('selected');
 
   // Modal states
   const [selectedMember, setSelectedMember] = useState<Anggota | null>(null);
@@ -102,7 +125,6 @@ export default function PengelolaanDataPage() {
   }>({ show: false, message: '', type: 'success' });
 
   // API hooks
-  // Extract sort column and direction from sorting state
   const sortColumn = sorting[0]?.id || 'created_at';
   const sortDirection = sorting[0]?.desc ? 'desc' : 'asc';
 
@@ -123,6 +145,8 @@ export default function PengelolaanDataPage() {
   const createMutation = useCreateAnggota();
   const updateMutation = useUpdateAnggota(editMemberId || '');
   const deleteMutation = useDeleteAnggota();
+  const bulkDeleteMutation = useBulkDeleteAnggota();
+  const batchImportMutation = useBatchImportAnggota();
 
   // Helper functions
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -195,7 +219,6 @@ export default function PengelolaanDataPage() {
     if (formatMap && formatMap[value]) {
       return formatMap[value];
     }
-    // Convert snake_case to Title Case
     return value
       .split('_')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -219,16 +242,8 @@ export default function PengelolaanDataPage() {
       setAddModalOpen(false);
     } catch (error: any) {
       console.error('Error creating member:', error);
-
-      // Close modal first so toast is visible
       setAddModalOpen(false);
-
-      // Show error with actual message from backend
-      showToast(
-        `Gagal menambahkan anggota: ${getErrorMessage(error)}`,
-        'error'
-      );
-
+      showToast(`Gagal menambahkan anggota: ${getErrorMessage(error)}`, 'error');
       throw error;
     }
   };
@@ -241,17 +256,9 @@ export default function PengelolaanDataPage() {
       setEditMemberId(null);
     } catch (error: any) {
       console.error('Error updating member:', error);
-
-      // Close modal first so toast is visible
       setEditModalOpen(false);
       setEditMemberId(null);
-
-      // Show error with actual message from backend
-      showToast(
-        `Gagal update anggota: ${getErrorMessage(error)}`,
-        'error'
-      );
-
+      showToast(`Gagal update anggota: ${getErrorMessage(error)}`, 'error');
       throw error;
     }
   };
@@ -270,29 +277,85 @@ export default function PengelolaanDataPage() {
     }
   };
 
-  const handleImport = async (data: any[]) => {
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (let i = 0; i < data.length; i++) {
-      try {
-        const member = data[i];
-        await createMutation.mutateAsync(member as CreateAnggotaInput);
-        successCount++;
-      } catch (error) {
-        console.error(`Error importing row ${i + 1}:`, error);
-        errorCount++;
+  const handleBulkDelete = async () => {
+    try {
+      if (selectAllFiltered) {
+        // Delete ALL data matching current filters (across all pages)
+        const result = await bulkDeleteMutation.mutateAsync({
+          deleteAll: true,
+          filters: {
+            search: searchQuery,
+            kategori_anggota: selectedKategori,
+            status_anggota: selectedStatus,
+            status_mps: selectedMps,
+            status_iuran: selectedIuran,
+            nama_cabang: selectedCabang,
+          },
+        });
+        showToast(result.message || 'Semua data anggota berhasil dihapus', 'success');
+        setSelectAllFiltered(false);
+      } else if (bulkDeleteMode === 'all') {
+        // Legacy "Hapus Semua" button
+        const result = await bulkDeleteMutation.mutateAsync({
+          deleteAll: true,
+          filters: {
+            search: searchQuery,
+            kategori_anggota: selectedKategori,
+            status_anggota: selectedStatus,
+            status_mps: selectedMps,
+            status_iuran: selectedIuran,
+            nama_cabang: selectedCabang,
+          },
+        });
+        showToast(result.message || 'Semua data anggota berhasil dihapus', 'success');
+      } else {
+        // Delete only selected IDs (current page selection)
+        const selectedIds = Object.keys(rowSelection).filter((id) => rowSelection[id]);
+        if (selectedIds.length === 0) {
+          showToast('Tidak ada data yang dipilih', 'info');
+          return;
+        }
+        const result = await bulkDeleteMutation.mutateAsync({
+          ids: selectedIds,
+        });
+        showToast(result.message || `${selectedIds.length} data anggota berhasil dihapus`, 'success');
       }
-    }
 
-    return { success: successCount, error: errorCount };
+      setBulkDeleteConfirmOpen(false);
+      setRowSelection({});
+    } catch (error: any) {
+      console.error('Error bulk deleting:', error);
+      showToast(`Gagal menghapus data: ${getErrorMessage(error)}`, 'error');
+    }
+  };
+
+  const handleImport = async (data: any[], onProgress?: (imported: number, total: number) => void) => {
+    try {
+      const result = await batchImportMutation.mutateAsync({
+        records: data as CreateAnggotaInput[],
+        onProgress,
+      });
+      return {
+        success: result.successCount,
+        error: result.errorCount,
+        errors: result.errors,
+        stopped: result.stopped,
+      };
+    } catch (error: any) {
+      console.error('Error batch importing:', error);
+      showToast(`Gagal mengimpor data: ${getErrorMessage(error)}`, 'error');
+      return {
+        success: 0,
+        error: data.length,
+        errors: [{ row: 0, error: getErrorMessage(error) }],
+        stopped: true,
+      };
+    }
   };
 
   const handleFetchAllData = async (limit?: number) => {
     try {
-      // Import the fetch function dynamically
       const { fetchAnggotaList } = await import('@/lib/hooks/use-anggota-api');
-
       const result = await fetchAnggotaList({
         search: searchQuery,
         kategori_anggota: selectedKategori,
@@ -301,11 +364,10 @@ export default function PengelolaanDataPage() {
         status_iuran: selectedIuran,
         nama_cabang: selectedCabang,
         page: 1,
-        limit: limit || 10000, // Default large number for "all" data
+        limit: limit || 10000,
         sortColumn,
         sortDirection,
       });
-
       return result.data || [];
     } catch (error) {
       console.error('Error fetching all data:', error);
@@ -314,9 +376,74 @@ export default function PengelolaanDataPage() {
     }
   };
 
+  // Determine if current page has all rows selected
+  const currentPageData = anggotaData?.data || [];
+  const allCurrentPageSelected =
+    currentPageData.length > 0 &&
+    currentPageData.every((row) => rowSelection[row.id]);
+
+  const handleHeaderCheckboxChange = (value: boolean) => {
+    if (value) {
+      // Check all rows on current page
+      const newSelection: Record<string, boolean> = {};
+      currentPageData.forEach((row) => {
+        newSelection[row.id] = true;
+      });
+      setRowSelection(newSelection);
+      // Don't activate selectAllFiltered yet — user needs to actively click the banner
+    } else {
+      setRowSelection({});
+      setSelectAllFiltered(false);
+    }
+  };
+
+  const handleSelectAllFiltered = () => {
+    // Select all rows on current page + activate "select all across pages"
+    const newSelection: Record<string, boolean> = {};
+    currentPageData.forEach((row) => {
+      newSelection[row.id] = true;
+    });
+    setRowSelection(newSelection);
+    setSelectAllFiltered(true);
+  };
+
+  const handleClearSelection = () => {
+    setRowSelection({});
+    setSelectAllFiltered(false);
+  };
+
   // Table columns
   const columns = useMemo<ColumnDef<Anggota>[]>(
     () => [
+      {
+        id: 'select',
+        header: ({ table }) => (
+          <Checkbox
+            checked={
+              selectAllFiltered ||
+              table.getIsAllPageRowsSelected() ||
+              (table.getIsSomePageRowsSelected() && 'indeterminate')
+            }
+            onCheckedChange={(value) => {
+              handleHeaderCheckboxChange(!!value);
+            }}
+            aria-label="Select all"
+            className="translate-y-[2px]"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={selectAllFiltered || row.getIsSelected()}
+            onCheckedChange={(value) => {
+              row.toggleSelected(!!value);
+            }}
+            aria-label="Select row"
+            className="translate-y-[2px]"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
       {
         accessorKey: 'no',
         header: 'NO',
@@ -363,20 +490,6 @@ export default function PengelolaanDataPage() {
         },
         enableSorting: false,
       },
-      // {
-      //   accessorKey: 'status_mps',
-      //   header: 'MPS',
-      //   cell: ({ row }) => {
-      //     const props = getStatusMpsProps(row.original.status_mps);
-      //     return (
-      //       <Badge variant={props.variant} appearance="ghost" className="text-xs">
-      //         <BadgeDot />
-      //         {props.label}
-      //       </Badge>
-      //     );
-      //   },
-      //   enableSorting: false,
-      // },
       {
         accessorKey: 'nama_cabang',
         header: 'CABANG',
@@ -430,14 +543,6 @@ export default function PengelolaanDataPage() {
         },
         enableSorting: false,
       },
-      // {
-      //   id: 'document_status',
-      //   header: 'DOKUMEN',
-      //   cell: ({ row }) => (
-      //     <DocumentStatusBadge anggota={row.original} size="sm" />
-      //   ),
-      //   enableSorting: false,
-      // },
       {
         id: 'actions',
         header: 'AKSI',
@@ -491,7 +596,7 @@ export default function PengelolaanDataPage() {
         enableSorting: false,
       },
     ],
-    [pagination.pageIndex, pagination.pageSize]
+    [pagination.pageIndex, pagination.pageSize, selectAllFiltered, currentPageData, rowSelection]
   );
 
   const table = useReactTable({
@@ -499,17 +604,29 @@ export default function PengelolaanDataPage() {
     data: anggotaData?.data || [],
     pageCount: anggotaData?.pagination?.totalPages || 1,
     getRowId: (row: Anggota) => row.id,
-    state: { pagination, sorting },
+    state: {
+      pagination,
+      sorting,
+      rowSelection,
+    },
     onPaginationChange: setPagination,
     onSortingChange: setSorting,
+    onRowSelectionChange: (updater) => {
+      setRowSelection(updater);
+      // If user manually deselects something, turn off selectAllFiltered
+      setSelectAllFiltered(false);
+    },
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     manualPagination: true,
     manualSorting: true,
+    enableRowSelection: true,
   });
 
-  const filteredData = anggotaData?.data || [];
   const totalCount = anggotaData?.pagination?.total || 0;
+  const selectedCount = Object.keys(rowSelection).filter((id) => rowSelection[id]).length;
+  const effectiveSelectedCount = selectAllFiltered ? totalCount : selectedCount;
+  const hasSelection = effectiveSelectedCount > 0;
 
   return (
     <ProtectedRoute permission={PERMISSIONS.VIEW_KEANGGOTAAN}>
@@ -526,7 +643,6 @@ export default function PengelolaanDataPage() {
           {/* Sticky Header Section */}
           <div className="shrink-0 border-b">
             <CardHeader className="flex-col flex-wrap sm:flex-row items-stretch sm:items-center py-5 gap-4">
-              {/* Search & Filters Section */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full">
                 {/* Search */}
                 <div className="relative flex-1 max-w-2xl">
@@ -548,80 +664,6 @@ export default function PengelolaanDataPage() {
                     </Button>
                   )}
                 </div>
-
-                {/* Filters */}
-                {/* <Select
-                  onValueChange={(value) => {
-                    setSelectedKategori(value);
-                    setPagination({ ...pagination, pageIndex: 0 });
-                  }}
-                  value={selectedKategori}
-                >
-                  <SelectTrigger className="w-full sm:w-36">
-                    <SelectValue placeholder="Kategori" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Kategori</SelectItem>
-                    <SelectItem value="biasa">Biasa</SelectItem>
-                    <SelectItem value="luar_biasa">Luar Biasa</SelectItem>
-                    <SelectItem value="kehormatan">Kehormatan</SelectItem>
-                    <SelectItem value="bukan_anggota">Bukan Anggota</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  onValueChange={(value) => {
-                    setSelectedStatus(value);
-                    setPagination({ ...pagination, pageIndex: 0 });
-                  }}
-                  value={selectedStatus}
-                >
-                  <SelectTrigger className="w-full sm:w-36">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Status</SelectItem>
-                    <SelectItem value="pegawai">Pegawai</SelectItem>
-                    <SelectItem value="istri">Istri</SelectItem>
-                    <SelectItem value="suami">Suami</SelectItem>
-                    <SelectItem value="anak">Anak</SelectItem>
-                    <SelectItem value="meninggal">Meninggal</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  onValueChange={(value) => {
-                    setSelectedMps(value);
-                    setPagination({ ...pagination, pageIndex: 0 });
-                  }}
-                  value={selectedMps}
-                >
-                  <SelectTrigger className="w-full sm:w-36">
-                    <SelectValue placeholder="Status MPS" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua MPS</SelectItem>
-                    <SelectItem value="mps">MPS</SelectItem>
-                    <SelectItem value="non_mps">Non-MPS</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select
-                  onValueChange={(value) => {
-                    setSelectedIuran(value);
-                    setPagination({ ...pagination, pageIndex: 0 });
-                  }}
-                  value={selectedIuran}
-                >
-                  <SelectTrigger className="w-full sm:w-36">
-                    <SelectValue placeholder="Status Iuran" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Iuran</SelectItem>
-                    <SelectItem value="iuran">Sudah Iuran</SelectItem>
-                    <SelectItem value="tidak_iuran">Tidak Iuran</SelectItem>
-                  </SelectContent>
-                </Select> */}
 
                 <Button
                   variant="outline"
@@ -649,9 +691,64 @@ export default function PengelolaanDataPage() {
                   <Plus className="h-4 w-4 mr-2" />
                   <span>Tambah Anggota</span>
                 </Button>
+
+                {/* Delete Button — appears when there is any selection */}
+                {hasSelection && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      setBulkDeleteMode('selected');
+                      setBulkDeleteConfirmOpen(true);
+                    }}
+                    className="w-full sm:w-auto"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {selectAllFiltered
+                      ? `Hapus ${totalCount} Data (Semua Halaman)`
+                      : `Hapus ${selectedCount} Terpilih`}
+                  </Button>
+                )}
               </div>
             </CardHeader>
           </div>
+
+          {/* Selection Info Bar + "Select all across pages" banner */}
+          {hasSelection && (
+            <div className="shrink-0 bg-muted/30 px-6 py-2 border-b">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  {selectAllFiltered
+                    ? `Semua ${totalCount} data terpilih di semua halaman`
+                    : `${selectedCount} data terpilih (halaman ini)`}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearSelection}
+                  className="h-7 text-xs"
+                >
+                  Hapus pilihan
+                </Button>
+              </div>
+
+              {/* "Select all across all pages" banner — shown when all current page rows are checked but not yet in "all pages" mode */}
+              {allCurrentPageSelected && !selectAllFiltered && totalCount > currentPageData.length && (
+                <div className="mt-2 pt-2 border-t border-muted-foreground/20">
+                  <p className="text-xs text-muted-foreground">
+                    Semua {currentPageData.length} data di halaman ini telah dipilih.{' '}
+                    <button
+                      type="button"
+                      className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+                      onClick={handleSelectAllFiltered}
+                    >
+                      Pilih semua {totalCount} data
+                    </button>
+                    {' '}yang sesuai dengan filter saat ini.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Table */}
           <div className="flex-1 overflow-auto min-h-0">
@@ -663,14 +760,15 @@ export default function PengelolaanDataPage() {
                       {headerGroup.headers.map((header) => {
                         const columnId = header.column.id;
                         const accessorKey = (header.column.columnDef as any).accessorKey as string;
-                        const hideOnMobile = columnId === 'no' || accessorKey === 'jenis_anggota' || accessorKey === 'status_iuran' || accessorKey === 'cabang_domisili';
+                        const isSelectColumn = columnId === 'select';
+                        const hideOnMobile = !isSelectColumn && (columnId === 'no' || accessorKey === 'jenis_anggota' || accessorKey === 'status_iuran' || accessorKey === 'cabang_domisili');
                         const canSort = header.column.getCanSort();
                         const isSorted = header.column.getIsSorted();
 
                         return (
                           <TableHead
                             key={header.id}
-                            className={`${hideOnMobile ? 'hidden sm:table-cell' : ''} bg-background px-3 py-3 text-xs sm:px-4 sm:py-3 sm:text-sm ${canSort ? 'cursor-pointer select-none hover:bg-muted/50' : ''}`}
+                            className={`${hideOnMobile ? 'hidden sm:table-cell' : ''} bg-background px-3 py-3 text-xs sm:px-4 sm:py-3 sm:text-sm ${canSort ? 'cursor-pointer select-none hover:bg-muted/50' : ''} ${isSelectColumn ? 'w-10' : ''}`}
                             onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                           >
                             {header.isPlaceholder ? null : (
@@ -717,7 +815,8 @@ export default function PengelolaanDataPage() {
                           {row.getVisibleCells().map((cell) => {
                             const columnId = cell.column.id;
                             const accessorKey = (cell.column.columnDef as any).accessorKey as string;
-                            const hideOnMobile = columnId === 'no' || accessorKey === 'jenis_anggota' || accessorKey === 'status_iuran' || accessorKey === 'cabang_domisili';
+                            const isSelectColumn = columnId === 'select';
+                            const hideOnMobile = !isSelectColumn && (columnId === 'no' || accessorKey === 'jenis_anggota' || accessorKey === 'status_iuran' || accessorKey === 'cabang_domisili');
                             return (
                               <TableCell
                                 key={cell.id}
@@ -831,6 +930,75 @@ export default function PengelolaanDataPage() {
         totalCount={anggotaData?.pagination?.total}
         onFetchAllData={handleFetchAllData}
       />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={bulkDeleteConfirmOpen} onOpenChange={(open) => {
+        if (!open) setBulkDeleteConfirmOpen(false);
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Konfirmasi Hapus Massal
+            </DialogTitle>
+            <DialogDescription>
+              {selectAllFiltered
+                ? `Apakah Anda yakin ingin menghapus semua ${totalCount} data anggota yang sesuai dengan filter saat ini?`
+                : `Apakah Anda yakin ingin menghapus ${selectedCount} data anggota yang dipilih?`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogBody className="space-y-4">
+            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+              {selectAllFiltered ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Total data</span>
+                    <span className="font-medium">{totalCount} anggota</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Filter aktif</span>
+                    <span className="text-sm">
+                      {searchQuery ? `Pencarian: "${searchQuery}"` : 'Tidak ada filter'}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Data yang akan dihapus</span>
+                  <span className="font-medium">{selectedCount} anggota</span>
+                </div>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Tindakan ini tidak dapat dibatalkan. Data akan dihapus secara permanen dari sistem.
+            </p>
+          </DialogBody>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Batal</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              {bulkDeleteMutation.isPending ? (
+                <>
+                  <span className="h-4 w-4 mr-2 animate-spin border-2 border-current border-t-transparent rounded-full inline-block" />
+                  Menghapus...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {selectAllFiltered ? `Hapus ${totalCount} Data` : `Hapus ${selectedCount} Data`}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Toast Notification */}
       <ToastNotification show={toast.show} message={toast.message} type={toast.type} onClose={hideToast} />
