@@ -1208,7 +1208,6 @@ export function DanaKematianFormModal({
           open={memberSearchModalOpen}
           onClose={() => setMemberSearchModalOpen(false)}
           onMemberSelect={handleMemberSelect}
-          members={members}
         />
       )}
     </>

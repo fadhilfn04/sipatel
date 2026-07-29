@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, User, MapPin, BadgeCheck, Loader2, X } from 'lucide-react';
 import {
   Dialog,
@@ -19,7 +19,6 @@ interface MemberSearchModalProps {
   open: boolean;
   onClose: () => void;
   onMemberSelect: (member: Anggota) => void;
-  members: Anggota[];
 }
 
 type SearchMode = 'nik' | 'nama';
@@ -28,7 +27,6 @@ export function MemberSearchModal({
   open,
   onClose,
   onMemberSelect,
-  members,
 }: MemberSearchModalProps) {
   const [searchMode, setSearchMode] = useState<SearchMode>('nik');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,6 +34,7 @@ export function MemberSearchModal({
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -48,54 +47,92 @@ export function MemberSearchModal({
     }
   }, [open]);
 
-  // Debounced search function
-  const debouncedSearch = useCallback(
-    debounce((query: string, mode: SearchMode) => {
+  // Search function that calls the API directly
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setSearchResults([]);
+      setSearchError('');
+      setIsSearching(false);
+      return;
+    }
+
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    const delayTimer = setTimeout(async () => {
       setIsSearching(true);
       setSearchError('');
 
-      if (!query.trim()) {
-        setSearchResults([]);
-        setIsSearching(false);
-        return;
-      }
+      try {
+        // Use large limit to ensure we get all matching results from DB
+        const params = new URLSearchParams();
+        params.set('search', query);
+        params.set('limit', '100');
+        params.set('page', '1');
 
-      // Simulate API delay
-      setTimeout(() => {
-        let results: Anggota[] = [];
+        const response = await fetch(`/api/anggota?${params.toString()}`, {
+          signal: controller.signal,
+        });
 
-        // Search all members without category/MPS filter
-        if (mode === 'nik') {
-          results = members.filter(m => m.nik === query.trim());
-          if (results.length === 0) {
-            setSearchError('Data anggota dengan NIK tersebut tidak ditemukan');
-          }
-        } else {
-          const queryLower = query.toLowerCase();
-          results = members.filter(m =>
-            m.nama_anggota.toLowerCase().includes(queryLower)
-          );
-          if (results.length === 0) {
-            setSearchError('Tidak ada data anggota yang cocok');
-          }
+        if (!response.ok) {
+          throw new Error('Gagal mencari data anggota');
         }
 
-        setSearchResults(results);
-        setIsSearching(false);
-      }, 300);
-    }, 500),
-    [members]
-  );
+        const result = await response.json();
+        const allResults: Anggota[] = result.data || [];
 
-  // Handle search input change
-  useEffect(() => {
-    if (searchQuery) {
-      debouncedSearch(searchQuery, searchMode);
-    } else {
-      setSearchResults([]);
-      setSearchError('');
-    }
-  }, [searchQuery, searchMode, debouncedSearch]);
+        let filteredResults: Anggota[];
+
+        if (searchMode === 'nik') {
+          // Exact match on NIK for NIK search mode
+          filteredResults = allResults.filter(
+            m => m.nik.trim() === query
+          );
+          // If no exact match, try includes as fallback
+          if (filteredResults.length === 0) {
+            filteredResults = allResults.filter(
+              m => m.nik.includes(query)
+            );
+          }
+        } else {
+          // Name search: filter by nama_anggota containing the query
+          const queryLower = query.toLowerCase();
+          filteredResults = allResults.filter(m =>
+            m.nama_anggota.toLowerCase().includes(queryLower)
+          );
+        }
+
+        if (filteredResults.length === 0) {
+          setSearchError(
+            searchMode === 'nik'
+              ? 'Data anggota dengan NIK tersebut tidak ditemukan'
+              : 'Tidak ada data anggota yang cocok'
+          );
+        }
+
+        setSearchResults(filteredResults);
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          return; // Ignore aborted requests
+        }
+        setSearchError('Gagal menghubungi server. Silakan coba lagi.');
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400); // Debounce delay
+
+    return () => {
+      clearTimeout(delayTimer);
+      controller.abort();
+    };
+  }, [searchQuery, searchMode]);
 
   // Handle member selection from results
   const handleMemberClick = (member: Anggota) => {
@@ -105,7 +142,7 @@ export function MemberSearchModal({
   // Handle confirm selection
   const handleConfirmSelection = () => {
     if (selectedMemberId) {
-      const member = members.find(m => m.id === selectedMemberId);
+      const member = searchResults.find(m => m.id === selectedMemberId);
       if (member) {
         onMemberSelect(member);
         onClose();
@@ -332,22 +369,3 @@ export function MemberSearchModal({
   );
 }
 
-// Utility function for debouncing
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
-
-  return function executedFunction(...args: Parameters<T>) {
-    const later = () => {
-      timeout = null;
-      func(...args);
-    };
-
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-    timeout = setTimeout(later, wait);
-  };
-}
