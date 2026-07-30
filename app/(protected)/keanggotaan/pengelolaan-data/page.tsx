@@ -355,20 +355,36 @@ export default function PengelolaanDataPage() {
 
   const handleFetchAllData = async (limit?: number) => {
     try {
-      const { fetchAnggotaList } = await import('@/lib/hooks/use-anggota-api');
-      const result = await fetchAnggotaList({
+      const { fetchAllAnggota, fetchAnggotaList } = await import('@/lib/hooks/use-anggota-api');
+
+      if (limit) {
+        // Custom limit: fetch only the first N records
+        const result = await fetchAnggotaList({
+          search: searchQuery,
+          kategori_anggota: selectedKategori,
+          status_anggota: selectedStatus,
+          status_mps: selectedMps,
+          status_iuran: selectedIuran,
+          nama_cabang: selectedCabang,
+          page: 1,
+          limit: Math.min(limit, 1000),
+          sortColumn,
+          sortDirection,
+        });
+        return result.data || [];
+      }
+
+      // No limit = fetch ALL data across all pages (used by "Semua Data" export)
+      return await fetchAllAnggota({
         search: searchQuery,
         kategori_anggota: selectedKategori,
         status_anggota: selectedStatus,
         status_mps: selectedMps,
         status_iuran: selectedIuran,
         nama_cabang: selectedCabang,
-        page: 1,
-        limit: limit || 10000,
         sortColumn,
         sortDirection,
       });
-      return result.data || [];
     } catch (error) {
       console.error('Error fetching all data:', error);
       showToast('Gagal mengambil data untuk export. Silakan coba lagi.', 'error');

@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
 function applyDefaults(record: any) {
   return {
     ...record,
+    deleted_at: null, // Reset soft-delete so previously deleted records can be re-imported
     kategori_anggota: record.kategori_anggota || 'biasa',
     status_anggota: record.status_anggota || 'pegawai',
     status_mps: record.status_mps || 'non_mps',

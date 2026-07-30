@@ -73,6 +73,50 @@ export async function fetchAnggotaList(params: {
   return response.json() as Promise<AnggotaListResponse>;
 }
 
+/**
+ * Fetch ALL anggota records matching the given filters, across all pages.
+ * Uses pagination internally to collect every record, so the caller gets
+ * a complete dataset (useful for export, bulk operations, etc.)
+ */
+export async function fetchAllAnggota(params: {
+  search?: string;
+  kategori_anggota?: string;
+  status_anggota?: string;
+  status_mps?: string;
+  status_iuran?: string;
+  nama_cabang?: string;
+  sortColumn?: string;
+  sortDirection?: 'asc' | 'desc';
+}): Promise<Anggota[]> {
+  const PAGE_LIMIT = 1000; // Max per-page supported by Supabase
+  const allRecords: Anggota[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  // Fetch first page to get total count
+  const firstPage = await fetchAnggotaList({
+    ...params,
+    page: 1,
+    limit: PAGE_LIMIT,
+  });
+
+  allRecords.push(...firstPage.data);
+  totalPages = firstPage.pagination.totalPages;
+
+  // Fetch remaining pages
+  while (page < totalPages) {
+    page++;
+    const result = await fetchAnggotaList({
+      ...params,
+      page,
+      limit: PAGE_LIMIT,
+    });
+    allRecords.push(...result.data);
+  }
+
+  return allRecords;
+}
+
 // Fetch all anggota with filters
 export function useAnggotaList(params: {
   search?: string;
