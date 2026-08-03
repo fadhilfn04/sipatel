@@ -712,7 +712,7 @@ export function allowsDeliveryActions(status: DanaKematianStatus): boolean {
  * Check if status allows reporting
  */
 export function allowsReporting(status: DanaKematianStatus): boolean {
-  return ['penyaluran'].includes(status);
+  return ['penyaluran', 'selesai'].includes(status);
 }
 
 /**

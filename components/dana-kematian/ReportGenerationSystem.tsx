@@ -143,6 +143,7 @@ export function ReportGenerationSystem({
   const reports = [
     {
       key: 'file_berita_acara' as keyof DanaKematian,
+      tab: 'berita_acara' as const,
       name: 'Berita Acara Penyerahan',
       description: 'Dokumentasi penyerahan dana kepada ahli waris',
       required: true,
@@ -151,6 +152,7 @@ export function ReportGenerationSystem({
     },
     {
       key: 'file_laporan_keuangan' as keyof DanaKematian,
+      tab: 'laporan_keuangan' as const,
       name: 'Laporan Keuangan',
       description: 'Rekonsiliasi dana yang diterima dan diserahkan',
       required: true,
@@ -159,6 +161,7 @@ export function ReportGenerationSystem({
     },
     {
       key: 'file_laporan_feedback' as keyof DanaKematian,
+      tab: 'laporan_feedback' as const,
       name: 'Laporan Feedback',
       description: 'Umpan balik dari ahli waris tentang proses',
       required: true,
@@ -308,7 +311,7 @@ export function ReportGenerationSystem({
           {reports.map((report) => (
             <Button
               key={report.key}
-              onClick={() => setActiveTab(report.key as 'berita_acara' | 'laporan_keuangan' | 'laporan_feedback')}
+              onClick={() => setActiveTab(report.tab)}
               variant={!!claim[report.key] ? 'outline' : 'primary'}
               size="sm"
               disabled={!!claim[report.key]}

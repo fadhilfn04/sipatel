@@ -152,6 +152,11 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
   const canEditDocuments =
     canVerifyPP && activeClaim.status_proses === 'proses_pusat';
 
+  // PC/Admin can edit reports during penyaluran or selesai
+  const canEditReports =
+    !permissionLoading && canManagePC &&
+    ['penyaluran', 'selesai'].includes(activeClaim.status_proses);
+
   // ── Action handlers ───────────────────────────────────────────────────────
   const handleConfirmedAction = async () => {
     if (!pendingAction) return;
@@ -325,7 +330,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
           {/* Tabs */}
           <div className="flex-1 overflow-hidden flex flex-col">
             <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="shrink-0 w-full rounded-none border-b bg-background h-11 grid grid-cols-4 px-8 gap-0 justify-start">
+              <TabsList className="shrink-0 w-full rounded-none border-b bg-background h-11 grid grid-cols-3 px-8 gap-0 justify-start">
                 <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
                   Detail
                 </TabsTrigger>
@@ -335,9 +340,9 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                 <TabsTrigger value="documents" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
                   Dokumen
                 </TabsTrigger>
-                <TabsTrigger value="reports" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
+                {/* <TabsTrigger value="reports" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
                   Laporan
-                </TabsTrigger>
+                </TabsTrigger> */}
               </TabsList>
 
               <div className="flex-1 overflow-y-auto">
@@ -609,7 +614,13 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                   {/* ── Laporan Tab ── */}
                   <TabsContent value="reports" className="mt-0">
                     {allowsReporting(activeClaim.status_proses) || activeClaim.file_berita_acara ? (
-                      <ReportGenerationSystem claim={activeClaim} readonly={true} />
+                      <ReportGenerationSystem claim={activeClaim} readonly={!canEditReports} onUpdate={canEditReports ? (updates) => {
+                        updateMutation.mutateAsync(updates as any).then(() => {
+                          onRefresh?.();
+                        }).catch(() => {
+                          showToast('Gagal menyimpan perubahan laporan', 'error');
+                        });
+                      } : undefined} />
                     ) : (
                       <div className="border rounded-xl p-12 text-center">
                         <Clock className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
