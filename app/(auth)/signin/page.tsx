@@ -32,8 +32,8 @@ export default function Page() {
   const form = useForm<SigninSchemaType>({
     resolver: zodResolver(getSigninSchema()),
     defaultValues: {
-      email: 'demo@p2tel.or.id',
-      password: 'Demo123@.',
+      email: '',
+      password: '',
       rememberMe: false,
     },
   });
