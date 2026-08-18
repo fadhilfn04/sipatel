@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
+import bcrypt from 'bcrypt';
 import { getServerSession } from 'next-auth/next';
 import { getClientIP } from '@/lib/api';
 import { prisma } from '@/lib/prisma';
@@ -169,14 +170,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Hash the email as the default password for the new user
+    const hashedPassword = await bcrypt.hash(email, 10);
+
     // Use a transaction to insert multiple records atomically
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Create a user
+      // Create a user with default password (email) and auto-verified email
       const user = await tx.user.create({
         data: {
           name,
           email,
+          password: hashedPassword,
           status: UserStatus.ACTIVE,
+          emailVerifiedAt: new Date(), // Auto-verify email for admin-created users
           roleId,
         },
       });
