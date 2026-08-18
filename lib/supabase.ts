@@ -171,6 +171,36 @@ export interface CreateAnggotaInput {
 
 export interface UpdateAnggotaInput extends Partial<CreateAnggotaInput> {}
 
+// Master Cabang types
+export interface MasterCabang {
+  id: string;
+  kode_cabang: string;
+  nama_cabang: string;
+  kelas_cabang: string | null;
+  area_regional: string | null;
+  area_witel: string | null;
+  regional_id: string | null;
+  witel_id: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  updated_by: string | null;
+}
+
+export interface CreateMasterCabangInput {
+  kode_cabang: string;
+  nama_cabang: string;
+  kelas_cabang?: string;
+  area_regional?: string;
+  area_witel?: string;
+  regional_id?: string;
+  witel_id?: string;
+  is_active?: boolean;
+}
+
+export interface UpdateMasterCabangInput extends Partial<CreateMasterCabangInput> {}
+
 export interface AnggotaFilter {
   search?: string;
   kategori_anggota?: KategoriAnggotaEnum;
