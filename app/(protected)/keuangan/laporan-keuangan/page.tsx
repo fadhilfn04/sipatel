@@ -78,7 +78,7 @@ export default function LaporanKeuanganPage() {
       stats: ov ? [
         { label: 'Kas Masuk', value: formatCurrency(ov.kasMasuk) },
         { label: 'Kas Keluar', value: formatCurrency(ov.kasKeluar) },
-        { label: 'Net Cash Flow', value: formatCurrency(ov.kasMasuk - ov.kasKeluar) },
+        { label: 'Arus Kas Bersih', value: formatCurrency(ov.kasMasuk - ov.kasKeluar) },
       ] : null,
     },
     {

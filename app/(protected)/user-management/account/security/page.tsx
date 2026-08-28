@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { comingSoonToast } from '@/components/common/coming-soon-toast';
+import ChangePasswordForm from './components/change-password-form';
 import { useAccount } from '../components/account-context';
 
 export default function Page() {
@@ -23,54 +24,38 @@ export default function Page() {
         </CardHeader>
         <CardContent className="space-y-6">
           <CardDescription>
-            Your primary addresses used to log in with Shoplit. It will be used
-            for account-related notifications.
+            Alamat utama yang Anda gunakan untuk masuk ke SIPATEL. Alamat ini akan digunakan untuk menerima notifikasi terkait akun.
           </CardDescription>
 
           <div className="flex items-center gap-2.5 rounded-lg bg-accent/60 p-4 text-sm">
             <span className="font-medium">{user.email}</span>{' '}
             {user.emailVerifiedAt && (
               <Badge variant="success" appearance="light">
-                Verified
+                Terverifikasi
               </Badge>
             )}
           </div>
 
           <Button variant="outline" onClick={() => comingSoonToast()}>
-            Change email
+            Ubah Email
           </Button>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Password</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <CardDescription>
-            To update your account password, click the button below and follow
-            the instructions.
-          </CardDescription>
-
-          <Button variant="outline" onClick={() => comingSoonToast()}>
-            Change password
-          </Button>
-        </CardContent>
-      </Card>
+      <ChangePasswordForm />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-destructive">Delete Account</CardTitle>
+          <CardTitle className="text-destructive">Hapus Akun</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <CardDescription>
-            Permanently remove your Personal Account and all of its contents
-            from the Shoplit platform. This action is not reversible, so please
-            continue with caution.
+            Hapus Akun Pribadi Anda secara permanen beserta seluruh data di dalamnya dari platform SIPATEL. 
+            Tindakan ini tidak dapat dibatalkan, jadi harap lanjutkan dengan hati-hati.
           </CardDescription>
 
           <Button variant="destructive" onClick={() => comingSoonToast()}>
-            Delete account
+            Hapus Akun
           </Button>
         </CardContent>
       </Card>

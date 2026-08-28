@@ -99,7 +99,7 @@ export function DropdownMenuUser({ trigger }: { trigger: ReactNode }) {
             className="flex items-center gap-2"
           >
             <User />
-            My Profile
+            Profil Saya
           </Link>
         </DropdownMenuItem>
 
@@ -125,7 +125,7 @@ export function DropdownMenuUser({ trigger }: { trigger: ReactNode }) {
                 className="flex items-center gap-2"
               >
                 <FileText />
-                My Profile
+                Profil Saya
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
@@ -143,7 +143,7 @@ export function DropdownMenuUser({ trigger }: { trigger: ReactNode }) {
                 className="flex items-center gap-2"
               >
                 <Shield />
-                Security
+                Keamanan
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>

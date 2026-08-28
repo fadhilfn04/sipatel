@@ -100,7 +100,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <Container>
         <Toolbar>
           <ToolbarHeading>
-            <ToolbarTitle>Account</ToolbarTitle>
+            <ToolbarTitle>Akun</ToolbarTitle>
           </ToolbarHeading>
           <ToolbarActions />
         </Toolbar>

@@ -189,7 +189,7 @@ export function DanaKematianDocumentWorkspace({
           <div className="w-72 shrink-0 border-r overflow-y-auto bg-card p-4">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-medium text-sm">Progress</h3>
+                <h3 className="font-medium text-sm">Progres</h3>
                 <Button
                   variant="ghost"
                   size="sm"

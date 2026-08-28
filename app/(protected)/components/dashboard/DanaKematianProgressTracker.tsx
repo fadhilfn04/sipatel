@@ -120,7 +120,7 @@ export function DanaKematianProgressTracker({ onViewDetails }: DanaKematianProgr
               {/* Progress Bar */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Progress</span>
+                  <span className="text-muted-foreground">Progres</span>
                   <span className="font-medium">{claim.progress}%</span>
                 </div>
                 <Progress value={claim.progress} className="h-2" />

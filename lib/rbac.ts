@@ -3,7 +3,7 @@
  * Role-Based Access Control untuk P2Tel System
  */
 
-import { User, UserPermission, UserRole } from '@/app/models/user';
+import { User, UserPermission, UserRole, UserRolePermission } from '@/app/models/user';
 
 // Permission slugs yang digunakan di sistem
 export const PERMISSIONS = {
@@ -105,6 +105,35 @@ export const PERMISSION_GROUPS = {
 };
 
 /**
+ * Normalisasi daftar permissions menjadi flat list berisi slug saja.
+ * Mendukung dua bentuk data:
+ * - Bentuk session/JWT (slim): string[] berisi permission slug
+ * - Bentuk database/Prisma: UserRolePermission[] (join table + nested permission)
+ */
+export function rolePermissionSlugs(
+  permissions?: Array<string | UserRolePermission>,
+): string[] {
+  if (!permissions) return [];
+
+  return permissions
+    .map((permission) =>
+      typeof permission === 'string'
+        ? permission
+        : permission.permission?.slug,
+    )
+    .filter((slug): slug is string => !!slug);
+}
+
+/**
+ * Ambil daftar permission slug milik user.
+ */
+export function getPermissionSlugs(user: User | null): string[] {
+  if (!user) return [];
+
+  return rolePermissionSlugs(user.role?.permissions);
+}
+
+/**
  * Cek apakah user memiliki permission tertentu
  */
 export function hasPermission(
@@ -119,11 +148,7 @@ export function hasPermission(
   }
 
   // Cek apakah user memiliki permission yang diminta
-  return (
-    user.role.permissions?.some(
-      (rolePermission) => rolePermission.permission?.slug === permissionSlug,
-    ) ?? false
-  );
+  return getPermissionSlugs(user).includes(permissionSlug);
 }
 
 /**
@@ -139,8 +164,7 @@ export function hasAnyPermission(
     return true;
   }
 
-  const userPermissions =
-    user.role.permissions?.map((rp) => rp.permission?.slug).filter((slug): slug is string => !!slug) ?? [];
+  const userPermissions = getPermissionSlugs(user);
 
   return permissionSlugs.some((slug) => userPermissions.includes(slug));
 }
@@ -158,8 +182,7 @@ export function hasAllPermissions(
     return true;
   }
 
-  const userPermissions =
-    user.role.permissions?.map((rp) => rp.permission?.slug).filter((slug): slug is string => !!slug) ?? [];
+  const userPermissions = getPermissionSlugs(user);
 
   return permissionSlugs.every((slug) => userPermissions.includes(slug));
 }

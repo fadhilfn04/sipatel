@@ -307,7 +307,7 @@ export function DanaKematianImportModal({
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b bg-muted">
-                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-10">No</th>
+                        <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-10">Tidak</th>
                         {TEMPLATE_HEADERS.map(h => (
                           <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">
                             {COLUMN_LABELS[h]}
@@ -406,7 +406,7 @@ export function DanaKematianImportModal({
                 {isImporting ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Mengimport...</>
                 ) : (
-                  <><Upload className="h-4 w-4 mr-2" />Import {parsedRows.length} Data</>
+                  <><Upload className="h-4 w-4 mr-2" />Impor {parsedRows.length} Data</>
                 )}
               </Button>
             </>

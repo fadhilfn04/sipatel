@@ -88,7 +88,7 @@ export default function Page() {
       setError(
         err instanceof Error
           ? err.message
-          : 'An unexpected error occurred. Please try again.',
+          : 'Terjadi kesalahan tak terduga. Silakan coba lagi.',
       );
     } finally {
       setIsProcessing(false);
@@ -102,13 +102,13 @@ export default function Page() {
           <Check />
         </AlertIcon>
         <AlertTitle>
-          You have successfully signed up! Please check your email to verify
-          your account and then{' '}
+          Pendaftaran berhasil! Silakan periksa email Anda untuk memverifikasi
+          akun, kemudian{' '}
           <Link
             href="/signin/"
             className="text-primary hover:text-primary-darker"
           >
-            Log in
+            Masuk
           </Link>
           .
         </AlertTitle>
@@ -217,10 +217,10 @@ export default function Page() {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <FormLabel>Kata Sandi</FormLabel>
                 <div className="relative">
                   <Input
-                    placeholder="Password anda"
+                    placeholder="Kata sandi Anda"
                     type={passwordVisible ? 'text' : 'password'}
                     {...field}
                   />
@@ -233,8 +233,8 @@ export default function Page() {
                     className="absolute end-0 top-1/2 -translate-y-1/2 h-7 w-7 me-1.5 bg-transparent!"
                     aria-label={
                       passwordVisible
-                        ? 'Sembunyikan password'
-                        : 'Tampilkan password'
+                        ? 'Sembunyikan kata sandi'
+                        : 'Tampilkan kata sandi'
                     }
                   >
                     {passwordVisible ? (
@@ -254,12 +254,12 @@ export default function Page() {
             name="passwordConfirmation"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Konfirmasi Password</FormLabel>
+                <FormLabel>Konfirmasi Kata Sandi</FormLabel>
                 <div className="relative">
                   <Input
                     type={passwordConfirmationVisible ? 'text' : 'password'}
                     {...field}
-                    placeholder="Konfirmasi password anda"
+                    placeholder="Konfirmasi kata sandi Anda"
                   />
                   <Button
                     type="button"
@@ -274,8 +274,8 @@ export default function Page() {
                     className="absolute end-0 top-1/2 -translate-y-1/2 h-7 w-7 me-1.5 bg-transparent!"
                     aria-label={
                       passwordConfirmationVisible
-                        ? 'Sembunyikan konfirmasi password'
-                        : 'Tampilkan konfirmasi password'
+                        ? 'Sembunyikan konfirmasi kata sandi'
+                        : 'Tampilkan konfirmasi kata sandi'
                     }
                   >
                     {passwordConfirmationVisible ? (

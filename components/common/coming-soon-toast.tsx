@@ -8,7 +8,7 @@ export const comingSoonToast = () => {
       <AlertIcon>
         <RiErrorWarningFill />
       </AlertIcon>
-      <AlertTitle>This feature is coming soon.</AlertTitle>
+      <AlertTitle>Fitur ini akan segera tersedia.</AlertTitle>
     </Alert>
   ));
 };

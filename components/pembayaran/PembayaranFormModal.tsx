@@ -306,7 +306,7 @@ export function PembayaranFormModal({
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
                         <SelectItem value="paid">Paid</SelectItem>
-                        <SelectItem value="failed">Failed</SelectItem>
+                        <SelectItem value="failed">Gagal</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

@@ -25,7 +25,7 @@ export function DropdownMenu7({ trigger }: { trigger: ReactNode }) {
         <DropdownMenuItem asChild>
           <Link href="#">
             <FileUp />
-            <span>Export</span>
+            <span>Ekspor</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'Witel created successfully',
+      message: 'Witel berhasil dibuat',
       data,
     }, { status: 201 });
   } catch (error: any) {
@@ -176,7 +176,7 @@ export async function PUT(request: NextRequest) {
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Witel not found' },
+        { error: 'Witel tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -240,7 +240,7 @@ export async function PUT(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'Witel updated successfully',
+      message: 'Witel berhasil diperbarui',
       data,
     });
   } catch (error: any) {
@@ -304,13 +304,13 @@ export async function DELETE(request: NextRequest) {
 
     if (!data) {
       return NextResponse.json(
-        { error: 'Witel not found' },
+        { error: 'Witel tidak ditemukan' },
         { status: 404 }
       );
     }
 
     return NextResponse.json({
-      message: 'Witel deactivated successfully',
+      message: 'Witel berhasil dinonaktifkan',
       data,
     });
   } catch (error: any) {

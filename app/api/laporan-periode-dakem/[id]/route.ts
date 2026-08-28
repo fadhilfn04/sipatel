@@ -32,7 +32,7 @@ export async function PUT(
 
     return NextResponse.json({ data });
   } catch (err) {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Terjadi kesalahan pada server' }, { status: 500 });
   }
 }
 
@@ -54,6 +54,6 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Laporan berhasil dihapus' });
   } catch (err) {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Terjadi kesalahan pada server' }, { status: 500 });
   }
 }

@@ -27,7 +27,7 @@ export async function GET(
 
     if (error || !anggota) {
       return NextResponse.json(
-        { error: 'Anggota not found' },
+        { error: 'Anggota tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -45,7 +45,7 @@ export async function GET(
     }
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -73,7 +73,7 @@ export async function PUT(
 
     if (!existingAnggota) {
       return NextResponse.json(
-        { error: 'Anggota not found' },
+        { error: 'Anggota tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -168,7 +168,7 @@ export async function PUT(
     }
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -193,7 +193,7 @@ export async function DELETE(
 
     if (!existingAnggota) {
       return NextResponse.json(
-        { error: 'Anggota not found' },
+        { error: 'Anggota tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -228,7 +228,7 @@ export async function DELETE(
     }
 
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }

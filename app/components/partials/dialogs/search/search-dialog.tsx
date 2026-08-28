@@ -130,7 +130,7 @@ export function SearchDialog({ trigger }: { trigger: ReactNode }) {
       children: [
         { icon: Home, info: 'Go to Dashboard' },
         { icon: Badge, info: 'Public Profile' },
-        { icon: CircleUserRound, info: 'My Profile' },
+        { icon: CircleUserRound, info: 'Profil Saya' },
         { icon: Settings, info: 'My Account' },
         { icon: SquareCode, info: 'Devs Forum' },
       ],

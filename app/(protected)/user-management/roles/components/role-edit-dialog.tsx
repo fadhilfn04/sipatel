@@ -121,7 +121,7 @@ const RoleEditDialog = ({
     onSuccess: () => {
       const isEdit = !!role?.id;
       const message = isEdit
-        ? 'Role updated successfully'
+        ? 'Role berhasil diperbarui'
         : 'Role added successfully';
 
       toast.custom(
@@ -182,7 +182,7 @@ const RoleEditDialog = ({
     <Dialog open={open} onOpenChange={closeDialog}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>{role ? 'Edit Role' : 'Add Role'}</DialogTitle>
+          <DialogTitle>{role ? 'Ubah Role' : 'Tambah Role'}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form
@@ -199,9 +199,9 @@ const RoleEditDialog = ({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Role Name</FormLabel>
+                  <FormLabel>Nama Role</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter role name" {...field} />
+                    <Input placeholder="Masukkan nama role" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -215,7 +215,7 @@ const RoleEditDialog = ({
                   <FormLabel>Slug</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="E.g: users:delete"
+                      placeholder="Contoh: users:delete"
                       {...field}
                       disabled={!!role}
                     />
@@ -229,9 +229,9 @@ const RoleEditDialog = ({
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Deskripsi</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Optional description" {...field} />
+                    <Textarea placeholder="Deskripsi (opsional)" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -242,7 +242,7 @@ const RoleEditDialog = ({
               name="permissions"
               render={() => (
                 <FormItem>
-                  <FormLabel>Permissions</FormLabel>
+                  <FormLabel>Hak Akses</FormLabel>
                   <div className="flex items-center flex-wrap gap-1.5 text-2sm text-muted-foreground border border-input rounded-md px-3 py-3">
                     {selectedPermissions.length > 0 ? (
                       selectedPermissions.map((permissionId) => {
@@ -282,9 +282,9 @@ const RoleEditDialog = ({
                           side="bottom"
                         >
                           <Command>
-                            <CommandInput placeholder="Search permissions..." />
+                            <CommandInput placeholder="Cari hak akses..." />
                             <CommandList>
-                              <CommandEmpty>No permissions found.</CommandEmpty>
+                              <CommandEmpty>Hak akses tidak ditemukan.</CommandEmpty>
                               <CommandGroup>
                                 <ScrollArea className="h-[200px]">
                                   {permissionList?.map(
@@ -326,7 +326,7 @@ const RoleEditDialog = ({
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={closeDialog}>
-                Cancel
+                Batal
               </Button>
               <Button type="submit" disabled={isProcessing}>
                 {isProcessing && <LoaderCircleIcon className="animate-spin" />}

@@ -33,7 +33,7 @@ export const ConfirmDismissDialog = ({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={onCancel}>Batal</AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm}>
             Discard changes
           </AlertDialogAction>

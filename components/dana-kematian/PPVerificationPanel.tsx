@@ -350,7 +350,7 @@ export function PPVerificationPanel({ claim, onVerificationComplete, readonly = 
                               </Button>
                               <Button size="sm" variant="outline" className="h-8 gap-1">
                                 <Download className="h-3 w-3" />
-                                Download
+                                Unduh
                               </Button>
                             </div>
                           )}
@@ -373,7 +373,7 @@ export function PPVerificationPanel({ claim, onVerificationComplete, readonly = 
                               {verification.verified ? (
                                 <>
                                   <CheckCircle2 className="h-4 w-4" />
-                                  Verified
+                                  Terverifikasi
                                 </>
                               ) : (
                                 <>

@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const PermissionSchema = z.object({
   name: z
     .string()
-    .nonempty({ message: 'Name is required.' })
+    .nonempty({ message: 'Nama wajib diisi.' })
     .min(2, { message: 'Name must be at least 2 characters long.' })
     .max(30, { message: 'Name must not exceed 30 characters.' }),
   slug: z

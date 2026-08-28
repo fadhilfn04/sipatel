@@ -22,7 +22,7 @@ export async function GET(
     if (error) {
       console.error('Error fetching pembayaran sumbangan:', error);
       return NextResponse.json(
-        { error: 'Pembayaran sumbangan not found' },
+        { error: 'Pembayaran sumbangan tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -39,7 +39,7 @@ export async function GET(
     }
 
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Terjadi kesalahan pada server', details: error.message },
       { status: 500 }
     );
   }
@@ -66,7 +66,7 @@ export async function PUT(
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Pembayaran sumbangan not found' },
+        { error: 'Pembayaran sumbangan tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -116,7 +116,7 @@ export async function PUT(
     }
 
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Terjadi kesalahan pada server', details: error.message },
       { status: 500 }
     );
   }
@@ -141,7 +141,7 @@ export async function DELETE(
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Pembayaran sumbangan not found' },
+        { error: 'Pembayaran sumbangan tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -174,7 +174,7 @@ export async function DELETE(
     }
 
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Terjadi kesalahan pada server', details: error.message },
       { status: 500 }
     );
   }

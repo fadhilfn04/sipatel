@@ -135,7 +135,7 @@ export default function LaporanPeriodePage() {
           <ToolbarActions>
             <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
-              Export
+              Ekspor
             </Button>
           </ToolbarActions>
         </Toolbar>
@@ -240,7 +240,7 @@ export default function LaporanPeriodePage() {
                     <SelectItem value="all">Semua Status</SelectItem>
                     <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="generated">Generated</SelectItem>
-                    <SelectItem value="verified">Verified</SelectItem>
+                    <SelectItem value="verified">Terverifikasi</SelectItem>
                     <SelectItem value="approved">Approved</SelectItem>
                   </SelectContent>
                 </Select>

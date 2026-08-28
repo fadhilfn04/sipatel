@@ -132,7 +132,7 @@ export default function ArusKasPage() {
           <ToolbarActions>
             <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
-              Export
+              Ekspor
             </Button>
           </ToolbarActions>
         </Toolbar>
@@ -187,7 +187,7 @@ export default function ArusKasPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Net Cash Flow
+                  Arus Kas Bersih
                 </CardTitle>
                 <div className="h-4 w-4 rounded-full bg-blue-600" />
               </CardHeader>
@@ -565,7 +565,7 @@ export default function ArusKasPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-4 rounded-lg bg-blue-500/10 border-2 border-blue-500/20">
-                  <span className="font-bold text-lg">Net Cash Flow</span>
+                  <span className="font-bold text-lg">Arus Kas Bersih</span>
                   <span
                     className={`font-bold text-xl ${netCashFlow >= 0 ? 'text-blue-600' : 'text-red-600'}`}
                   >

@@ -16,7 +16,7 @@ export async function PATCH(
 
     if (!session) {
       return NextResponse.json(
-        { message: 'Unauthorized request' },
+        { message: 'Permintaan tidak sah' },
         { status: 401 }, // Unauthorized
       );
     }

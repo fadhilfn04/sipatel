@@ -4,12 +4,12 @@ export const getSigninSchema = () => {
   return z.object({
     email: z
       .string()
-      .email({ message: 'Please enter a valid email address.' })
-      .min(1, { message: 'Email is required.' }),
+      .email({ message: 'Masukkan alamat email yang valid.' })
+      .min(1, { message: 'Email wajib diisi.' }),
     password: z
       .string()
-      .min(6, { message: 'Password must be at least 6 characters long.' })
-      .min(1, { message: 'Password is required.' }),
+      .min(6, { message: 'Kata sandi minimal 6 karakter.' })
+      .min(1, { message: 'Kata sandi wajib diisi.' }),
     rememberMe: z.boolean().optional(),
   });
 };

@@ -48,7 +48,7 @@ const PermissionDeleteDialog = ({
       return response.json();
     },
     onSuccess: () => {
-      const message = 'Permission deleted successfully';
+      const message = 'Permission berhasil dihapus';
 
       toast.custom(
         () => (
@@ -89,14 +89,14 @@ const PermissionDeleteDialog = ({
     <Dialog open={open} onOpenChange={closeDialog}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>Confirm Delete</DialogTitle>
+          <DialogTitle>Konfirmasi Hapus</DialogTitle>
         </DialogHeader>
         <DialogDescription>
           Are you sure you want to delete the permission ?
         </DialogDescription>
         <DialogFooter>
           <Button variant="outline" onClick={closeDialog}>
-            Cancel
+            Batal
           </Button>
           <Button
             variant="destructive"

@@ -43,7 +43,7 @@ export function DashboardPage() {
       <Container>
         <Toolbar>
           <ToolbarHeading
-            title="Dashboard"
+            title="Dasbor"
           />
           {/* <ToolbarActions>
             <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -75,9 +75,9 @@ export function DashboardPage() {
                 />
                 <div className="flex items-center justify-end gap-1.5 border-t border-border p-3">
                   <Button variant="outline" onClick={handleDateRangeReset}>
-                    Reset
+                    Atur Ulang
                   </Button>
-                  <Button onClick={handleDateRangeApply}>Apply</Button>
+                  <Button onClick={handleDateRangeApply}>Terapkan</Button>
                 </div>
               </PopoverContent>
             </Popover>

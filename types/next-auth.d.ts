@@ -15,15 +15,9 @@ declare module 'next-auth' {
         id: string;
         name: string;
         slug: string;
-        permissions?: Array<{
-          permissionId: string;
-          roleId: string;
-          permission: {
-            id: string;
-            slug: string;
-            name: string;
-          };
-        }>;
+        // Flat list of permission slugs (slim JWT — full permission
+        // objects must not be embedded in the session cookie)
+        permissions?: string[];
       };
     };
   }
@@ -51,15 +45,9 @@ declare module 'next-auth/jwt' {
       id: string;
       name: string;
       slug: string;
-      permissions?: Array<{
-        permissionId: string;
-        roleId: string;
-        permission: {
-          id: string;
-          slug: string;
-          name: string;
-        };
-      }>;
+      // Flat list of permission slugs (slim JWT — full permission
+      // objects must not be embedded in the session cookie)
+      permissions?: string[];
     };
   }
 }

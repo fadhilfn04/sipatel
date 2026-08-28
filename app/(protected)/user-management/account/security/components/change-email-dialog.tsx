@@ -72,7 +72,7 @@ const ChangeEmailDialog = ({
       return response.json();
     },
     onSuccess: () => {
-      toast.success('Email updated successfully', { position: 'top-center' });
+      toast.success('Email berhasil diperbarui', { position: 'top-center' });
       queryClient.invalidateQueries({ queryKey: ['user-account'] });
       closeDialog();
     },
@@ -113,7 +113,7 @@ const ChangeEmailDialog = ({
                 <FormItem>
                   <FormLabel>New Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter new email" {...field} />
+                    <Input placeholder="Masukkan email baru" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -121,7 +121,7 @@ const ChangeEmailDialog = ({
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={closeDialog}>
-                Cancel
+                Batal
               </Button>
               <Button
                 type="submit"

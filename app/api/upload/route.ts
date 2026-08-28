@@ -114,7 +114,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'File deleted successfully',
+      message: 'File berhasil dihapus',
     });
 
   } catch (error) {

@@ -259,9 +259,9 @@ const NotificationSettingsPage = () => {
                               side="bottom"
                             >
                               <Command>
-                                <CommandInput placeholder="Search roles..." />
+                                <CommandInput placeholder="Cari role..." />
                                 <CommandList>
-                                  <CommandEmpty>No roles found.</CommandEmpty>
+                                  <CommandEmpty>Role tidak ditemukan.</CommandEmpty>
                                   <CommandGroup>
                                     <ScrollArea>
                                       {roles?.map((role) => {

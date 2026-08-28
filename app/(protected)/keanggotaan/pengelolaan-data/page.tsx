@@ -688,7 +688,7 @@ export default function PengelolaanDataPage() {
                   disabled={!anggotaData?.data || anggotaData.data.length === 0}
                 >
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">Export</span>
+                  <span className="hidden sm:inline">Ekspor</span>
                   <span className="sm:hidden">Export Excel</span>
                 </Button>
                 <Button
@@ -697,7 +697,7 @@ export default function PengelolaanDataPage() {
                   className="w-full sm:w-auto"
                 >
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">Import</span>
+                  <span className="hidden sm:inline">Impor</span>
                   <span className="sm:hidden">Import Excel</span>
                 </Button>
                 <Button

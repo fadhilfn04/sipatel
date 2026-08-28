@@ -322,7 +322,7 @@ export function WorkflowTimelineSimple({ claim }: WorkflowTimelineSimpleProps) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
-        <span className="font-medium">Progress</span>
+        <span className="font-medium">Progres</span>
         <span className="text-muted-foreground">{completedCount}/{timelineEvents.length}</span>
       </div>
       <Progress value={progressPercentage} className="h-1.5" />

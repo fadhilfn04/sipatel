@@ -33,8 +33,8 @@ const EmailConfirmationSchema = (userEmail: string) =>
   z.object({
     confirmEmail: z
       .string()
-      .nonempty({ message: 'Email is required.' })
-      .email({ message: 'Please enter a valid email address.' })
+      .nonempty({ message: 'Email wajib diisi.' })
+      .email({ message: 'Masukkan alamat email yang valid.' })
       .refine((value) => value === userEmail, {
         message: 'Email confirmation does not match.',
       }),
@@ -154,7 +154,7 @@ const UserRestoreDialog = ({
                       Confirm the user&apos;s email address to proceed
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter email address" {...field} />
+                      <Input placeholder="Masukkan alamat email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -162,7 +162,7 @@ const UserRestoreDialog = ({
               />
               <DialogFooter>
                 <Button variant="outline" onClick={closeDialog}>
-                  Cancel
+                  Batal
                 </Button>
                 <Button
                   variant="destructive"

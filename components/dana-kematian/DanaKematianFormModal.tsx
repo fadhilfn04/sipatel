@@ -825,7 +825,7 @@ export function DanaKematianFormModal({
                                 <div className="space-y-2">
                                   {/* Column header */}
                                   <div className="grid grid-cols-[24px_1fr_160px_32px] gap-2 px-3 text-xs font-medium text-muted-foreground">
-                                    <span>No</span>
+                                    <span>Tidak</span>
                                     <span>Nama</span>
                                     <span>Hubungan</span>
                                     <span />
@@ -1194,7 +1194,7 @@ export function DanaKematianFormModal({
                 ) : (
                   <>
                     <Pencil className="h-4 w-4 mr-2" />
-                    Update Data
+                    Perbarui Data
                   </>
                 )}
               </Button>

@@ -181,7 +181,7 @@ export function SheetChat({ trigger }: { trigger: ReactNode }) {
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/account/members/import-members">
-                              <Shield /> Group Settings
+                              <Shield /> Pengaturan Grup
                             </Link>
                           </DropdownMenuItem>
                         </DropdownMenuSubContent>
@@ -189,7 +189,7 @@ export function SheetChat({ trigger }: { trigger: ReactNode }) {
                     </DropdownMenuSub>
                     <DropdownMenuItem asChild>
                       <Link href="/account/security/privacy-settings">
-                        <Shield /> Group Settings
+                        <Shield /> Pengaturan Grup
                       </Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -283,10 +283,10 @@ export function SheetChat({ trigger }: { trigger: ReactNode }) {
               </div>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline">
-                  Decline
+                  Tolak
                 </Button>
                 <Button size="sm" variant="mono">
-                  Accept
+                  Terima
                 </Button>
               </div>
             </div>
@@ -309,7 +309,7 @@ export function SheetChat({ trigger }: { trigger: ReactNode }) {
                 <Upload className="size-4!" />
               </Button>
               <Button size="sm" variant="mono">
-                Accept
+                Terima
               </Button>
             </div>
           </div>

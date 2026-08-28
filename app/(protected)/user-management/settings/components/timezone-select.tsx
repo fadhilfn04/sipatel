@@ -53,7 +53,7 @@ const TimezoneSelect = ({
       </PopoverTrigger>
       <PopoverContent className="w-(--radix-popper-anchor-width) p-0">
         <Command>
-          <CommandInput placeholder="Search timezone..." />
+          <CommandInput placeholder="Cari zona waktu..." />
           <CommandList>
             <ScrollArea viewportClassName="max-h-[300px] [&>div]:block!">
               <CommandEmpty>No timezone found.</CommandEmpty>

@@ -99,7 +99,7 @@ const UserProfileEditDialog = ({
       return response.json();
     },
     onSuccess: () => {
-      const message = 'User updated successfully';
+      const message = 'User berhasil diperbarui';
 
       toast.custom(
         () => (
@@ -163,9 +163,9 @@ const UserProfileEditDialog = ({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>Nama</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter user name" {...field} />
+                    <Input placeholder="Masukkan nama pengguna" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -183,7 +183,7 @@ const UserProfileEditDialog = ({
                       defaultValue={field.value}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a role" />
+                        <SelectValue placeholder="Pilih role" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
@@ -212,7 +212,7 @@ const UserProfileEditDialog = ({
                       defaultValue={field.value}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a status" />
+                        <SelectValue placeholder="Pilih status" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
@@ -233,7 +233,7 @@ const UserProfileEditDialog = ({
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={closeDialog}>
-                Cancel
+                Batal
               </Button>
               <Button
                 type="submit"

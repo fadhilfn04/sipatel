@@ -193,7 +193,7 @@ const EarningsChart = () => {
           </div>
           <Select defaultValue="1">
             <SelectTrigger className="w-28">
-              <SelectValue placeholder="Select" />
+              <SelectValue placeholder="Pilih" />
             </SelectTrigger>
             <SelectContent className="w-28">
               <SelectItem value="1">1 month</SelectItem>

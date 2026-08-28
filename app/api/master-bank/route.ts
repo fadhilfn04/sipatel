@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'Bank created successfully',
+      message: 'Bank berhasil dibuat',
       data,
     }, { status: 201 });
   } catch (error: any) {
@@ -146,7 +146,7 @@ export async function PUT(request: NextRequest) {
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Bank not found' },
+        { error: 'Bank tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -189,7 +189,7 @@ export async function PUT(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'Bank updated successfully',
+      message: 'Bank berhasil diperbarui',
       data,
     });
   } catch (error: any) {
@@ -239,13 +239,13 @@ export async function DELETE(request: NextRequest) {
 
     if (!data) {
       return NextResponse.json(
-        { error: 'Bank not found' },
+        { error: 'Bank tidak ditemukan' },
         { status: 404 }
       );
     }
 
     return NextResponse.json({
-      message: 'Bank deactivated successfully',
+      message: 'Bank berhasil dinonaktifkan',
       data,
     });
   } catch (error: any) {

@@ -43,7 +43,7 @@ const RoleDeleteDialog = ({
       return response.json();
     },
     onSuccess: () => {
-      const message = 'Role deleted successfully';
+      const message = 'Role berhasil dihapus';
 
       toast.custom(
         () => (
@@ -85,14 +85,14 @@ const RoleDeleteDialog = ({
     <Dialog open={open} onOpenChange={closeDialog}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>Confirm Delete</DialogTitle>
+          <DialogTitle>Konfirmasi Hapus</DialogTitle>
         </DialogHeader>
         <DialogDescription>
           Are you sure you want to delete the role <strong>{role.name}</strong>?
         </DialogDescription>
         <DialogFooter>
           <Button variant="outline" onClick={closeDialog}>
-            Cancel
+            Batal
           </Button>
           <Button
             variant="destructive"

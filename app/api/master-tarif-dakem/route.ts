@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'Tarif dana kematian created successfully',
+      message: 'Tarif dana kematian berhasil dibuat',
       data,
     }, { status: 201 });
   } catch (error: any) {
@@ -229,7 +229,7 @@ export async function PUT(request: NextRequest) {
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Tarif not found' },
+        { error: 'Tarif tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -278,7 +278,7 @@ export async function PUT(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'Tarif dana kematian updated successfully',
+      message: 'Tarif dana kematian berhasil diperbarui',
       data,
     });
   } catch (error: any) {
@@ -343,13 +343,13 @@ export async function DELETE(request: NextRequest) {
 
     if (!data) {
       return NextResponse.json(
-        { error: 'Tarif not found' },
+        { error: 'Tarif tidak ditemukan' },
         { status: 404 }
       );
     }
 
     return NextResponse.json({
-      message: 'Tarif dana kematian deactivated successfully',
+      message: 'Tarif dana kematian berhasil dinonaktifkan',
       data,
     });
   } catch (error: any) {

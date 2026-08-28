@@ -315,7 +315,7 @@ export default function Page() {
                                 variant="outline"
                                 onClick={handleCancelLogo}
                               >
-                                Cancel
+                                Batal
                               </Button>
                             ) : null}
 
@@ -356,9 +356,9 @@ export default function Page() {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Shop Name</FormLabel>
+                  <FormLabel>Nama Instansi</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter company name" {...field} />
+                    <Input placeholder="Masukkan nama perusahaan" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -396,14 +396,14 @@ export default function Page() {
               name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>Alamat</FormLabel>
                   <FormControl>
                     <Textarea
                       rows={3}
                       id="address"
                       value={field.value || ''}
                       onChange={field.onChange}
-                      placeholder="Enter store address"
+                      placeholder="Masukkan alamat"
                     />
                   </FormControl>
                   <FormDescription>
@@ -420,14 +420,14 @@ export default function Page() {
               name="language"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Language</FormLabel>
+                  <FormLabel>Bahasa</FormLabel>
                   <FormControl>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select language" />
+                        <SelectValue placeholder="Pilih bahasa" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
@@ -466,7 +466,7 @@ export default function Page() {
                     <Input
                       id="websiteURL"
                       type="url"
-                      placeholder="Enter website url"
+                      placeholder="Masukkan alamat situs web"
                       value={field.value || ''}
                       onChange={field.onChange}
                     />
@@ -487,7 +487,7 @@ export default function Page() {
                     <Input
                       id="supportEmail"
                       type="email"
-                      placeholder="Enter support email"
+                      placeholder="Masukkan email dukungan"
                       value={field.value || ''}
                       onChange={field.onChange}
                     />
@@ -508,7 +508,7 @@ export default function Page() {
                     <Input
                       id="supportPhone"
                       type="tel"
-                      placeholder="Enter support phone"
+                      placeholder="Masukkan nomor telepon dukungan"
                       value={field.value || ''}
                       onChange={field.onChange}
                     />
@@ -524,14 +524,14 @@ export default function Page() {
               name="currency"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Currency</FormLabel>
+                  <FormLabel>Mata Uang</FormLabel>
                   <FormControl>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select currency" />
+                        <SelectValue placeholder="Pilih mata uang" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
@@ -572,7 +572,7 @@ export default function Page() {
                       defaultValue={field.value}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select currency format" />
+                        <SelectValue placeholder="Pilih format mata uang" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
@@ -611,7 +611,7 @@ export default function Page() {
               name="timezone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Timezone</FormLabel>
+                  <FormLabel>Zona Waktu</FormLabel>
                   <FormControl>
                     <TimezoneSelect
                       defaultValue={field.value}

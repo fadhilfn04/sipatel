@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { rolePermissionSlugs } from '@/lib/rbac';
 
 export interface UserPermissions {
   role: string;
@@ -40,7 +41,7 @@ export function useUserPermissions() {
     const userRole = session.user.role;
     if (userRole) {
       const roleSlug = userRole.slug || 'guest';
-      const userPermissions = userRole.permissions?.map((p: any) => p.permission?.slug || p.slug) || [];
+      const userPermissions = rolePermissionSlugs(userRole.permissions);
 
       // Superuser roles always get all capabilities
       const isSuperuser = ['admin', 'administrator', 'owner'].includes(roleSlug);

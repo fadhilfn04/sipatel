@@ -69,7 +69,7 @@ export function PhaseProgressBar({
     return (
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-medium">Progress</span>
+          <span className="font-medium">Progres</span>
           <span className="text-muted-foreground">{overallProgress}%</span>
         </div>
         <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">

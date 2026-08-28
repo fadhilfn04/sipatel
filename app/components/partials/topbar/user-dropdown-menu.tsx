@@ -60,7 +60,7 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
             />
             <div className="flex flex-col gap-0.5">
               <Link
-                href="/account/home/get-started"
+                href="/user-management/account"
                 className="text-sm text-mono hover:text-primary font-semibold"
               >
                 {session?.user.name || ''}
@@ -85,6 +85,28 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
 
         <DropdownMenuSeparator />
 
+        {/* Account & Security */}
+        <DropdownMenuItem asChild>
+          <Link
+            href="/user-management/account"
+            className="flex items-center gap-2"
+          >
+            <UserCircle />
+            Akun Saya
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link
+            href="/user-management/account/security"
+            className="flex items-center gap-2"
+          >
+            <Shield />
+            Ubah Password
+          </Link>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
         {/* Menu Items */}
         {/* <DropdownMenuItem asChild>
           <Link
@@ -101,7 +123,7 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
             className="flex items-center gap-2"
           >
             <User />
-            My Profile
+            Profil Saya
           </Link>
         </DropdownMenuItem> */}
 
@@ -127,7 +149,7 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
                 className="flex items-center gap-2"
               >
                 <FileText />
-                My Profile
+                Profil Saya
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
@@ -145,7 +167,7 @@ export function UserDropdownMenu({ trigger }: { trigger: ReactNode }) {
                 className="flex items-center gap-2"
               >
                 <Shield />
-                Security
+                Keamanan
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>

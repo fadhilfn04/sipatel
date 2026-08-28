@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
     if (!session) {
       return NextResponse.json(
-        { message: 'Unauthorized request' },
+        { message: 'Permintaan tidak sah' },
         { status: 401 }, // Unauthorized
       );
     }

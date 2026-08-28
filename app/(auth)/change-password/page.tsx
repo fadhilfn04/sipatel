@@ -61,10 +61,10 @@ export default function Page() {
           setIsValidToken(true);
         } else {
           const errorData = await response.json();
-          setError(errorData.message || 'Invalid or expired token.');
+          setError(errorData.message || 'Token tidak valid atau kedaluwarsa.');
         }
       } catch {
-        setError('Unable to verify the reset token.');
+        setError('Tidak dapat memverifikasi token pengaturan ulang.');
       } finally {
         setVerifyingToken(false);
       }
@@ -73,7 +73,7 @@ export default function Page() {
     if (token) {
       verifyToken();
     } else {
-      setError('No reset token provided.');
+      setError('Token pengaturan ulang tidak ditemukan.');
     }
   }, [token]);
 
@@ -90,14 +90,16 @@ export default function Page() {
       });
 
       if (response.ok) {
-        setSuccessMessage('Password reset successful! Redirecting to login...');
+        setSuccessMessage(
+          'Kata sandi berhasil diatur ulang! Mengalihkan ke halaman masuk...',
+        );
         setTimeout(() => router.push('/signin'), 3000);
       } else {
         const errorData = await response.json();
-        setError(errorData.message || 'Password reset failed.');
+        setError(errorData.message || 'Pengaturan ulang kata sandi gagal.');
       }
     } catch {
-      setError('An error occurred while resetting the password.');
+      setError('Terjadi kesalahan saat mengatur ulang kata sandi.');
     } finally {
       setIsProcessing(false);
     }
@@ -159,12 +161,12 @@ export default function Page() {
               name="newPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>New Password</FormLabel>
+                  <FormLabel>Kata Sandi Baru</FormLabel>
                   <div className="relative">
                     <FormControl>
                       <Input
                         type={passwordVisible ? 'text' : 'password'}
-                        placeholder="Enter new password"
+                        placeholder="Masukkan kata sandi baru"
                         {...field}
                       />
                     </FormControl>
@@ -175,7 +177,9 @@ export default function Page() {
                       onClick={() => setPasswordVisible(!passwordVisible)}
                       className="absolute end-0 top-1/2 -translate-y-1/2 h-7 w-7 me-1.5 bg-transparent!"
                       aria-label={
-                        passwordVisible ? 'Hide password' : 'Show password'
+                        passwordVisible
+                          ? 'Sembunyikan kata sandi'
+                          : 'Tampilkan kata sandi'
                       }
                     >
                       {passwordVisible ? (
@@ -195,12 +199,12 @@ export default function Page() {
               name="confirmPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Confirm New Password</FormLabel>
+                  <FormLabel>Konfirmasi Kata Sandi Baru</FormLabel>
                   <div className="relative">
                     <FormControl>
                       <Input
                         type={passwordConfirmationVisible ? 'text' : 'password'}
-                        placeholder="Confirm new password"
+                        placeholder="Konfirmasi kata sandi baru"
                         {...field}
                       />
                     </FormControl>
@@ -216,8 +220,8 @@ export default function Page() {
                       className="absolute end-0 top-1/2 -translate-y-1/2 h-7 w-7 me-1.5 bg-transparent!"
                       aria-label={
                         passwordConfirmationVisible
-                          ? 'Hide password confirmation'
-                          : 'Show password confirmation'
+                          ? 'Sembunyikan konfirmasi kata sandi'
+                          : 'Tampilkan konfirmasi kata sandi'
                       }
                     >
                       {passwordConfirmationVisible ? (
@@ -234,7 +238,7 @@ export default function Page() {
 
             <Button type="submit" disabled={isProcessing} className="w-full">
               {isProcessing && <LoaderCircleIcon className="size-4 animate-spin" />}
-              Reset Password
+              Atur Ulang Kata Sandi
             </Button>
           </>
         )}

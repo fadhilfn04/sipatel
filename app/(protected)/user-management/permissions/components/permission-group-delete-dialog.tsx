@@ -89,14 +89,14 @@ const PermissionGroupDeleteDialog = ({
     <Dialog open={open} onOpenChange={closeDialog}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Confirm Delete</DialogTitle>
+          <DialogTitle>Konfirmasi Hapus</DialogTitle>
         </DialogHeader>
         <DialogDescription>
           Are you sure you want to delete selected permissions ?
         </DialogDescription>
         <DialogFooter>
           <Button variant="outline" onClick={closeDialog}>
-            Cancel
+            Batal
           </Button>
           <Button
             variant="destructive"

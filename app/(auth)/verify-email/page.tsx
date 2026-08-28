@@ -12,7 +12,7 @@ import { LoaderCircleIcon } from 'lucide-react';
 export default function Page() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [message, setMessage] = useState<string | null>('Verifying...');
+  const [message, setMessage] = useState<string | null>('Memverifikasi...');
   const [error, setError] = useState<string | null>(null);
 
   const verify = useCallback(
@@ -28,17 +28,17 @@ export default function Page() {
 
         if (res.status === 200) {
           setError(null);
-          setMessage('Your email has been successfully verified!');
+          setMessage('Email Anda berhasil diverifikasi!');
           setTimeout(() => {
             router.push('/signin'); // Redirect to sign-in page or another page
           }, 2000);
         } else {
           setMessage(null);
-          setError(data.message || 'Verification failed.');
+          setError(data.message || 'Verifikasi gagal.');
         }
       } catch {
         setMessage(null);
-        setError('An error occurred during verification.');
+        setError('Terjadi kesalahan saat verifikasi.');
       }
     },
     [router],
@@ -49,7 +49,7 @@ export default function Page() {
 
     if (!token) {
       setMessage(null);
-      setError('Invalid or missing token.');
+      setError('Token tidak valid atau tidak ditemukan.');
       return;
     }
 
@@ -59,7 +59,7 @@ export default function Page() {
   return (
     <Suspense>
       <div className="w-full space-y-6">
-        <h1 className="text-2x font-semibold">Email Verification</h1>
+        <h1 className="text-2x font-semibold">Verifikasi Email</h1>
         {error && (
           <>
             <Alert variant="destructive">
@@ -71,7 +71,7 @@ export default function Page() {
 
             <Button asChild>
               <Link href="/signin" className="text-primary">
-                Go back to Login
+                Kembali ke Halaman Masuk
               </Link>
             </Button>
           </>

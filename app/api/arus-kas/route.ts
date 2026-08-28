@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error in GET /api/arus-kas:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in POST /api/arus-kas:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }

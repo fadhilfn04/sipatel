@@ -17,7 +17,7 @@ export async function GET(
 
     if (error || !laporan) {
       return NextResponse.json(
-        { error: 'Laporan periode not found' },
+        { error: 'Laporan periode tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -26,7 +26,7 @@ export async function GET(
   } catch (error) {
     console.error('Error in GET /api/laporan-periode/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -51,7 +51,7 @@ export async function PUT(
 
     if (!existingLaporan) {
       return NextResponse.json(
-        { error: 'Laporan periode not found' },
+        { error: 'Laporan periode tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -100,7 +100,7 @@ export async function PUT(
   } catch (error) {
     console.error('Error in PUT /api/laporan-periode/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -124,7 +124,7 @@ export async function DELETE(
 
     if (!existingLaporan) {
       return NextResponse.json(
-        { error: 'Laporan periode not found' },
+        { error: 'Laporan periode tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -158,7 +158,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error in DELETE /api/laporan-periode/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }

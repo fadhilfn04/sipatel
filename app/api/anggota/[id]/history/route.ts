@@ -71,7 +71,7 @@ export async function GET(
   } catch (error: any) {
     console.error('Error in GET /api/anggota/[id]/history:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Terjadi kesalahan pada server', details: error.message },
       { status: 500 }
     );
   }

@@ -352,7 +352,7 @@ const UserList = () => {
           <div className="relative">
             <Search className="size-4 text-muted-foreground absolute start-3 top-1/2 -translate-y-1/2" />
             <Input
-              placeholder="Search users"
+              placeholder="Cari pengguna"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -377,7 +377,7 @@ const UserList = () => {
             disabled={isLoading}
           >
             <SelectTrigger className="w-full sm:w-36">
-              <SelectValue placeholder="Filter by role" />
+              <SelectValue placeholder="Filter berdasarkan role" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All roles</SelectItem>
@@ -395,7 +395,7 @@ const UserList = () => {
             disabled={isLoading}
           >
             <SelectTrigger className="w-full sm:w-36">
-              <SelectValue placeholder="Filter by status" />
+              <SelectValue placeholder="Filter berdasarkan status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All users</SelectItem>

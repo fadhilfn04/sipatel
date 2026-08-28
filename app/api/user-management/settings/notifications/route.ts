@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
     if (!session) {
       return NextResponse.json(
-        { message: 'Unauthorized request' },
+        { message: 'Permintaan tidak sah' },
         { status: 401 }, // Unauthorized
       );
     }
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     const settings = await prisma.systemSetting.findFirst();
     if (!settings) {
       return NextResponse.json(
-        { message: 'Settings not found.' },
+        { message: 'Settings tidak ditemukan.' },
         { status: 404 },
       );
     }
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     // Return success response
     return NextResponse.json(
       {
-        message: 'Notification settings updated successfully',
+        message: 'Notification settings berhasil diperbarui',
         data: updatedSettings,
       },
       { status: 200 },

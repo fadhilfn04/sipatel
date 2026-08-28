@@ -386,7 +386,7 @@ const Teams = () => {
           <CardToolbar className="relative">
             <Search className="size-4 text-muted-foreground absolute start-3 top-1/2 -translate-y-1/2" />
             <Input
-              placeholder="Search Teams..."
+              placeholder="Cari Tim..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="ps-9 w-40"

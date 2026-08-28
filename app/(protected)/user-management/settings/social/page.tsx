@@ -141,7 +141,7 @@ const SocialSettingsPage = () => {
                 <FormItem>
                   <FormLabel>Facebook</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter Facebook URL" {...field} />
+                    <Input placeholder="Masukkan URL Facebook" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -156,7 +156,7 @@ const SocialSettingsPage = () => {
                 <FormItem>
                   <FormLabel>Twitter</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter Twitter URL" {...field} />
+                    <Input placeholder="Masukkan URL Twitter" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -171,7 +171,7 @@ const SocialSettingsPage = () => {
                 <FormItem>
                   <FormLabel>Instagram</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter Instagram URL" {...field} />
+                    <Input placeholder="Masukkan URL Instagram" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -186,7 +186,7 @@ const SocialSettingsPage = () => {
                 <FormItem>
                   <FormLabel>LinkedIn</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter LinkedIn URL" {...field} />
+                    <Input placeholder="Masukkan URL LinkedIn" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -201,7 +201,7 @@ const SocialSettingsPage = () => {
                 <FormItem>
                   <FormLabel>Pinterest</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter Pinterest URL" {...field} />
+                    <Input placeholder="Masukkan URL Pinterest" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -216,7 +216,7 @@ const SocialSettingsPage = () => {
                 <FormItem>
                   <FormLabel>YouTube</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter YouTube URL" {...field} />
+                    <Input placeholder="Masukkan URL YouTube" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

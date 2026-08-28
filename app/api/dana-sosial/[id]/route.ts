@@ -23,7 +23,7 @@ export async function GET(
 
     if (!data) {
       return NextResponse.json(
-        { error: 'Dana sosial not found' },
+        { error: 'Dana sosial tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -56,7 +56,7 @@ export async function PUT(
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Dana sosial not found' },
+        { error: 'Dana sosial tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -72,7 +72,7 @@ export async function PUT(
 
       if (!anggota) {
         return NextResponse.json(
-          { error: 'Anggota not found' },
+          { error: 'Anggota tidak ditemukan' },
           { status: 404 }
         );
       }
@@ -144,7 +144,7 @@ export async function DELETE(
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Dana sosial not found' },
+        { error: 'Dana sosial tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -168,7 +168,7 @@ export async function DELETE(
 
     if (error) throw error;
 
-    return NextResponse.json({ message: 'Dana sosial deleted successfully' });
+    return NextResponse.json({ message: 'Dana sosial berhasil dihapus' });
   } catch (error: any) {
     console.error('Error deleting dana sosial:', error);
     return NextResponse.json(

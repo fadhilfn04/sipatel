@@ -94,7 +94,7 @@ const RoleDefaultDialog = ({
         </DialogDescription>
         <DialogFooter>
           <Button variant="outline" onClick={closeDialog}>
-            Cancel
+            Batal
           </Button>
           <Button
             variant="destructive"

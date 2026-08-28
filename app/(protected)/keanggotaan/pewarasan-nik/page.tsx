@@ -287,7 +287,7 @@ export default function PewarasanNikPage() {
                 <Button variant="outline" className="flex-1 sm:flex-none">
                   <FileText className="h-4 w-4 mr-1 sm:mr-2" />
                   <span className="hidden sm:inline">Export Data</span>
-                  <span className="sm:hidden">Export</span>
+                  <span className="sm:hidden">Ekspor</span>
                 </Button>
                 <Button className="flex-1 sm:flex-none">
                   <Users className="h-4 w-4 mr-1 sm:mr-2" />

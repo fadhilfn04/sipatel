@@ -148,7 +148,7 @@ export default function PembayaranSumbanganPage() {
           <ToolbarActions>
             <Button variant="outline" size="sm">
               <FileText className="h-4 w-4 mr-2" />
-              Export
+              Ekspor
             </Button>
           </ToolbarActions>
         </Toolbar>
@@ -304,7 +304,7 @@ export default function PembayaranSumbanganPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>No</TableHead>
+                      <TableHead>Tidak</TableHead>
                       <TableHead>Tanggal</TableHead>
                       <TableHead>Nama Anggota</TableHead>
                       <TableHead>NIK</TableHead>

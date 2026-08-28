@@ -340,7 +340,7 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
                       variant="outline"
                       onClick={() => window.open(`/api/anggota/${member.id}/documents?type=e_ktp`, '_blank')}
                     >
-                      Download
+                      Unduh
                     </Button>
                   </div>
                 </div>
@@ -357,7 +357,7 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
                       variant="outline"
                       onClick={() => window.open(`/api/anggota/${member.id}/documents?type=kartu_keluarga`, '_blank')}
                     >
-                      Download
+                      Unduh
                     </Button>
                   </div>
                 </div>
@@ -374,7 +374,7 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
                       variant="outline"
                       onClick={() => window.open(`/api/anggota/${member.id}/documents?type=npwp`, '_blank')}
                     >
-                      Download
+                      Unduh
                     </Button>
                   </div>
                 </div>
@@ -391,7 +391,7 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
                       variant="outline"
                       onClick={() => window.open(`/api/anggota/${member.id}/documents?type=nomor_sk_pensiun`, '_blank')}
                     >
-                      Download
+                      Unduh
                     </Button>
                   </div>
                 </div>

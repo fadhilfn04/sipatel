@@ -287,7 +287,7 @@ export function LaporanPeriodeModal({ open, onClose }: LaporanPeriodeModalProps)
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-10">No</TableHead>
+                            <TableHead className="w-10">Tidak</TableHead>
                             <TableHead>NIK</TableHead>
                             <TableHead>Nama Anggota</TableHead>
                             <TableHead>Cabang</TableHead>
@@ -481,7 +481,7 @@ export function LaporanPeriodeModal({ open, onClose }: LaporanPeriodeModalProps)
                           {laporan.file_laporan && (
                             <a href={laporan.file_laporan} target="_blank" rel="noopener noreferrer">
                               <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs">
-                                <Download className="h-3.5 w-3.5" />Download
+                                <Download className="h-3.5 w-3.5" />Unduh
                               </Button>
                             </a>
                           )}

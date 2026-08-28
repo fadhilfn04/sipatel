@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const UserProfileSchema = z.object({
   name: z.string().nonempty({
-    message: 'Name is required.',
+    message: 'Nama wajib diisi.',
   }),
   roleId: z.string().nonempty({
     message: 'Role ID is required.',

@@ -35,7 +35,7 @@ export function DropdownMenu6({ trigger }: { trigger: ReactNode }) {
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <Bell />
-            <span>Export</span>
+            <span>Ekspor</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-[150px]">
             <DropdownMenuItem asChild>

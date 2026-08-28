@@ -16,7 +16,7 @@ export async function GET(
 
     if (error || !nikMaster) {
       return NextResponse.json(
-        { error: 'NIK master not found' },
+        { error: 'NIK master tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -25,7 +25,7 @@ export async function GET(
   } catch (error) {
     console.error('Error in GET /api/nik-master/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -49,7 +49,7 @@ export async function PUT(
 
     if (!existingNikMaster) {
       return NextResponse.json(
-        { error: 'NIK master not found' },
+        { error: 'NIK master tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -81,7 +81,7 @@ export async function PUT(
   } catch (error) {
     console.error('Error in PUT /api/nik-master/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -104,7 +104,7 @@ export async function DELETE(
 
     if (!existingNikMaster) {
       return NextResponse.json(
-        { error: 'NIK master not found' },
+        { error: 'NIK master tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -130,7 +130,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error in DELETE /api/nik-master/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }

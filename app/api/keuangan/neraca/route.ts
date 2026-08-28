@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error in GET /api/keuangan/neraca:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }

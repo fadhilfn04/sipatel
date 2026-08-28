@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Terjadi kesalahan pada server', details: error.message },
       { status: 500 }
     );
   }
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Terjadi kesalahan pada server', details: error.message },
       { status: 500 }
     );
   }

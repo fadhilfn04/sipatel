@@ -6,29 +6,29 @@ export const getSignupSchema = () => {
     .object({
       name: z
         .string()
-        .min(2, { message: 'Name must be at least 2 characters long.' })
-        .min(1, { message: 'Name is required.' }),
+        .min(2, { message: 'Nama minimal 2 karakter.' })
+        .min(1, { message: 'Nama wajib diisi.' }),
       email: z
         .string()
-        .email({ message: 'Please enter a valid email address.' })
-        .min(1, { message: 'Email is required.' }),
+        .email({ message: 'Masukkan alamat email yang valid.' })
+        .min(1, { message: 'Email wajib diisi.' }),
       nik: z
         .string()
-        .min(5, { message: 'NIK must be at least 5 characters.' })
-        .min(1, { message: 'NIK is required.' }),
+        .min(5, { message: 'NIK minimal 5 karakter.' })
+        .min(1, { message: 'NIK wajib diisi.' }),
       nama_cabang: z
         .string()
-        .min(1, { message: 'Cabang is required.' }),
+        .min(1, { message: 'Cabang wajib diisi.' }),
       password: getPasswordSchema(), // Uses the updated password schema with direct messages
       passwordConfirmation: z.string().min(1, {
-        message: 'Password confirmation is required.',
+        message: 'Konfirmasi kata sandi wajib diisi.',
       }),
       accept: z.boolean().refine((val) => val === true, {
-        message: 'You must accept the terms and conditions.',
+        message: 'Anda harus menyetujui syarat dan ketentuan.',
       }),
     })
     .refine((data) => data.password === data.passwordConfirmation, {
-      message: 'Passwords do not match.',
+      message: 'Konfirmasi kata sandi tidak cocok.',
       path: ['passwordConfirmation'],
     });
 };

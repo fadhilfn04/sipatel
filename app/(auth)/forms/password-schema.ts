@@ -4,18 +4,19 @@ export const getPasswordSchema = (minLength = 8) => {
   return z
     .string()
     .min(minLength, {
-      message: `Password must be at least ${minLength} characters long.`,
+      message: `Kata sandi minimal ${minLength} karakter.`,
     })
     .regex(/[A-Z]/, {
-      message: 'Password must contain at least one uppercase letter.',
+      message: 'Kata sandi harus mengandung setidaknya satu huruf kapital.',
     })
     .regex(/[a-z]/, {
-      message: 'Password must contain at least one lowercase letter.',
+      message: 'Kata sandi harus mengandung setidaknya satu huruf kecil.',
     })
     .regex(/\d/, {
-      message: 'Password must contain at least one number.',
+      message: 'Kata sandi harus mengandung setidaknya satu angka.',
     })
     .regex(/[!@#$%^&*(),.?":{}|<>]/, {
-      message: 'Password must contain at least one special character.',
+      message:
+        'Kata sandi harus mengandung setidaknya satu karakter khusus (!@#$% dll).',
     });
 };

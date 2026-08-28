@@ -45,7 +45,7 @@ function DataGridColumnFilter<TData, TValue>({ column, title, options }: DataGri
               <div className="hidden space-x-1 lg:flex">
                 {selectedValues.size > 2 ? (
                   <Badge variant="secondary" className="rounded-sm px-1 font-normal">
-                    {selectedValues.size} selected
+                    {selectedValues.size} dipilih
                   </Badge>
                 ) : (
                   options
@@ -65,7 +65,7 @@ function DataGridColumnFilter<TData, TValue>({ column, title, options }: DataGri
         <Command>
           <CommandInput placeholder={title} />
           <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandEmpty>Tidak ada hasil ditemukan.</CommandEmpty>
             <CommandGroup>
               {options.map((option) => {
                 const isSelected = selectedValues.has(option.value);
@@ -109,7 +109,7 @@ function DataGridColumnFilter<TData, TValue>({ column, title, options }: DataGri
                     onSelect={() => column?.setFilterValue(undefined)}
                     className="justify-center text-center"
                   >
-                    Clear filters
+                    Hapus filter
                   </CommandItem>
                 </CommandGroup>
               </>

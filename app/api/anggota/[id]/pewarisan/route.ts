@@ -19,7 +19,7 @@ export async function GET(
     if (anggotaError || !anggota) {
       console.error('Error fetching anggota:', anggotaError);
       return NextResponse.json(
-        { error: 'Anggota not found' },
+        { error: 'Anggota tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -67,7 +67,7 @@ export async function GET(
   } catch (error) {
     console.error('Unexpected error in GET /api/anggota/[id]/pewarisan:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }

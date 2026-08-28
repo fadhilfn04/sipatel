@@ -665,7 +665,7 @@ export function ImportExcelModal({ open, onClose, onImport }: ImportExcelModalPr
                   <table className="w-full text-sm">
                     <thead className="bg-muted sticky top-0">
                       <tr>
-                        <th className="px-3 py-2 text-left font-medium">No</th>
+                        <th className="px-3 py-2 text-left font-medium">Tidak</th>
                         <th className="px-3 py-2 text-left font-medium">NIK</th>
                         <th className="px-3 py-2 text-left font-medium">Nama Anggota</th>
                         <th className="px-3 py-2 text-left font-medium">Cabang</th>

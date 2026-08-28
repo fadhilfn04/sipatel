@@ -28,7 +28,7 @@ export default function Page() {
   const [showRecaptcha, setShowRecaptcha] = useState(false);
 
   const formSchema = z.object({
-    email: z.string().email({ message: 'Please enter a valid email address.' }),
+    email: z.string().email({ message: 'Masukkan alamat email yang valid.' }),
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -77,7 +77,7 @@ export default function Page() {
       setError(
         err instanceof Error
           ? err.message
-          : 'An unexpected error occurred. Please try again.',
+          : 'Terjadi kesalahan tak terduga. Silakan coba lagi.',
       );
     } finally {
       setIsProcessing(false);
@@ -90,10 +90,11 @@ export default function Page() {
         <form onSubmit={handleSubmit} className="block w-full space-y-5">
           <div className="text-center space-y-1 pb-3">
             <h1 className="text-2xl font-semibold tracking-tight">
-              Reset Password
+              Atur Ulang Kata Sandi
             </h1>
             <p className="text-sm text-muted-foreground">
-              Enter your email to receive a password reset link.
+              Masukkan email Anda untuk menerima tautan pengaturan ulang kata
+              sandi.
             </p>
           </div>
 
@@ -124,7 +125,7 @@ export default function Page() {
                 <FormControl>
                   <Input
                     type="email"
-                    placeholder="Enter your email address"
+                    placeholder="Masukkan alamat email Anda"
                     disabled={!!success || isProcessing}
                     {...field}
                   />
@@ -149,7 +150,7 @@ export default function Page() {
                 className="w-full"
               >
                 {isProcessing ? <LoaderCircleIcon className="animate-spin" /> : null}
-                Submit
+                Kirim
               </Button>
             }
           />
@@ -157,7 +158,7 @@ export default function Page() {
           <div className="space-y-3">
             <Button type="button" variant="outline" className="w-full" asChild>
               <Link href="/signin">
-                <ArrowLeft className="size-3.5" /> Back
+                <ArrowLeft className="size-3.5" /> Kembali
               </Link>
             </Button>
           </div>

@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
       if (!anggota) {
         return NextResponse.json(
-          { error: 'Anggota not found' },
+          { error: 'Anggota tidak ditemukan' },
           { status: 404 }
         );
       }

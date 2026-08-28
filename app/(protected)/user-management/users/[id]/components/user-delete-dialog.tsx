@@ -33,8 +33,8 @@ const EmailConfirmationSchema = (userEmail: string) =>
   z.object({
     confirmEmail: z
       .string()
-      .nonempty({ message: 'Email is required.' })
-      .email({ message: 'Please enter a valid email address.' })
+      .nonempty({ message: 'Email wajib diisi.' })
+      .email({ message: 'Masukkan alamat email yang valid.' })
       .refine((value) => value === userEmail, {
         message: 'Email confirmation does not match.',
       }),
@@ -81,7 +81,7 @@ const UserDeleteDialog = ({
       return response.json();
     },
     onSuccess: () => {
-      const message = 'User deleted successfully.';
+      const message = 'Pengguna berhasil dihapus.';
 
       toast.custom(
         () => (
@@ -129,7 +129,7 @@ const UserDeleteDialog = ({
     <Dialog open={open} onOpenChange={closeDialog}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>Confirm Delete</DialogTitle>
+          <DialogTitle>Konfirmasi Hapus</DialogTitle>
         </DialogHeader>
         <div>
           <p className="text-sm text-accent-foreground mb-2.5">
@@ -153,7 +153,7 @@ const UserDeleteDialog = ({
                       Confirm the user&apos;s email address to proceed
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter email address" {...field} />
+                      <Input placeholder="Masukkan alamat email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -161,7 +161,7 @@ const UserDeleteDialog = ({
               />
               <DialogFooter>
                 <Button variant="outline" onClick={closeDialog}>
-                  Cancel
+                  Batal
                 </Button>
                 <Button
                   variant="destructive"

@@ -26,7 +26,7 @@ export async function GET(
 
     if (error || !cabang) {
       return NextResponse.json(
-        { error: 'Cabang not found' },
+        { error: 'Cabang tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -43,7 +43,7 @@ export async function GET(
     }
 
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Terjadi kesalahan pada server', details: error.message },
       { status: 500 }
     );
   }
@@ -68,7 +68,7 @@ export async function PUT(
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Cabang not found' },
+        { error: 'Cabang tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -124,7 +124,7 @@ export async function PUT(
     }
 
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Terjadi kesalahan pada server', details: error.message },
       { status: 500 }
     );
   }
@@ -148,7 +148,7 @@ export async function DELETE(
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Cabang not found' },
+        { error: 'Cabang tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -182,7 +182,7 @@ export async function DELETE(
     }
 
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Terjadi kesalahan pada server', details: error.message },
       { status: 500 }
     );
   }

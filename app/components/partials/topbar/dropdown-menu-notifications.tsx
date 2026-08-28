@@ -110,7 +110,7 @@ export function SheetNotifications({ trigger }: { trigger: ReactNode }) {
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/account/members/import-members">
-                              <Shield /> Group Settings
+                              <Shield /> Pengaturan Grup
                             </Link>
                           </DropdownMenuItem>
                         </DropdownMenuSubContent>
@@ -118,7 +118,7 @@ export function SheetNotifications({ trigger }: { trigger: ReactNode }) {
                     </DropdownMenuSub>
                     <DropdownMenuItem asChild>
                       <Link href="/account/security/privacy-settings">
-                        <Shield /> Group Settings
+                        <Shield /> Pengaturan Grup
                       </Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>

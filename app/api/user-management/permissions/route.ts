@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
     if (!session) {
       return NextResponse.json(
-        { message: 'Unauthorized request' },
+        { message: 'Permintaan tidak sah' },
         { status: 401 }, // Unauthorized
       );
     }
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     if (!session) {
       return NextResponse.json(
-        { message: 'Unauthorized request' },
+        { message: 'Permintaan tidak sah' },
         { status: 401 }, // Unauthorized
       );
     }

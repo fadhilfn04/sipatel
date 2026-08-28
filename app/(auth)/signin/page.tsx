@@ -60,7 +60,7 @@ export default function Page() {
       setError(
         err instanceof Error
           ? err.message
-          : 'An unexpected error occurred. Please try again.',
+          : 'Terjadi kesalahan tak terduga. Silakan coba lagi.',
       );
     } finally {
       setIsProcessing(false);
@@ -127,7 +127,7 @@ export default function Page() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="Your email" {...field} />
+                <Input placeholder="Contoh: nama@email.com" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -140,17 +140,17 @@ export default function Page() {
           render={({ field }) => (
             <FormItem>
               <div className="flex justify-between items-center gap-2.5">
-                <FormLabel>Password</FormLabel>
+                <FormLabel>Kata Sandi</FormLabel>
                 <Link
                   href="/reset-password"
                   className="text-sm font-semibold text-foreground hover:text-primary"
                 >
-                  Lupa Password?
+                  Lupa Kata Sandi?
                 </Link>
               </div>
               <div className="relative">
                 <Input
-                  placeholder="Your password"
+                  placeholder="Kata sandi Anda"
                   type={passwordVisible ? 'text' : 'password'} // Toggle input type
                   {...field}
                 />
@@ -162,7 +162,9 @@ export default function Page() {
                   onClick={() => setPasswordVisible(!passwordVisible)} // Toggle visibility
                   className="absolute end-0 top-1/2 -translate-y-1/2 h-7 w-7 me-1.5 bg-transparent!"
                   aria-label={
-                    passwordVisible ? 'Hide password' : 'Show password'
+                    passwordVisible
+                      ? 'Sembunyikan kata sandi'
+                      : 'Tampilkan kata sandi'
                   }
                 >
                   {passwordVisible ? (

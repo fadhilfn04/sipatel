@@ -17,7 +17,7 @@ export async function GET(
 
     if (error || !arusKas) {
       return NextResponse.json(
-        { error: 'Arus kas not found' },
+        { error: 'Arus kas tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -26,7 +26,7 @@ export async function GET(
   } catch (error) {
     console.error('Error in GET /api/arus-kas/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -51,7 +51,7 @@ export async function PUT(
 
     if (!existingArusKas) {
       return NextResponse.json(
-        { error: 'Arus kas not found' },
+        { error: 'Arus kas tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -94,7 +94,7 @@ export async function PUT(
   } catch (error) {
     console.error('Error in PUT /api/arus-kas/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -118,7 +118,7 @@ export async function DELETE(
 
     if (!existingArusKas) {
       return NextResponse.json(
-        { error: 'Arus kas not found' },
+        { error: 'Arus kas tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -144,7 +144,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error in DELETE /api/arus-kas/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }

@@ -35,7 +35,7 @@ export async function POST(
 
     if (fetchError || !claim) {
       return NextResponse.json(
-        { error: 'Claim not found' },
+        { error: 'Claim tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -142,7 +142,7 @@ export async function POST(
   } catch (error) {
     console.error('Error in verification:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -168,7 +168,7 @@ export async function GET(
 
     if (error || !claim) {
       return NextResponse.json(
-        { error: 'Claim not found' },
+        { error: 'Claim tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -189,7 +189,7 @@ export async function GET(
   } catch (error) {
     console.error('Error retrieving claim:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }

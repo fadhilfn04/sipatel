@@ -930,7 +930,7 @@ export function MemberFormModal({
                   ) : (
                     <>
                       <Pencil className="h-4 w-4 mr-2" />
-                      Update Data
+                      Perbarui Data
                     </>
                   )}
                 </>

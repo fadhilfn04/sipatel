@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'Kategori bantuan created successfully',
+      message: 'Kategori bantuan berhasil dibuat',
       data,
     }, { status: 201 });
   } catch (error: any) {
@@ -147,7 +147,7 @@ export async function PUT(request: NextRequest) {
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Kategori bantuan not found' },
+        { error: 'Kategori bantuan tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -191,7 +191,7 @@ export async function PUT(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'Kategori bantuan updated successfully',
+      message: 'Kategori bantuan berhasil diperbarui',
       data,
     });
   } catch (error: any) {
@@ -256,13 +256,13 @@ export async function DELETE(request: NextRequest) {
 
     if (!data) {
       return NextResponse.json(
-        { error: 'Kategori bantuan not found' },
+        { error: 'Kategori bantuan tidak ditemukan' },
         { status: 404 }
       );
     }
 
     return NextResponse.json({
-      message: 'Kategori bantuan deactivated successfully',
+      message: 'Kategori bantuan berhasil dinonaktifkan',
       data,
     });
   } catch (error: any) {

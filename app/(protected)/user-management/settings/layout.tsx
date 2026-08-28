@@ -96,7 +96,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <Container>
         <Toolbar>
           <ToolbarHeading>
-            <ToolbarTitle>Settings</ToolbarTitle>
+            <ToolbarTitle>Pengaturan</ToolbarTitle>
           </ToolbarHeading>
           <ToolbarActions />
         </Toolbar>

@@ -211,7 +211,7 @@ export default function DanaSosialPage() {
           <ToolbarActions>
             <Button variant="outline" size="sm">
               <FileText className="h-4 w-4 mr-2" />
-              Export
+              Ekspor
             </Button>
           </ToolbarActions>
         </Toolbar>
@@ -419,7 +419,7 @@ export default function DanaSosialPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>No</TableHead>
+                      <TableHead>Tidak</TableHead>
                       <TableHead>Tanggal</TableHead>
                       <TableHead>Nama Penerima</TableHead>
                       <TableHead>NIK</TableHead>

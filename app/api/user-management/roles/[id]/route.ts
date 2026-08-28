@@ -22,7 +22,7 @@ export async function GET(
 
     if (!session) {
       return NextResponse.json(
-        { message: 'Unauthorized request' },
+        { message: 'Permintaan tidak sah' },
         { status: 401 }, // Unauthorized
       );
     }
@@ -39,7 +39,7 @@ export async function GET(
     });
 
     if (!role) {
-      return NextResponse.json({ message: 'Role not found' }, { status: 404 });
+      return NextResponse.json({ message: 'Role tidak ditemukan' }, { status: 404 });
     }
 
     // Map permissions to a flat structure
@@ -66,7 +66,7 @@ export async function PUT(
 
     if (!session) {
       return NextResponse.json(
-        { message: 'Unauthorized request' },
+        { message: 'Permintaan tidak sah' },
         { status: 401 }, // Unauthorized
       );
     }
@@ -159,7 +159,7 @@ export async function DELETE(
 
     if (!session) {
       return NextResponse.json(
-        { message: 'Unauthorized request' },
+        { message: 'Permintaan tidak sah' },
         { status: 401 }, // Unauthorized
       );
     }
@@ -189,7 +189,7 @@ export async function DELETE(
     });
 
     if (!role) {
-      return NextResponse.json({ message: 'Role not found' }, { status: 404 });
+      return NextResponse.json({ message: 'Role tidak ditemukan' }, { status: 404 });
     }
 
     // Check if the role is protected
@@ -238,7 +238,7 @@ export async function DELETE(
       );
     });
 
-    return NextResponse.json({ message: 'Role deleted successfully' });
+    return NextResponse.json({ message: 'Role berhasil dihapus' });
   } catch {
     return NextResponse.json(
       { message: 'Oops! Something went wrong. Please try again in a moment.' },

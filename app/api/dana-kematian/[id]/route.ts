@@ -36,7 +36,7 @@ export async function GET(
 
     if (error || !danaKematian) {
       return NextResponse.json(
-        { error: 'Dana kematian not found' },
+        { error: 'Dana kematian tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -45,7 +45,7 @@ export async function GET(
   } catch (error) {
     console.error('Error in GET /api/dana-kematian/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -79,7 +79,7 @@ export async function PUT(
 
     if (!existingClaim) {
       return NextResponse.json(
-        { error: 'Dana kematian not found' },
+        { error: 'Dana kematian tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -249,7 +249,7 @@ export async function PUT(
   } catch (error) {
     console.error('Error in PUT /api/dana-kematian/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -272,7 +272,7 @@ export async function DELETE(
 
     if (!existingClaim) {
       return NextResponse.json(
-        { error: 'Dana kematian not found' },
+        { error: 'Dana kematian tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -308,7 +308,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error in DELETE /api/dana-kematian/[id]:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }

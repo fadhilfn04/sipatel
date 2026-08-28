@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error in GET /api/laporan-periode:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in POST /api/laporan-periode:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Terjadi kesalahan pada server' },
       { status: 500 }
     );
   }

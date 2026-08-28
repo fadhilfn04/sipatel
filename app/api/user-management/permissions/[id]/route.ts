@@ -21,7 +21,7 @@ export async function GET(
 
     if (!session) {
       return NextResponse.json(
-        { message: 'Unauthorized request' },
+        { message: 'Permintaan tidak sah' },
         { status: 401 }, // Unauthorized
       );
     }
@@ -58,7 +58,7 @@ export async function PUT(
 
     if (!session) {
       return NextResponse.json(
-        { message: 'Unauthorized request' },
+        { message: 'Permintaan tidak sah' },
         { status: 401 }, // Unauthorized
       );
     }
@@ -138,7 +138,7 @@ export async function DELETE(
 
     if (!session) {
       return NextResponse.json(
-        { message: 'Unauthorized request' },
+        { message: 'Permintaan tidak sah' },
         { status: 401 }, // Unauthorized
       );
     }
@@ -159,7 +159,7 @@ export async function DELETE(
     });
     if (!existingPermission) {
       return NextResponse.json(
-        { message: 'Requested data not found.' },
+        { message: 'Requested data tidak ditemukan.' },
         { status: 404 },
       );
     }

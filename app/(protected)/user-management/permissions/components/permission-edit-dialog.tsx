@@ -90,7 +90,7 @@ const PermissionEditDialog = ({
     onSuccess: () => {
       const isEdit = !!permission?.id;
       const message = isEdit
-        ? 'Permission updated successfully'
+        ? 'Permission berhasil diperbarui'
         : 'Permission added successfully';
 
       toast.custom(
@@ -170,7 +170,7 @@ const PermissionEditDialog = ({
                   <FormLabel>Slug</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="E.g: users:delete"
+                      placeholder="Contoh: users:delete"
                       {...field}
                       disabled={!!permission}
                     />
@@ -197,7 +197,7 @@ const PermissionEditDialog = ({
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={closeDialog}>
-                Cancel
+                Batal
               </Button>
               <Button
                 type="submit"

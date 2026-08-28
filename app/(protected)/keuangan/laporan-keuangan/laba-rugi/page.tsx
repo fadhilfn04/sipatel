@@ -88,7 +88,7 @@ export default function LabaRugiPage() {
             </Button>
             <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
-              Export
+              Ekspor
             </Button>
           </ToolbarActions>
         </Toolbar>

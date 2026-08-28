@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     );
   } catch {
     return NextResponse.json(
-      { message: 'Internal server error' },
+      { message: 'Terjadi kesalahan pada server' },
       { status: 500 },
     );
   }

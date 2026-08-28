@@ -134,10 +134,10 @@ export default function Item7() {
 
         <div className="flex flex-wrap gap-2.5">
           <Button size="sm" variant="outline">
-            Decline
+            Tolak
           </Button>
           <Button size="sm" variant="mono">
-            Accept
+            Terima
           </Button>
         </div>
       </div>

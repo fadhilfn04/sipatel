@@ -185,8 +185,8 @@ export default function AccountDetails() {
     <Card>
       <CardHeader className="py-4">
         <CardHeading>
-          <CardTitle>Profile</CardTitle>
-          <CardDescription>Manage profile information</CardDescription>
+          <CardTitle>Profil</CardTitle>
+          <CardDescription>Atur informasi profil</CardDescription>
         </CardHeading>
       </CardHeader>
       <CardContent className="py-8">
@@ -225,7 +225,7 @@ export default function AccountDetails() {
                               variant="outline"
                               onClick={() => avatarFileRef.current?.click()}
                             >
-                              Attach Image
+                              Lampirkan Gambar
                             </Button>
 
                             {avatarAttachedPreview ||
@@ -237,7 +237,7 @@ export default function AccountDetails() {
                                 variant="outline"
                                 onClick={handleCancelAvatar}
                               >
-                                Cancel
+                                Batal
                               </Button>
                             ) : null}
 
@@ -263,7 +263,7 @@ export default function AccountDetails() {
                         </div>
                       </FormControl>
                       <FormDescription>
-                        We support PNGs, JPEGs, and GIFs under 1MB.
+                        Kami mendukung PNG, JPEG, dan GIF dengan ukuran di bawah 1MB.
                       </FormDescription>
                       <FormMessage />
                     </div>
@@ -278,9 +278,9 @@ export default function AccountDetails() {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>Nama</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter your name" {...field} />
+                    <Input placeholder="Masukkan nama Anda" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -297,7 +297,7 @@ export default function AccountDetails() {
                 disabled={!form.formState.isDirty || isProcessing}
               >
                 {isProcessing && <LoaderCircleIcon className="animate-spin" />}
-                Save Profile
+                Simpan Profil
               </Button>
             </div>
           </form>

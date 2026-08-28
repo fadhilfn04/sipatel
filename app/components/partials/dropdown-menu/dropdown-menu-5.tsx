@@ -33,7 +33,7 @@ export function DropdownMenu5({ trigger }: { trigger: ReactNode }) {
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <FileUp />
-            <span>Export</span>
+            <span>Ekspor</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-[150px]">
             <DropdownMenuItem asChild>

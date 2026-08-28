@@ -131,7 +131,7 @@ export function ReportUserDialog({
     return (
       <div className="flex items-center gap-2.5 justify-end px-5">
         <Button variant="primary">Report this person</Button>
-        <Button variant="outline">Cancel</Button>
+        <Button variant="outline">Batal</Button>
       </div>
     );
   };

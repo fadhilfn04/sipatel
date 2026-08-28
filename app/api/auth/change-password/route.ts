@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ message: 'User not found.' }, { status: 404 });
+      return NextResponse.json({ message: 'User tidak ditemukan.' }, { status: 404 });
     }
 
     // Hash the new password

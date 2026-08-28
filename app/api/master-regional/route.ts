@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'Regional created successfully',
+      message: 'Regional berhasil dibuat',
       data,
     }, { status: 201 });
   } catch (error: any) {
@@ -150,7 +150,7 @@ export async function PUT(request: NextRequest) {
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Regional not found' },
+        { error: 'Regional tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -193,7 +193,7 @@ export async function PUT(request: NextRequest) {
     }
 
     return NextResponse.json({
-      message: 'Regional updated successfully',
+      message: 'Regional berhasil diperbarui',
       data,
     });
   } catch (error: any) {
@@ -257,13 +257,13 @@ export async function DELETE(request: NextRequest) {
 
     if (!data) {
       return NextResponse.json(
-        { error: 'Regional not found' },
+        { error: 'Regional tidak ditemukan' },
         { status: 404 }
       );
     }
 
     return NextResponse.json({
-      message: 'Regional deactivated successfully',
+      message: 'Regional berhasil dinonaktifkan',
       data,
     });
   } catch (error: any) {
