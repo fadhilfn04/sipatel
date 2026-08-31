@@ -193,12 +193,7 @@ const authOptions: NextAuthOptions = {
             id: role.id,
             name: role.name,
             slug: role.slug,
-            // Store only permission slugs in the JWT to keep the session
-            // cookie small. Embedding full permission objects bloats the
-            // cookie and can trigger HTTP 431 (Request Header Fields Too Large).
-            permissions: role.permissions.map(
-              (rolePermission) => rolePermission.permission.slug,
-            ),
+            permissions: role.permissions,
           } : undefined;
         }
       }
