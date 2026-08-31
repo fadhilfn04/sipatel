@@ -213,6 +213,7 @@ export function getWorkflowPermissions(claimStatus: string, userRole: string) {
 
   // Add permissions based on claim status
   switch (claimStatus) {
+    case 'draft':
     case 'dilaporkan':
       // PC can edit and submit
       if (canAccessPCManagement(userRole)) {
@@ -235,6 +236,7 @@ export function getWorkflowPermissions(claimStatus: string, userRole: string) {
       break;
 
     case 'pending_dokumen':
+    case 'revisi_pusat':
       // PC can upload documents
       if (canAccessPCManagement(userRole)) {
         permissions.push(
@@ -273,8 +275,22 @@ export function getWorkflowPermissions(claimStatus: string, userRole: string) {
       }
       break;
 
+    case 'terima_ahli_waris':
+    case 'laporan':
+      // PC uploads the handover/report documentation to finish the flow
+      if (canAccessPCManagement(userRole)) {
+        permissions.push(
+          DANA_KEMATIAN_PERMISSIONS.PC_CREATE_REPORTS
+        );
+      }
+      break;
+
     case 'selesai':
       // No actions allowed
+      break;
+
+    case 'batal':
+      // Canceled submissions are archived — no actions
       break;
 
     case 'ditolak':

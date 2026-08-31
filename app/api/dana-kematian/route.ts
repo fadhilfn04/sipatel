@@ -102,17 +102,27 @@ export async function POST(request: NextRequest) {
   try {
     const body: CreateDanaKematianInput = await request.json();
 
-    // Validate required fields
-    const requiredFields = [
-      'nama_anggota',
-      'status_anggota',
-      'status_mps',
-      'tanggal_meninggal',
-      'cabang_asal_melapor',
-      'besaran_dana_kematian',
-      'nama_ahli_waris',
-      'status_ahli_waris',
-    ];
+    // Drafts (on going process) only require the identity fields; full
+    // validation applies when the berkas is submitted for verification.
+    const isDraft = body.status_proses === 'draft';
+    const requiredFields = isDraft
+      ? [
+          'nama_anggota',
+          'status_anggota',
+          'status_mps',
+          'cabang_asal_melapor',
+          'nama_ahli_waris',
+        ]
+      : [
+          'nama_anggota',
+          'status_anggota',
+          'status_mps',
+          'tanggal_meninggal',
+          'cabang_asal_melapor',
+          'besaran_dana_kematian',
+          'nama_ahli_waris',
+          'status_ahli_waris',
+        ];
 
     for (const field of requiredFields) {
       if (!body[field as keyof CreateDanaKematianInput]) {
@@ -161,7 +171,7 @@ export async function POST(request: NextRequest) {
         file_kartu_keluarga: body.file_kartu_keluarga || null,
         file_e_ktp: body.file_e_ktp || null,
         file_surat_nikah: body.file_surat_nikah || null,
-        status_proses: body.status_proses || 'dilaporkan',
+        status_proses: body.status_proses || 'draft',
         keterangan: body.keterangan || null,
         data_perubahan: {
           actor_id: null,

@@ -20,6 +20,11 @@ import {
   Star,
   Upload,
   HandshakeIcon,
+  FolderCheck,
+  Archive,
+  Landmark,
+  XCircle,
+  Circle,
 } from 'lucide-react';
 import {
   Dialog,
@@ -48,7 +53,15 @@ import { DanaKematian } from '@/lib/supabase';
 import { DanaKematianTimeline, DanaKematianTimelineProgress } from './DanaKematianTimeline';
 import { DocumentValidationSystem } from './DocumentValidationSystem';
 import { ReportGenerationSystem } from './ReportGenerationSystem';
-import { allowsReporting } from '@/lib/workflow/dana-kematian-state-machine';
+import {
+  allowsReporting,
+  areDocumentsComplete,
+} from '@/lib/workflow/dana-kematian-state-machine';
+import {
+  getStatusProps,
+  FINANCE_MODULE_URL,
+  ARCHIVE_MODULE_URL,
+} from '@/lib/workflow/dana-kematian-status';
 import { useUserPermissions } from '@/lib/hooks/use-user-permissions';
 import { useUpdateDanaKematian, useDanaKematian } from '@/lib/hooks/use-dana-kematian-api';
 import { ToastNotification } from '@/components/anggota/ToastNotification';
@@ -66,7 +79,7 @@ interface StatusProps {
   color: string;
 }
 
-type PendingAction = 'submit_pusat' | 'pusat_approve' | null;
+type PendingAction = 'submit_pusat' | 'pusat_approve' | 'selesaikan' | null;
 
 // ── Confirm config per action ─────────────────────────────────────────────────
 const CONFIRM_CONFIG: Record<NonNullable<PendingAction>, {
@@ -77,9 +90,9 @@ const CONFIRM_CONFIG: Record<NonNullable<PendingAction>, {
   icon: React.ReactNode;
 }> = {
   submit_pusat: {
-    title: 'Kirim ke PP?',
-    description: 'Pengajuan ini akan dikirim ke PP untuk diverifikasi. Pastikan semua dokumen wajib sudah diupload dan data sudah benar sebelum melanjutkan.',
-    confirmLabel: 'Ya, Kirim ke PP',
+    title: 'Kirim ke Verifikasi Pusat?',
+    description: 'Pengajuan ini akan dikirim ke Pusat untuk diverifikasi. Pastikan semua dokumen wajib sudah diupload dan data sudah benar sebelum melanjutkan.',
+    confirmLabel: 'Ya, Kirim ke Verifikasi Pusat',
     confirmClass: 'bg-blue-600 hover:bg-blue-700 text-white',
     icon: <Send className="h-5 w-5 text-blue-600" />,
   },
@@ -89,6 +102,13 @@ const CONFIRM_CONFIG: Record<NonNullable<PendingAction>, {
     confirmLabel: 'Ya, Setujui & Salurkan',
     confirmClass: 'bg-green-600 hover:bg-green-700 text-white',
     icon: <ShieldCheck className="h-5 w-5 text-green-600" />,
+  },
+  selesaikan: {
+    title: 'Selesaikan Pengajuan?',
+    description: 'Pengajuan akan ditandai Selesai — dana telah diserahkan ke ahli waris dan laporan cabang telah diupload. Status tidak dapat diubah setelah ini.',
+    confirmLabel: 'Ya, Selesaikan',
+    confirmClass: 'bg-green-600 hover:bg-green-700 text-white',
+    icon: <CheckCircle2 className="h-5 w-5 text-green-600" />,
   },
 };
 
@@ -105,13 +125,20 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' as 'success' | 'error' });
 
-  // Delivery dialog state (PC fills delivery date + uploads proof)
+  // Delivery dialog state (PC fills delivery date + uploads handover doc)
   const [showDeliveryDialog, setShowDeliveryDialog] = useState(false);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryFileUrl, setDeliveryFileUrl] = useState('');
   const [deliveryUploading, setDeliveryUploading] = useState(false);
   const [isConfirmingDelivery, setIsConfirmingDelivery] = useState(false);
   const deliveryFileRef = useRef<HTMLInputElement>(null);
+
+  // Branch report (laporan cabang) dialog state — Archive Management integration
+  const [showLaporanDialog, setShowLaporanDialog] = useState(false);
+  const [laporanFileUrl, setLaporanFileUrl] = useState('');
+  const [laporanUploading, setLaporanUploading] = useState(false);
+  const [isUploadingLaporan, setIsUploadingLaporan] = useState(false);
+  const laporanFileRef = useRef<HTMLInputElement>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ show: true, message, type });
@@ -120,12 +147,12 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
 
   if (!activeClaim) return null;
 
-  const requiredDocsUploaded =
-    !!activeClaim.file_surat_kematian &&
-    !!activeClaim.file_sk_pensiun &&
-    !!activeClaim.file_surat_pernyataan_ahli_waris &&
-    !!activeClaim.file_kartu_keluarga &&
-    !!activeClaim.file_e_ktp;
+  const claimMeta: Record<string, any> = (activeClaim.document_metadata || {}) as Record<string, any>;
+
+  // UAT 2026: 6 mandatory documents — SK Pensiun can be substituted by the
+  // lost-document statement, Akte Kematian needs its source, KK needs the
+  // bloodline confirmation, Surat Nikah can be substituted by remarks.
+  const requiredDocsUploaded = areDocumentsComplete(activeClaim);
 
   const allRequiredDocsVerified =
     !!activeClaim.dokumen_surat_kematian_verified &&
@@ -134,9 +161,12 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
     !!activeClaim.dokumen_kartu_keluarga_verified &&
     !!activeClaim.dokumen_ktp_ahli_waris_verified;
 
+  const draftStage = ['draft', 'dilaporkan', 'verifikasi_cabang'].includes(activeClaim.status_proses);
+  const koreksiStage = ['pending_dokumen', 'revisi_pusat'].includes(activeClaim.status_proses);
+
   const canSubmitToPusat =
     !permissionLoading && canManagePC &&
-    activeClaim.status_proses === 'dilaporkan' && requiredDocsUploaded;
+    (draftStage || koreksiStage) && requiredDocsUploaded;
 
   // PP can approve from proses_pusat (normal) or verified (legacy, skip keuangan)
   const canPusatApprove =
@@ -144,18 +174,28 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
     ((activeClaim.status_proses === 'proses_pusat' && allRequiredDocsVerified) ||
       activeClaim.status_proses === 'verified');
 
-  // PC does the final delivery confirmation
+  // PC does the delivery confirmation → Terima Ahli Waris
   const canConfirmDelivery =
     !permissionLoading && canManagePC &&
     activeClaim.status_proses === 'penyaluran';
 
+  // PC uploads the branch report → Laporan
+  const canUploadLaporan =
+    !permissionLoading && canManagePC &&
+    activeClaim.status_proses === 'terima_ahli_waris';
+
+  // PC/PP completes the submission
+  const canSelesaikan =
+    !permissionLoading && (canManagePC || canVerifyPP) &&
+    activeClaim.status_proses === 'laporan';
+
   const canEditDocuments =
     canVerifyPP && activeClaim.status_proses === 'proses_pusat';
 
-  // PC/Admin can edit reports during penyaluran or selesai
+  // PC/Admin can edit reports during delivery, handover, report & done stages
   const canEditReports =
     !permissionLoading && canManagePC &&
-    ['penyaluran', 'selesai'].includes(activeClaim.status_proses);
+    ['penyaluran', 'terima_ahli_waris', 'laporan', 'selesai'].includes(activeClaim.status_proses);
 
   // ── Action handlers ───────────────────────────────────────────────────────
   const handleConfirmedAction = async () => {
@@ -170,7 +210,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
           status_proses: 'proses_pusat',
           cabang_tanggal_kirim_ke_pusat: new Date().toISOString().split('T')[0],
         } as any);
-        showToast('Pengajuan berhasil dikirim ke PP', 'success');
+        showToast('Pengajuan berhasil dikirim ke Verifikasi Pusat', 'success');
       } else if (action === 'pusat_approve') {
         setIsPusatApproving(true);
         const now = new Date().toISOString();
@@ -181,6 +221,16 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
           waktu_4: now,
         } as any);
         showToast('Pengajuan disetujui, dana siap disalurkan ke ahli waris', 'success');
+      } else if (action === 'selesaikan') {
+        setIsPusatApproving(true);
+        const today = new Date().toISOString().split('T')[0];
+        await updateMutation.mutateAsync({
+          status_proses: 'selesai',
+          cabang_tanggal_lapor_ke_pusat: activeClaim.cabang_tanggal_lapor_ke_pusat || today,
+          pusat_tanggal_selesai: today,
+          waktu_7: new Date().toISOString(),
+        } as any);
+        showToast('Pengajuan selesai — terima kasih', 'success');
       }
       onRefresh?.();
     } catch (err) {
@@ -209,25 +259,27 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
     }
   };
 
+  // penyaluran → terima_ahli_waris (handover documentation required, sent to Finance)
   const handleDeliveryConfirm = async () => {
     if (!deliveryDate) {
       showToast('Tanggal penyerahan wajib diisi', 'error');
+      return;
+    }
+    if (!deliveryFileUrl && !activeClaim.file_bukti_penyerahan) {
+      showToast('Berkas serah terima (bukti penyerahan) wajib diupload', 'error');
       return;
     }
     setIsConfirmingDelivery(true);
     try {
       const now = new Date().toISOString();
       await updateMutation.mutateAsync({
-        status_proses: 'selesai',
+        status_proses: 'terima_ahli_waris',
         cabang_tanggal_serah_ke_ahli_waris: deliveryDate,
-        cabang_tanggal_lapor_ke_pusat: deliveryDate,
-        pusat_tanggal_selesai: deliveryDate,
         ...(deliveryFileUrl ? { file_bukti_penyerahan: deliveryFileUrl } : {}),
         waktu_6: now,
-        waktu_7: now,
       } as any);
       setShowDeliveryDialog(false);
-      showToast('Dana berhasil diserahkan ke ahli waris. Pengajuan selesai.', 'success');
+      showToast('Dana diserahkan ke ahli waris — berkas diteruskan ke modul Keuangan', 'success');
       onRefresh?.();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Terjadi kesalahan', 'error');
@@ -236,22 +288,53 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
     }
   };
 
-  const isAnyPending = isSubmitting || isPusatApproving || isConfirmingDelivery;
-
-  const getStatusProps = (status: DanaKematian['status_proses']): StatusProps => {
-    const map: Record<string, StatusProps> = {
-      dilaporkan:        { variant: 'secondary',   label: 'Dilaporkan',        color: 'text-gray-600' },
-      verifikasi_cabang: { variant: 'warning',     label: 'Verifikasi Cabang', color: 'text-amber-600' },
-      pending_dokumen:   { variant: 'destructive',  label: 'Revisi Dokumen',    color: 'text-red-600' },
-      proses_pusat:      { variant: 'warning',     label: 'Proses Pusat',      color: 'text-blue-600' },
-      revisi_pusat:      { variant: 'destructive', label: 'Revisi Pusat',      color: 'text-red-600' },
-      verified:          { variant: 'success',     label: 'Terverifikasi',     color: 'text-green-600' },
-      penyaluran:        { variant: 'warning',     label: 'Penyaluran',        color: 'text-purple-600' },
-      selesai:           { variant: 'success',     label: 'Selesai',           color: 'text-green-700' },
-      ditolak:           { variant: 'destructive', label: 'Ditolak',           color: 'text-red-600' },
-    };
-    return map[status] ?? { variant: 'secondary', label: status, color: 'text-gray-600' };
+  const handleLaporanFileUpload = async (file: File) => {
+    setLaporanUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('bucket', 'dana-kematian');
+      fd.append('folder', 'laporan-cabang');
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Upload gagal');
+      setLaporanFileUrl(json.url);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Upload gagal', 'error');
+    } finally {
+      setLaporanUploading(false);
+    }
   };
+
+  // terima_ahli_waris → laporan (branch report → Archive Management module)
+  const handleLaporanUpload = async () => {
+    if (!laporanFileUrl && !claimMeta.file_laporan_cabang) {
+      showToast('Laporan cabang wajib diupload', 'error');
+      return;
+    }
+    setIsUploadingLaporan(true);
+    try {
+      const now = new Date().toISOString();
+      const existingMeta = claimMeta;
+      await updateMutation.mutateAsync({
+        status_proses: 'laporan',
+        document_metadata: {
+          ...existingMeta,
+          file_laporan_cabang: laporanFileUrl || claimMeta.file_laporan_cabang,
+          laporan_cabang_uploaded_at: now,
+        },
+      } as any);
+      setShowLaporanDialog(false);
+      showToast('Laporan cabang diupload — diteruskan ke modul Arsip', 'success');
+      onRefresh?.();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Terjadi kesalahan', 'error');
+    } finally {
+      setIsUploadingLaporan(false);
+    }
+  };
+
+  const isAnyPending = isSubmitting || isPusatApproving || isConfirmingDelivery || isUploadingLaporan;
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
@@ -290,8 +373,8 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className="w-screen h-screen max-w-[100vw] max-h-screen p-0 gap-0 overflow-hidden flex flex-col rounded-none">
 
-          {/* Header */}
-          <div className="shrink-0 bg-linear-to-r from-slate-800 to-slate-700 text-white px-8 py-5">
+          {/* Header — compact to fit a single viewport */}
+          <div className="shrink-0 bg-linear-to-r from-slate-800 to-slate-700 text-white px-4 py-3">
             <DialogHeader>
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
@@ -299,7 +382,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                     <FileText className="h-3.5 w-3.5" />
                     Detail Pengajuan Dana Kematian
                   </div>
-                  <DialogTitle className="text-white text-2xl font-bold">
+                  <DialogTitle className="text-white text-xl font-bold">
                     {activeClaim.nama_anggota}
                   </DialogTitle>
                   <div className="flex items-center gap-3 flex-wrap">
@@ -318,8 +401,8 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="text-slate-400 text-xs mb-1">Besaran Dana</div>
-                  <div className="text-2xl font-bold text-green-400">
+                  <div className="text-slate-400 text-xs mb-0.5">Besaran Dana</div>
+                  <div className="text-xl font-bold text-green-400">
                     {formatCurrency(activeClaim.besaran_dana_kematian)}
                   </div>
                 </div>
@@ -330,7 +413,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
           {/* Tabs */}
           <div className="flex-1 overflow-hidden flex flex-col">
             <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="shrink-0 w-full rounded-none border-b bg-background h-11 grid grid-cols-3 px-8 gap-0 justify-start">
+              <TabsList className="shrink-0 w-full rounded-none border-b bg-background h-10 grid grid-cols-3 px-4 gap-0 justify-start">
                 <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
                   Detail
                 </TabsTrigger>
@@ -340,18 +423,15 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                 <TabsTrigger value="documents" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
                   Dokumen
                 </TabsTrigger>
-                {/* <TabsTrigger value="reports" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent">
-                  Laporan
-                </TabsTrigger> */}
               </TabsList>
 
               <div className="flex-1 overflow-y-auto">
-                <div className="max-w-5xl mx-auto px-8 py-6 space-y-6">
+                <div className="px-4 py-4 space-y-4">
 
                   {/* ── Detail Tab ── */}
-                  <TabsContent value="overview" className="mt-0 space-y-6">
+                  <TabsContent value="overview" className="mt-0 space-y-4">
                     {/* Progress bar */}
-                    <div className="border rounded-xl p-4 bg-muted/30">
+                    <div className="border rounded-xl p-3 bg-muted/30">
                       <DanaKematianTimelineProgress claim={activeClaim} />
                     </div>
 
@@ -360,12 +440,12 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
 
                     {/* Speed rating — shown only when selesai */}
                     {speedRating && (
-                      <div className={`border rounded-xl p-5 ${speedRating.bg}`}>
+                      <div className={`border rounded-xl p-4 ${speedRating.bg}`}>
                         <div className="flex items-center justify-between">
                           <div className="space-y-1">
                             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Penilaian Kecepatan Proses</p>
                             <div className="flex items-center gap-2">
-                              <span className={`text-lg font-bold ${speedRating.color}`}>{speedRating.label}</span>
+                              <span className={`text-base font-bold ${speedRating.color}`}>{speedRating.label}</span>
                               <span className="text-sm text-muted-foreground">({speedRating.days} hari)</span>
                             </div>
                             <p className="text-xs text-muted-foreground">Dihitung dari terima berkas hingga penyerahan ke ahli waris</p>
@@ -374,12 +454,12 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                             {Array.from({ length: 5 }).map((_, i) => (
                               <Star
                                 key={i}
-                                className={`h-6 w-6 ${i < speedRating.stars ? `fill-current ${speedRating.color}` : 'text-muted-foreground/30'}`}
+                                className={`h-5 w-5 ${i < speedRating.stars ? `fill-current ${speedRating.color}` : 'text-muted-foreground/30'}`}
                               />
                             ))}
                           </div>
                         </div>
-                        <div className="mt-3 pt-3 border-t border-current/10 grid grid-cols-3 gap-4 text-center text-xs">
+                        <div className="mt-2.5 pt-2.5 border-t border-current/10 grid grid-cols-3 gap-3 text-center text-xs">
                           {activeClaim.cabang_tanggal_awal_terima_berkas && (
                             <div>
                               <p className="text-muted-foreground">Terima Berkas</p>
@@ -403,9 +483,9 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                     )}
 
                     {/* Row 1: Data Anggota + Susunan Keluarga */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Data Almarhum */}
-                      <div className="border rounded-xl p-5 space-y-3">
+                      <div className="border rounded-xl p-4 space-y-2.5">
                         <h3 className="font-semibold flex items-center gap-2 text-sm uppercase tracking-wide text-muted-foreground">
                           <User className="h-4 w-4" /> Data Almarhum / Almarhumah
                         </h3>
@@ -415,7 +495,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                         <InfoRow label="Nama Lengkap" value={<span className="font-semibold">{activeClaim.nama_anggota}</span>} />
                         <InfoRow label="Status Anggota" value={<Badge variant="secondary">{activeClaim.status_anggota}</Badge>} />
                         <InfoRow label="Status MPS" value={<Badge variant="outline">{activeClaim.status_mps}</Badge>} />
-                        <div className="border-t pt-3 space-y-3">
+                        <div className="border-t pt-2.5 space-y-2.5">
                           <InfoRow label="Tanggal Meninggal" value={
                             <span className="flex items-center gap-1.5">
                               <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
@@ -426,7 +506,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                             <InfoRow label="Penyebab Meninggal" value={activeClaim.penyebab_meninggal} />
                           )}
                         </div>
-                        <div className="border-t pt-3 space-y-3">
+                        <div className="border-t pt-2.5 space-y-2.5">
                           <InfoRow label="Cabang Pelapor" value={activeClaim.cabang_asal_melapor} />
                           {activeClaim.cabang_nama_pelapor && (
                             <InfoRow label="Nama Pelapor" value={activeClaim.cabang_nama_pelapor} />
@@ -444,13 +524,13 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                       </div>
 
                       {/* Susunan Keluarga */}
-                      <div className="border rounded-xl p-5 space-y-3">
+                      <div className="border rounded-xl p-4 space-y-2.5">
                         <h3 className="font-semibold flex items-center gap-2 text-sm uppercase tracking-wide text-muted-foreground">
                           <Users className="h-4 w-4" /> Susunan Keluarga
                         </h3>
 
                         {/* Deceased node */}
-                        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/15">
+                        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15">
                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                             <User className="h-4 w-4 text-primary" />
                           </div>
@@ -461,7 +541,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                         </div>
 
                         {familyMembers.length === 0 ? (
-                          <div className="text-center py-6 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
+                          <div className="text-center py-4 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
                             <Users className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
                             Susunan keluarga belum diisi
                           </div>
@@ -471,7 +551,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                               <div className="w-0.5 h-3 bg-border" />
                             </div>
                             {familyMembers.map((member, i) => (
-                              <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border bg-muted/30">
+                              <div key={i} className="flex items-center gap-3 px-3 py-1.5 rounded-lg border bg-muted/30">
                                 <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0">
                                   <Heart className="h-3.5 w-3.5 text-muted-foreground" />
                                 </div>
@@ -490,9 +570,9 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                     </div>
 
                     {/* Row 2: Ahli Waris + Dana */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Ahli Waris */}
-                      <div className="border rounded-xl p-5 space-y-3">
+                      <div className="border rounded-xl p-4 space-y-2.5">
                         <h3 className="font-semibold flex items-center gap-2 text-sm uppercase tracking-wide text-muted-foreground">
                           <User className="h-4 w-4" /> Data Ahli Waris
                         </h3>
@@ -523,12 +603,12 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                       </div>
 
                       {/* Dana */}
-                      <div className="border rounded-xl p-5 space-y-3">
+                      <div className="border rounded-xl p-4 space-y-2.5">
                         <h3 className="font-semibold flex items-center gap-2 text-sm uppercase tracking-wide text-muted-foreground">
                           <Banknote className="h-4 w-4" /> Dana Kematian
                         </h3>
-                        <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
-                          <div className="text-2xl font-bold text-green-700 dark:text-green-400">
+                        <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 rounded-lg p-3 text-center">
+                          <div className="text-xl font-bold text-green-700 dark:text-green-400">
                             {formatCurrency(activeClaim.besaran_dana_kematian)}
                           </div>
                           <div className="text-xs text-green-600 dark:text-green-500 mt-0.5">Besaran dana yang disetujui</div>
@@ -546,7 +626,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                           <InfoRow label="Lapor ke PP" value={formatDate(activeClaim.cabang_tanggal_lapor_ke_pusat)} />
                         )}
                         {activeClaim.file_bukti_penyerahan && (
-                          <div className="pt-2 border-t">
+                          <div className="pt-2 border-t flex items-center justify-between gap-2">
                             <a
                               href={activeClaim.file_bukti_penyerahan}
                               target="_blank"
@@ -554,21 +634,50 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                               className="text-xs text-primary hover:underline flex items-center gap-1"
                             >
                               <FileText className="h-3.5 w-3.5" />
-                              Lihat Bukti Penyerahan
+                              Lihat Berkas Serah Terima
+                            </a>
+                            <a
+                              href={FINANCE_MODULE_URL}
+                              className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                              title="Lihat di modul Keuangan"
+                            >
+                              <Landmark className="h-3.5 w-3.5" />
+                              Modul Keuangan
+                            </a>
+                          </div>
+                        )}
+                        {claimMeta.file_laporan_cabang && (
+                          <div className="pt-2 border-t flex items-center justify-between gap-2">
+                            <a
+                              href={claimMeta.file_laporan_cabang}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              Lihat Laporan Cabang
+                            </a>
+                            <a
+                              href={ARCHIVE_MODULE_URL}
+                              className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
+                              title="Buka modul Arsip"
+                            >
+                              <Archive className="h-3.5 w-3.5" />
+                              Modul Arsip
                             </a>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Revisi Pusat info */}
-                    {(activeClaim.status_proses === 'revisi_pusat' || activeClaim.status_proses === 'pending_dokumen') && (
-                      <div className="border border-destructive/30 bg-destructive/5 rounded-xl p-5 flex gap-3">
+                    {/* Koreksi info */}
+                    {koreksiStage && (
+                      <div className="border border-destructive/30 bg-destructive/5 rounded-xl p-4 flex gap-3">
                         <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                         <div>
-                          <div className="font-semibold text-destructive text-sm mb-1">Dokumen Perlu Direvisi</div>
+                          <div className="font-semibold text-destructive text-sm mb-1">Dokumen Perlu Direvisi (Koreksi)</div>
                           <p className="text-sm text-muted-foreground">
-                            PP telah menolak satu atau lebih dokumen. Cabang perlu mengupload ulang dokumen yang benar, lalu mengirimkan kembali ke PP.
+                            PP telah mengembalikan berkas. Cabang perlu mengupload ulang dokumen yang benar, lalu mengirimkan kembali ke Verifikasi Pusat.
                           </p>
                         </div>
                       </div>
@@ -576,7 +685,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
 
                     {/* Rejection info */}
                     {activeClaim.status_proses === 'ditolak' && activeClaim.rejection_reason && (
-                      <div className="border border-destructive/30 bg-destructive/5 rounded-xl p-5 flex gap-3">
+                      <div className="border border-destructive/30 bg-destructive/5 rounded-xl p-4 flex gap-3">
                         <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                         <div>
                           <div className="font-semibold text-destructive text-sm mb-1">Alasan Penolakan</div>
@@ -588,7 +697,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
 
                   {/* ── Timeline Tab ── */}
                   <TabsContent value="timeline" className="mt-0">
-                    <div className="border rounded-xl p-6">
+                    <div className="border rounded-xl p-4">
                       <DanaKematianTimeline claim={activeClaim} />
                     </div>
                   </TabsContent>
@@ -627,7 +736,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                         <p className="font-medium text-muted-foreground">Laporan belum tersedia</p>
                         <p className="text-sm text-muted-foreground mt-1">
                           Laporan dapat dibuat pada tahap penyaluran dana.
-                          Status saat ini: <strong>{getStatusProps(activeClaim.status_proses).label}</strong>
+                          Status saat ini: <strong>{statusProps.label}</strong>
                         </p>
                       </div>
                     )}
@@ -639,10 +748,10 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
           </div>
 
           {/* Footer */}
-          <DialogFooter className="shrink-0 border-t bg-background px-8 py-4 flex items-center justify-between">
-            <div className="flex gap-2 flex-wrap">
+          <DialogFooter className="shrink-0 border-t bg-background px-4 py-3 flex items-center justify-between gap-2">
+            <div className="flex gap-2 flex-wrap items-center">
 
-              {/* Step 1: Cabang → submit to Pusat */}
+              {/* Step 1: Cabang → submit to Verifikasi Pusat */}
               {canSubmitToPusat && (
                 <Button
                   onClick={() => setPendingAction('submit_pusat')}
@@ -652,13 +761,13 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                   {isSubmitting ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Mengirim...</>
                   ) : (
-                    <><Send className="h-4 w-4 mr-2" />Ajukan ke PP</>
+                    <><Send className="h-4 w-4 mr-2" />Kirim ke Verifikasi Pusat</>
                   )}
                 </Button>
               )}
 
               {/* Hint: docs incomplete */}
-              {!permissionLoading && canManagePC && activeClaim.status_proses === 'dilaporkan' && !requiredDocsUploaded && (
+              {!permissionLoading && canManagePC && (draftStage || koreksiStage) && !requiredDocsUploaded && (
                 <span className="text-sm text-muted-foreground flex items-center gap-1.5">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                   Upload semua dokumen wajib untuk mengajukan
@@ -688,7 +797,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                 </Button>
               )}
 
-              {/* Step 3: PC confirms delivery to ahli waris */}
+              {/* Step 3: PC confirms delivery → Terima Ahli Waris */}
               {canConfirmDelivery && (
                 <Button
                   onClick={() => {
@@ -703,6 +812,35 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Memproses...</>
                   ) : (
                     <><HandshakeIcon className="h-4 w-4 mr-2" />Serahkan ke Ahli Waris</>
+                  )}
+                </Button>
+              )}
+
+              {/* Step 4: PC uploads branch report → Laporan */}
+              {canUploadLaporan && (
+                <Button
+                  onClick={() => {
+                    setLaporanFileUrl('');
+                    setShowLaporanDialog(true);
+                  }}
+                  disabled={isAnyPending}
+                  className="bg-amber-600 hover:bg-amber-700"
+                >
+                  <><FolderCheck className="h-4 w-4 mr-2" />Upload Laporan Cabang</>
+                </Button>
+              )}
+
+              {/* Step 5: Selesaikan */}
+              {canSelesaikan && (
+                <Button
+                  onClick={() => setPendingAction('selesaikan')}
+                  disabled={isAnyPending}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {isPusatApproving ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Memproses...</>
+                  ) : (
+                    <><CheckCircle2 className="h-4 w-4 mr-2" />Selesaikan Pengajuan</>
                   )}
                 </Button>
               )}
@@ -722,7 +860,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
         />
       </Dialog>
 
-      {/* ── Confirmation AlertDialog (submit/pusat_approve) ─────────────── */}
+      {/* ── Confirmation AlertDialog (submit/approve/selesaikan) ────────── */}
       <AlertDialog open={!!pendingAction} onOpenChange={(v) => { if (!v) setPendingAction(null); }}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
@@ -771,7 +909,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Delivery Dialog (PC fills date + uploads proof) ────────────── */}
+      {/* ── Delivery Dialog (PC fills date + uploads handover doc) ──────── */}
       <Dialog open={showDeliveryDialog} onOpenChange={(v) => { if (!v) setShowDeliveryDialog(false); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -780,7 +918,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
               Penyerahan Dana ke Ahli Waris
             </DialogTitle>
             <DialogDescription>
-              Isi tanggal penyerahan dan upload bukti dokumen. Status pengajuan akan berubah menjadi <strong>Selesai</strong>.
+              Isi tanggal penyerahan dan upload berkas serah terima. Status akan berubah menjadi <strong>Terima Ahli Waris</strong>, dan berkas diteruskan ke <strong>modul Keuangan</strong>.
             </DialogDescription>
           </DialogHeader>
 
@@ -815,7 +953,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Bukti Penyerahan</label>
+              <label className="text-sm font-medium">Berkas Serah Terima *</label>
               <input
                 ref={deliveryFileRef}
                 type="file"
@@ -830,7 +968,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
               <div
                 className={`border-2 border-dashed rounded-lg p-5 text-center cursor-pointer transition-colors ${
                   deliveryUploading ? 'border-primary/50 bg-primary/5 cursor-wait' :
-                  deliveryFileUrl ? 'border-green-400 bg-green-50 hover:bg-green-100' :
+                  (deliveryFileUrl || activeClaim.file_bukti_penyerahan) ? 'border-green-400 bg-green-50 hover:bg-green-100' :
                   'border-muted-foreground/25 hover:border-primary hover:bg-primary/5'
                 }`}
                 onClick={() => !deliveryUploading && deliveryFileRef.current?.click()}
@@ -840,7 +978,7 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span className="text-sm">Mengupload...</span>
                   </div>
-                ) : deliveryFileUrl ? (
+                ) : (deliveryFileUrl || activeClaim.file_bukti_penyerahan) ? (
                   <div className="flex items-center justify-center gap-2 text-green-700">
                     <CheckCircle2 className="h-4 w-4" />
                     <span className="text-sm">Dokumen terupload — klik untuk ganti</span>
@@ -848,8 +986,8 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
                 ) : (
                   <div className="space-y-1">
                     <Upload className="h-6 w-6 mx-auto text-muted-foreground/50" />
-                    <p className="text-sm text-muted-foreground">Klik untuk upload bukti penyerahan</p>
-                    <p className="text-xs text-muted-foreground">PDF, JPG, PNG (opsional)</p>
+                    <p className="text-sm text-muted-foreground">Klik untuk upload berkas serah terima</p>
+                    <p className="text-xs text-muted-foreground">PDF, JPG, PNG (wajib)</p>
                   </div>
                 )}
               </div>
@@ -863,12 +1001,98 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
             <Button
               className="bg-emerald-600 hover:bg-emerald-700"
               onClick={handleDeliveryConfirm}
-              disabled={!deliveryDate || isConfirmingDelivery || deliveryUploading}
+              disabled={!deliveryDate || isConfirmingDelivery || deliveryUploading || (!deliveryFileUrl && !activeClaim.file_bukti_penyerahan)}
             >
               {isConfirmingDelivery ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Menyimpan...</>
               ) : (
                 <><CheckCircle2 className="h-4 w-4 mr-2" />Konfirmasi Penyerahan</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Branch Report Dialog (PC uploads laporan cabang) ────────────── */}
+      <Dialog open={showLaporanDialog} onOpenChange={(v) => { if (!v) setShowLaporanDialog(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Archive className="h-5 w-5 text-amber-600" />
+              Upload Laporan Cabang
+            </DialogTitle>
+            <DialogDescription>
+              Upload laporan cabang. Status akan berubah menjadi <strong>Laporan</strong>, dan laporan diteruskan ke <strong>modul Manajemen Arsip</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Claim summary */}
+          <div className="rounded-lg border bg-muted/40 px-4 py-3 space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Nama Anggota</span>
+              <span className="font-semibold">{activeClaim.nama_anggota}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Ahli Waris</span>
+              <span className="font-medium">{activeClaim.nama_ahli_waris}</span>
+            </div>
+          </div>
+
+          {/* Upload */}
+          <div className="space-y-2 py-1">
+            <label className="text-sm font-medium">Laporan Cabang *</label>
+            <input
+              ref={laporanFileRef}
+              type="file"
+              className="hidden"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleLaporanFileUpload(file);
+                e.target.value = '';
+              }}
+            />
+            <div
+              className={`border-2 border-dashed rounded-lg p-5 text-center cursor-pointer transition-colors ${
+                laporanUploading ? 'border-primary/50 bg-primary/5 cursor-wait' :
+                (laporanFileUrl || claimMeta.file_laporan_cabang) ? 'border-green-400 bg-green-50 hover:bg-green-100' :
+                'border-muted-foreground/25 hover:border-primary hover:bg-primary/5'
+              }`}
+              onClick={() => !laporanUploading && laporanFileRef.current?.click()}
+            >
+              {laporanUploading ? (
+                <div className="flex items-center justify-center gap-2 text-primary">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Mengupload...</span>
+                </div>
+              ) : (laporanFileUrl || claimMeta.file_laporan_cabang) ? (
+                <div className="flex items-center justify-center gap-2 text-green-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-sm">Dokumen terupload — klik untuk ganti</span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Upload className="h-6 w-6 mx-auto text-muted-foreground/50" />
+                  <p className="text-sm text-muted-foreground">Klik untuk upload laporan cabang</p>
+                  <p className="text-xs text-muted-foreground">PDF, JPG, PNG (wajib)</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLaporanDialog(false)} disabled={isUploadingLaporan}>
+              Batal
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700"
+              onClick={handleLaporanUpload}
+              disabled={isUploadingLaporan || laporanUploading || (!laporanFileUrl && !claimMeta.file_laporan_cabang)}
+            >
+              {isUploadingLaporan ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Menyimpan...</>
+              ) : (
+                <><CheckCircle2 className="h-4 w-4 mr-2" />Simpan Laporan</>
               )}
             </Button>
           </DialogFooter>
@@ -880,27 +1104,36 @@ export function DanaKematianDetailModal({ open, onClose, claim, onRefresh }: Dan
 
 function WorkflowStatusBanner({ status }: { status: DanaKematian['status_proses'] }) {
   const steps = [
-    { label: 'Input Data & Dokumen', key: 'dilaporkan' },
-    { label: 'Verifikasi PP',        key: 'proses_pusat' },
-    { label: 'Penyaluran Dana',      key: 'penyaluran' },
-    { label: 'Selesai',              key: 'selesai' },
+    { label: 'Draft',             key: 'draft' },
+    { label: 'Verifikasi Pusat',  key: 'proses_pusat' },
+    { label: 'Valid',             key: 'verified' },
+    { label: 'Penyaluran',        key: 'penyaluran' },
+    { label: 'Terima A. Waris',   key: 'terima_ahli_waris' },
+    { label: 'Laporan',           key: 'laporan' },
+    { label: 'Selesai',           key: 'selesai' },
   ];
 
   const orderMap: Record<string, number> = {
-    dilaporkan: 0, verifikasi_cabang: 0,
-    proses_pusat: 1, pending_dokumen: 1, revisi_pusat: 1, verified: 1,
-    penyaluran: 2, selesai: 3, ditolak: -1,
+    draft: 0, dilaporkan: 0, verifikasi_cabang: 0,
+    proses_pusat: 1, pending_dokumen: 1, revisi_pusat: 1,
+    verified: 2,
+    penyaluran: 3,
+    terima_ahli_waris: 4,
+    laporan: 5,
+    selesai: 6,
+    batal: -1,
+    ditolak: -1,
   };
 
   const currentOrder = orderMap[status] ?? 0;
-  if (status === 'ditolak') return null;
+  if (status === 'ditolak' || status === 'batal') return null;
 
   return (
-    <div className="border rounded-xl p-4 bg-muted/20">
-      <div className="flex items-center justify-between mb-3">
+    <div className="border rounded-xl p-3 bg-muted/20">
+      <div className="flex items-center justify-between mb-2.5">
         <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Alur Pengajuan</p>
-        {status === 'revisi_pusat' && (
-          <Badge variant="destructive" className="text-xs">Perlu Revisi Dokumen</Badge>
+        {['pending_dokumen', 'revisi_pusat'].includes(status) && (
+          <Badge variant="destructive" className="text-xs">Perlu Koreksi Dokumen</Badge>
         )}
       </div>
       <div className="flex items-center gap-0">
@@ -909,7 +1142,7 @@ function WorkflowStatusBanner({ status }: { status: DanaKematian['status_proses'
           const isCurrent = currentOrder === i;
           return (
             <div key={step.key} className="flex items-center flex-1 min-w-0">
-              <div className="flex flex-col items-center gap-1 flex-1">
+              <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
                 <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                   isDone ? 'bg-green-500 text-white' :
                   isCurrent ? 'bg-primary text-primary-foreground' :
@@ -917,7 +1150,7 @@ function WorkflowStatusBanner({ status }: { status: DanaKematian['status_proses'
                 }`}>
                   {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
                 </div>
-                <span className={`text-xs text-center leading-tight ${
+                <span className={`text-[10px] sm:text-xs text-center leading-tight ${
                   isCurrent ? 'font-semibold text-primary' :
                   isDone ? 'text-green-600' : 'text-muted-foreground'
                 }`}>{step.label}</span>

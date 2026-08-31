@@ -11,6 +11,9 @@ export type NotificationEventType =
   | 'dana_kematian_proses_pusat'
   | 'dana_kematian_verified'
   | 'dana_kematian_penyaluran'
+  | 'dana_kematian_terima_ahli_waris'
+  | 'dana_kematian_laporan'
+  | 'dana_kematian_batal'
   | 'dana_kematian_selesai'
   | 'dana_kematian_ditolak'
   | 'dana_kematian_deleted'
@@ -167,6 +170,39 @@ export function notifyDanaKematianSelesai(claimId: string, namaAnggota: string, 
     category: 'dana_kematian',
     link: `/pelayanan/dana-kematian`,
     metadata: { claim_id: claimId, nama_anggota: namaAnggota, besaran },
+  });
+}
+
+export function notifyDanaKematianTerimaAhliWaris(claimId: string, namaAnggota: string, aktor: string) {
+  return createNotificationWithRouting('dana_kematian_terima_ahli_waris', {
+    title: 'Dana Diterima Ahli Waris',
+    message: `Dana kematian ${namaAnggota} telah diserahkan kepada ahli waris oleh ${aktor}. Berkas serah terima diteruskan ke modul Keuangan.`,
+    type: 'success',
+    category: 'dana_kematian',
+    link: `/pelayanan/dana-kematian`,
+    metadata: { claim_id: claimId, nama_anggota: namaAnggota, aktor },
+  });
+}
+
+export function notifyDanaKematianLaporan(claimId: string, namaAnggota: string, aktor: string) {
+  return createNotificationWithRouting('dana_kematian_laporan', {
+    title: 'Laporan Cabang Diupload',
+    message: `Laporan cabang untuk pengajuan dana kematian ${namaAnggota} telah diupload oleh ${aktor} dan diteruskan ke modul Arsip.`,
+    type: 'success',
+    category: 'dana_kematian',
+    link: `/pelayanan/dana-kematian`,
+    metadata: { claim_id: claimId, nama_anggota: namaAnggota, aktor },
+  });
+}
+
+export function notifyDanaKematianBatal(claimId: string, namaAnggota: string, aktor: string) {
+  return createNotificationWithRouting('dana_kematian_batal', {
+    title: 'Pengajuan Dana Kematian Dibatalkan',
+    message: `Pengajuan dana kematian ${namaAnggota} telah dibatalkan oleh ${aktor}. Data tetap tersimpan sebagai arsip.`,
+    type: 'warning',
+    category: 'dana_kematian',
+    link: `/pelayanan/dana-kematian`,
+    metadata: { claim_id: claimId, nama_anggota: namaAnggota, aktor },
   });
 }
 

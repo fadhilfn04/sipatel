@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import authOptions from '@/app/api/auth/[...nextauth]/auth-options';
 import { UpdateDanaKematianInput } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { isValidStatusTransition } from '@/lib/workflow/dana-kematian-transitions';
 import {
   notifyDanaKematianVerifikasiCabang,
   notifyDanaKematianProsesPusat,
@@ -11,6 +12,9 @@ import {
   notifyDanaKematianSelesai,
   notifyDanaKematianDitolak,
   notifyDanaKematianUpdated,
+  notifyDanaKematianTerimaAhliWaris,
+  notifyDanaKematianLaporan,
+  notifyDanaKematianBatal,
   notifyDokumenVerified,
   notifyDanaKematianDeleted,
 } from '@/lib/server/create-notification';
@@ -158,14 +162,28 @@ export async function PUT(
       );
       if (updatedFileKeys.length > 0) {
         patch['status_proses'] = 'proses_pusat';
-        // Clear rejection notes for the re-uploaded documents
-        const existingMeta: Record<string, any> = (existingClaim as any).document_metadata || {};
-        const clearedMeta = { ...existingMeta };
+        // Clear rejection notes for the re-uploaded documents. Base on the
+        // client-provided metadata when present so fields saved in the same
+        // request (form edit) are not lost.
+        const baseMeta: Record<string, any> =
+          (patch['document_metadata'] as Record<string, any>) ||
+          (existingClaim as any).document_metadata || {};
+        const clearedMeta = { ...baseMeta };
         updatedFileKeys.forEach(field => {
           delete clearedMeta[docFileFields[field]];
           delete clearedMeta[`${field}_rejected_at`];
         });
         patch['document_metadata'] = clearedMeta;
+      }
+    }
+
+    // Enforce the workflow sequence server-side: a status change must follow
+    // an allowed transition (lib/workflow/dana-kematian-transitions.ts).
+    const requestedStatus = patch['status_proses'] as string | undefined;
+    if (requestedStatus && requestedStatus !== existingClaim.status_proses) {
+      const transition = isValidStatusTransition(existingClaim.status_proses, requestedStatus);
+      if (!transition.valid) {
+        return NextResponse.json({ error: transition.message }, { status: 400 });
       }
     }
 
@@ -205,12 +223,21 @@ export async function PUT(
         case 'penyaluran':
           notifyDanaKematianPenyaluran(id, nama, aktor);
           break;
+        case 'terima_ahli_waris':
+          notifyDanaKematianTerimaAhliWaris(id, nama, aktor);
+          break;
+        case 'laporan':
+          notifyDanaKematianLaporan(id, nama, aktor);
+          break;
         case 'selesai':
           notifyDanaKematianSelesai(
             id,
             nama,
             updatedDanaKematian.besaran_dana_kematian || existingClaim.besaran_dana_kematian || 0,
           );
+          break;
+        case 'batal':
+          notifyDanaKematianBatal(id, nama, aktor);
           break;
         case 'ditolak':
           notifyDanaKematianDitolak(id, nama, (body as any).keterangan || existingClaim.keterangan);

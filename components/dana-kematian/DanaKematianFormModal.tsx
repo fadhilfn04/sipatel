@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   User,
   Users,
@@ -8,18 +8,19 @@ import {
   Loader2,
   Plus,
   Pencil,
-  Building,
   Search,
   Upload,
   Sparkles,
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
-  Phone,
   Circle,
   X,
   XCircle,
   Lock,
+  Save,
+  FolderCheck,
+  Info,
 } from 'lucide-react';
 import {
   Dialog,
@@ -33,6 +34,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -46,11 +48,12 @@ import { DanaKematian, CreateDanaKematianInput, Anggota } from '@/lib/supabase';
 import { MemberSearchModal } from './MemberSearchModal';
 import { calculateTariff, formatTariffLabel, getTariffDisplayLabel } from '@/lib/utils/tariff-calculator';
 import { useCurrentUserAnggota } from '@/lib/hooks/use-anggota-api';
+import { getStatusProps } from '@/lib/workflow/dana-kematian-status';
 
 interface DanaKematianFormModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateDanaKematianInput) => Promise<void>;
+  onSubmit: (data: CreateDanaKematianInput, submitMode: 'draft' | 'lengkap') => Promise<void>;
   claim?: DanaKematian | null;
   mode: 'create' | 'edit';
   isPending: boolean;
@@ -59,6 +62,17 @@ interface DanaKematianFormModalProps {
 }
 
 type FamilyMember = { nama: string; hubungan: string };
+type DocMeta = Record<string, any>;
+
+/** Hubungan that counts as keluarga inti → "Surat Keterangan Ahli Waris" */
+const KELUARGA_INTI = ['istri', 'suami', 'anak'];
+
+const AKTE_KEMATIAN_SOURCES = [
+  { value: 'disdukcapil', label: 'DisDukCapil' },
+  { value: 'rumah_sakit', label: 'Rumah Sakit' },
+  { value: 'kecamatan', label: 'Kecamatan' },
+  { value: 'lainnya', label: 'Lainnya' },
+];
 
 const defaultFormData: CreateDanaKematianInput = {
   nama_anggota: '',
@@ -89,68 +103,102 @@ const defaultFormData: CreateDanaKematianInput = {
   file_surat_keterangan: '',
   file_dokumen_pendukung: '',
   susunan_keluarga: '',
-  status_proses: 'dilaporkan',
+  status_proses: 'draft',
   keterangan: '',
 };
 
-const DOCUMENT_STEPS = [
+interface DocumentStep {
+  label: string;
+  shortLabel: string;
+  field: keyof CreateDanaKematianInput;
+  folder: string;
+  description: string;
+  required: boolean;
+  /** Custom renderer key for step-specific inputs */
+  stepKey?: 'sk_pensiun' | 'akte_kematian' | 'surat_ahli_waris' | 'kk' | 'e_ktp' | 'surat_nikah';
+}
+
+const DOCUMENT_STEPS: DocumentStep[] = [
   {
     label: 'SK Pensiun',
-    field: 'file_sk_pensiun' as keyof CreateDanaKematianInput,
+    shortLabel: 'SK Pensiun',
+    field: 'file_sk_pensiun',
     folder: 'sk-pensiun',
-    description: 'Upload Surat Keputusan Pensiun anggota yang bersangkutan',
+    description: 'Upload Surat Keputusan Pensiun anggota yang bersangkutan. Jika dokumen hilang, berikan pernyataan resmi.',
     required: true,
+    stepKey: 'sk_pensiun',
   },
   {
-    label: 'Surat Kematian',
-    field: 'file_surat_kematian' as keyof CreateDanaKematianInput,
+    label: 'Akte Kematian',
+    shortLabel: 'Akte Kematian',
+    field: 'file_surat_kematian',
     folder: 'surat-kematian',
-    description: 'Upload surat kematian resmi yang dikeluarkan oleh pejabat berwenang (kelurahan/RS/dsb)',
+    description: 'Upload akte/surat kematian resmi dan pilih sumber penerbit dokumen',
     required: true,
+    stepKey: 'akte_kematian',
   },
   {
-    label: 'Surat Ahli Waris',
-    field: 'file_surat_pernyataan_ahli_waris' as keyof CreateDanaKematianInput,
+    label: 'Surat Keterangan / Surat Kuasa Ahli Waris',
+    shortLabel: 'Surat Ahli Waris',
+    field: 'file_surat_pernyataan_ahli_waris',
     folder: 'surat-pernyataan-ahli-waris',
-    description: 'Upload surat pernyataan ahli waris yang telah dilegalisir',
+    description: 'Surat Keterangan untuk keluarga inti (istri/suami/anak) atau Surat Kuasa untuk hubungan lainnya. Harus dilegalisir.',
     required: true,
+    stepKey: 'surat_ahli_waris',
   },
   {
     label: 'Kartu Keluarga Ahli Waris',
-    field: 'file_kartu_keluarga' as keyof CreateDanaKematianInput,
+    shortLabel: 'KK Ahli Waris',
+    field: 'file_kartu_keluarga',
     folder: 'kartu-keluarga',
-    description: 'Upload kartu keluarga ahli waris yang masih berlaku',
+    description: 'Upload kartu keluarga ahli waris yang masih berlaku dan konfirmasi garis keturunan',
     required: true,
+    stepKey: 'kk',
   },
   {
-    label: 'E-KTP',
-    field: 'file_e_ktp' as keyof CreateDanaKematianInput,
+    label: 'E-KTP Ahli Waris',
+    shortLabel: 'E-KTP Ahli Waris',
+    field: 'file_e_ktp',
     folder: 'e-ktp',
-    description: 'Upload fotokopi E-KTP ahli waris yang masih berlaku (jika E-KTP lebih dari satu, maka gabungkan dalam satu file PDF/dibuat kolase terlebih dahulu)',
+    description: 'Upload fotokopi E-KTP ahli waris yang masih berlaku (jika E-KTP lebih dari satu, gabungkan dalam satu file PDF/kolase)',
     required: true,
+    stepKey: 'e_ktp',
   },
   {
     label: 'Surat Nikah',
-    field: 'file_surat_nikah' as keyof CreateDanaKematianInput,
+    shortLabel: 'Surat Nikah',
+    field: 'file_surat_nikah',
     folder: 'surat-nikah',
-    description: 'Upload surat nikah (diperlukan jika ahli waris adalah istri, suami, atau cerai)',
+    description: 'Upload surat nikah (diperlukan jika ahli waris istri/suami). Jika tidak ada, isi keterangan.',
     required: true,
+    stepKey: 'surat_nikah',
   },
   {
     label: 'Surat Permohonan',
-    field: 'file_surat_keterangan' as keyof CreateDanaKematianInput,
+    shortLabel: 'Surat Permohonan',
+    field: 'file_surat_keterangan',
     folder: 'surat-keterangan',
-    description: 'Upload surat permohonan tambahan',
+    description: 'Upload surat permohonan/pengantar resmi dari cabang — wajib untuk proses selanjutnya',
     required: true,
   },
   {
     label: 'Dokumen Pendukung',
-    field: 'file_dokumen_pendukung' as keyof CreateDanaKematianInput,
+    shortLabel: 'Dok. Pendukung',
+    field: 'file_dokumen_pendukung',
     folder: 'dokumen-pendukung',
     description: 'Upload dokumen pendukung lainnya jika ada',
     required: false,
   },
 ];
+
+/** Avatar initials from a person/PC name */
+function getInitials(name: string | null | undefined): string {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
 
 export function DanaKematianFormModal({
   open,
@@ -163,6 +211,7 @@ export function DanaKematianFormModal({
   existingAnggotaIds,
 }: DanaKematianFormModalProps) {
   const [formData, setFormData] = useState<CreateDanaKematianInput>(defaultFormData);
+  const [docMeta, setDocMeta] = useState<DocMeta>({});
   const [activeTab, setActiveTab] = useState('informasi-utama');
   const [documentStep, setDocumentStep] = useState(0);
   const [memberSearchModalOpen, setMemberSearchModalOpen] = useState(false);
@@ -172,6 +221,7 @@ export function DanaKematianFormModal({
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
   const [duplicateMemberError, setDuplicateMemberError] = useState<string | null>(null);
+  const [manualHeirInput, setManualHeirInput] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const uploadDocsSectionRef = useRef<HTMLDivElement>(null);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
@@ -183,8 +233,18 @@ export function DanaKematianFormModal({
 
   const { data: currentUserAnggota } = useCurrentUserAnggota();
 
+  /** Merge a metadata key and keep formData.document_metadata in sync */
+  const updateMeta = (key: string, value: any) => {
+    setDocMeta(prev => {
+      const next = { ...prev, [key]: value };
+      setFormData(f => ({ ...f, document_metadata: next }));
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (mode === 'edit' && claim) {
+      const claimMeta: DocMeta = claim.document_metadata || {};
       setFormData({
         anggota_id: claim.anggota_id || undefined,
         nama_anggota: claim.nama_anggota,
@@ -217,7 +277,9 @@ export function DanaKematianFormModal({
         susunan_keluarga: claim.susunan_keluarga || '',
         status_proses: claim.status_proses,
         keterangan: claim.keterangan || '',
+        document_metadata: claimMeta,
       });
+      setDocMeta(claimMeta);
 
       if (claim.anggota_id) {
         const member = members.find(m => m.id === claim.anggota_id);
@@ -238,6 +300,7 @@ export function DanaKematianFormModal({
         cabang_asal_melapor: currentUserAnggota?.nama_cabang ?? '',
         cabang_tanggal_awal_terima_berkas: new Date().toISOString().split('T')[0],
       });
+      setDocMeta({});
       setSelectedMember(null);
       setFamilyMembers([]);
     }
@@ -247,6 +310,7 @@ export function DanaKematianFormModal({
     setActiveTab('informasi-utama');
     setDocumentStep(0);
     setManualTariffOverride(false);
+    setManualHeirInput(false);
   }, [claim, mode, open, members, currentUserAnggota]);
 
   useEffect(() => {
@@ -263,14 +327,78 @@ export function DanaKematianFormModal({
     }));
   }, [familyMembers]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // ── Berkas Lengkap gating ──────────────────────────────────────────────────
+  const namedFamilyMembers = useMemo(
+    () => familyMembers.filter(m => m.nama && m.nama.trim()),
+    [familyMembers]
+  );
 
+  const isKeluargaInti = KELUARGA_INTI.includes(formData.status_ahli_waris);
+  const suratAhliWarisLabel = isKeluargaInti
+    ? 'Surat Keterangan Ahli Waris'
+    : 'Surat Kuasa Ahli Waris';
+
+  const missingBerkasItems = useMemo(() => {
+    const missing: string[] = [];
+    const has = (v: any) => !!v;
+
+    if (!has(formData.file_sk_pensiun) && !(docMeta.sk_pensiun_missing === true && docMeta.sk_pensiun_hilang_keterangan)) {
+      missing.push('SK Pensiun (file atau pernyataan hilang)');
+    }
+    if (!has(formData.file_surat_kematian)) missing.push('Akte Kematian');
+    if (!docMeta.akte_kematian_sumber) missing.push('Sumber Dokumen Akte Kematian');
+    if (docMeta.akte_kematian_sumber === 'lainnya' && !docMeta.akte_kematian_sumber_lainnya) {
+      missing.push('Keterangan sumber Akte Kematian (Lainnya)');
+    }
+    if (!has(formData.file_surat_pernyataan_ahli_waris)) missing.push(suratAhliWarisLabel);
+    if (!has(formData.file_kartu_keluarga)) missing.push('KK Ahli Waris');
+    if (docMeta.kk_ahli_waris_konfirmasi !== true) missing.push('Konfirmasi garis keturunan pada KK');
+    if (!has(formData.file_e_ktp)) missing.push('E-KTP Ahli Waris');
+    if (!has(formData.file_surat_nikah) && !docMeta.surat_nikah_keterangan) {
+      missing.push('Surat Nikah atau Keterangan');
+    }
+    if (!has(formData.file_surat_keterangan)) missing.push('Surat Permohonan');
+    return missing;
+  }, [formData, docMeta, suratAhliWarisLabel]);
+
+  const isBerkasLengkap = missingBerkasItems.length === 0;
+
+  /** Can the form submit at all (draft/lengkap) — used for edit mode gating */
+  const claimEditable = mode === 'create' ||
+    ['draft', 'dilaporkan', 'verifikasi_cabang', 'pending_dokumen', 'revisi_pusat'].includes(claim?.status_proses || '');
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+  const buildPayload = (submitMode: 'draft' | 'lengkap'): CreateDanaKematianInput => {
+    const today = new Date().toISOString().split('T')[0];
+    if (submitMode === 'lengkap') {
+      return {
+        ...formData,
+        document_metadata: docMeta,
+        status_proses: 'proses_pusat',
+        cabang_tanggal_kirim_ke_pusat: formData.cabang_tanggal_kirim_ke_pusat || today,
+      };
+    }
+    // Draft keeps the existing status in edit mode; new submissions start as draft
+    return {
+      ...formData,
+      document_metadata: docMeta,
+      status_proses: mode === 'edit' ? formData.status_proses : 'draft',
+    };
+  };
+
+  const validateForDraft = (): Record<string, string> => {
     const errors: Record<string, string> = {};
-
     if (mode === 'create' && !selectedMember) {
       errors.member = 'Silakan pilih anggota terlebih dahulu';
     }
+    if (!formData.nama_ahli_waris) {
+      errors.nama_ahli_waris = 'Nama ahli waris wajib diisi';
+    }
+    return errors;
+  };
+
+  const validateForLengkap = (): Record<string, string> => {
+    const errors = validateForDraft();
     if (!formData.tanggal_meninggal) {
       errors.tanggal_meninggal = 'Tanggal meninggal wajib diisi';
     }
@@ -280,15 +408,31 @@ export function DanaKematianFormModal({
     if (!formData.cabang_tanggal_awal_terima_berkas) {
       errors.cabang_tanggal_awal_terima_berkas = 'Tanggal terima berkas wajib diisi';
     }
-    if (!formData.nama_ahli_waris) {
-      errors.nama_ahli_waris = 'Nama ahli waris wajib diisi';
+    if (missingBerkasItems.length > 0) {
+      errors.berkas = `Dokumen belum lengkap: ${missingBerkasItems.join(', ')}`;
     }
+    return errors;
+  };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Form submit = Simpan Draft. Berkas Lengkap is a separate button.
+    const errors = validateForDraft();
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
-      // Auto-navigate to the tab that contains the first error
-      const dokumenTabFields = ['cabang_asal_melapor', 'cabang_tanggal_awal_terima_berkas'];
-      const hasInformasiError = ['member', 'tanggal_meninggal', 'nama_ahli_waris'].some(f => errors[f]);
+      setActiveTab('informasi-utama');
+      return;
+    }
+    await onSubmit(buildPayload('draft'), 'draft');
+  };
+
+  const handleSubmitBerkasLengkap = async () => {
+    const errors = validateForLengkap();
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      // Navigate to the tab that contains the first error
+      const dokumenTabFields = ['cabang_asal_melapor', 'cabang_tanggal_awal_terima_berkas', 'berkas', 'tanggal_meninggal'];
+      const hasInformasiError = ['member', 'nama_ahli_waris'].some(f => errors[f]);
       const hasDokumenError = dokumenTabFields.some(f => errors[f]);
       if (hasDokumenError && !hasInformasiError) {
         setActiveTab('workspace-dokumen');
@@ -297,8 +441,7 @@ export function DanaKematianFormModal({
       }
       return;
     }
-
-    await onSubmit(formData);
+    await onSubmit(buildPayload('lengkap'), 'lengkap');
   };
 
   const handleMemberSelect = (member: Anggota) => {
@@ -319,7 +462,7 @@ export function DanaKematianFormModal({
       status_anggota: member.status_anggota,
       status_mps: member.status_mps,
       cabang_asal_melapor: member.nama_cabang,
-      status_proses: 'dilaporkan',
+      status_proses: 'draft',
     });
 
     setValidationErrors(prev => {
@@ -375,10 +518,28 @@ export function DanaKematianFormModal({
 
   const currentDocStep = DOCUMENT_STEPS[documentStep];
 
-  const title = mode === 'create' ? 'Selesai Isi Kematian Baru' : 'Edit Data Dana Kematian';
+  /** Step completion counts substituted docs (SK Pensiun missing statement, nikah remark) */
+  const isStepComplete = (step: DocumentStep): boolean => {
+    if (hasFileValue(step.field)) return true;
+    if (step.stepKey === 'sk_pensiun') {
+      return docMeta.sk_pensiun_missing === true && !!docMeta.sk_pensiun_hilang_keterangan;
+    }
+    if (step.stepKey === 'surat_nikah') {
+      return !!docMeta.surat_nikah_keterangan;
+    }
+    return false;
+  };
+
+  const hasFileValue = (field: keyof CreateDanaKematianInput) => !!(formData[field] as string);
+
+  const title = mode === 'create' ? 'Formulir Pengajuan Dana Kematian' : 'Edit Data Dana Kematian';
   const description = mode === 'create'
-    ? 'Isi formulir di bawah ini untuk mengajukan dana kematian. Status akan otomatis diatur ke "Verifikasi Cabang".'
+    ? 'Isi formulir di bawah ini. Gunakan Simpan Draft untuk menyimpan sementara (status Draft), atau Berkas Lengkap saat 6 dokumen wajib sudah lengkap untuk dikirim ke Verifikasi Pusat.'
     : 'Ubah data pengajuan dana kematian. Status proses dikelola otomatis melalui workflow.';
+
+  const reporterName = formData.cabang_nama_pelapor || currentUserAnggota?.nama_anggota || '';
+  const reporterNik = formData.cabang_nik_pelapor || currentUserAnggota?.nik || '';
+  const reporterCabang = formData.cabang_asal_melapor || currentUserAnggota?.nama_cabang || '';
 
   return (
     <>
@@ -409,6 +570,41 @@ export function DanaKematianFormModal({
 
                   {/* Tab 1: Informasi Utama */}
                   <TabsContent value="informasi-utama" className="mt-0 space-y-6">
+
+                    {/* Informasi Pelapor — auto-populated from the logged-in user */}
+                    <div className="rounded-lg border border-slate-200/80 bg-slate-50 p-4 dark:border-slate-800/80 dark:bg-slate-950/80">
+                      <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2 dark:text-slate-100">
+                        <Info className="h-4 w-4" />
+                        Informasi Pelapor
+                      </h4>
+                      <div className="flex items-center gap-3">
+                        <div className="h-11 w-11 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                          <span className="text-sm font-bold text-primary">
+                            {getInitials(reporterCabang ? `PC ${reporterCabang}` : reporterName)}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Nama Pelapor</p>
+                            <p className="text-sm font-semibold truncate">{reporterName || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">NIK Pelapor</p>
+                            <p className="text-sm font-mono truncate">{reporterNik || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Profil</p>
+                            <p className="text-sm font-semibold truncate">
+                              {reporterCabang ? `PC_${reporterCabang.replace(/\s+/g, '_')}` : '—'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Data pelapor diisi otomatis dari akun yang sedang login.
+                      </p>
+                    </div>
+
                     {/* Member Search Section - Only in create mode */}
                     {mode === 'create' && (
                       <div className="rounded-lg border border-slate-200/80 bg-slate-50 p-4 dark:border-slate-800/80 dark:bg-slate-950/80">
@@ -477,7 +673,7 @@ export function DanaKematianFormModal({
                     )}
 
                     {/* Auto-filled Member Data (Readonly) */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                       <div className="space-y-2">
                         <label className="text-sm font-medium">NIK</label>
                         <Input
@@ -545,7 +741,7 @@ export function DanaKematianFormModal({
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Status Pengajuan</label>
                         <Input
-                          value={formData.status_proses?.replace('_', ' ').toUpperCase() || ''}
+                          value={getStatusProps(formData.status_proses).label.toUpperCase()}
                           readOnly
                           className="bg-muted cursor-not-allowed"
                         />
@@ -566,7 +762,7 @@ export function DanaKematianFormModal({
                         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                           Informasi Pelaporan
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                           <div className="space-y-2">
                             <label className="text-sm font-medium">Cabang Pelapor *</label>
                             <Input
@@ -684,8 +880,7 @@ export function DanaKematianFormModal({
                       {/* Stepper Header */}
                       <div className="flex items-center justify-between mb-8 overflow-x-auto pb-2">
                         {DOCUMENT_STEPS.map((step, index) => {
-                          const fileValue = formData[step.field] as string;
-                          const isCompleted = !!fileValue;
+                          const completed = isStepComplete(step);
                           const isActive = index === documentStep;
                           const isPast = index < documentStep;
 
@@ -700,7 +895,7 @@ export function DanaKematianFormModal({
                                 <div
                                   className={`
                                     w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all font-semibold text-sm
-                                    ${isCompleted
+                                    ${completed
                                       ? 'bg-green-500 border-green-500 text-white'
                                       : isActive
                                         ? 'bg-primary border-primary text-primary-foreground'
@@ -708,17 +903,17 @@ export function DanaKematianFormModal({
                                     }
                                   `}
                                 >
-                                  {isCompleted
+                                  {completed
                                     ? <CheckCircle2 className="h-5 w-5" />
                                     : <span>{index + 1}</span>
                                   }
                                 </div>
                                 <span
                                   className={`text-xs font-medium text-center leading-tight max-w-16 ${
-                                    isActive ? 'text-primary' : isCompleted ? 'text-green-600' : 'text-muted-foreground'
+                                    isActive ? 'text-primary' : completed ? 'text-green-600' : 'text-muted-foreground'
                                   }`}
                                 >
-                                  {step.label}
+                                  {step.shortLabel}
                                   {step.required && <span className="text-destructive"> *</span>}
                                 </span>
                               </button>
@@ -727,7 +922,7 @@ export function DanaKematianFormModal({
                               {index < DOCUMENT_STEPS.length - 1 && (
                                 <div
                                   className={`flex-1 h-0.5 mx-2 -mt-5 transition-colors ${
-                                    isPast || isCompleted ? 'bg-green-400' : 'bg-muted-foreground/20'
+                                    isPast || completed ? 'bg-green-400' : 'bg-muted-foreground/20'
                                   }`}
                                 />
                               )}
@@ -752,10 +947,14 @@ export function DanaKematianFormModal({
                                 <Badge variant="secondary" className="text-xs px-1.5 py-0">Opsional</Badge>
                               )}
                             </div>
-                            <h4 className="text-lg font-semibold">{currentDocStep.label}</h4>
+                            <h4 className="text-lg font-semibold">
+                              {currentDocStep.stepKey === 'surat_ahli_waris'
+                                ? suratAhliWarisLabel
+                                : currentDocStep.label}
+                            </h4>
                             <p className="text-sm text-muted-foreground mt-0.5">{currentDocStep.description}</p>
                           </div>
-                          {(formData[currentDocStep.field] as string) && (
+                          {isStepComplete(currentDocStep) && (
                             <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 shrink-0">
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               Terupload
@@ -764,7 +963,7 @@ export function DanaKematianFormModal({
                         </div>
 
                         {/* Step-specific input fields */}
-                        {documentStep === 0 && (
+                        {currentDocStep.stepKey === 'sk_pensiun' && (
                           <div className="space-y-4">
                             <div className="space-y-2">
                               <label className="text-sm font-medium">NIK</label>
@@ -776,10 +975,15 @@ export function DanaKematianFormModal({
                               />
                             </div>
 
-                            {/* Family hierarchy */}
+                            {/* Family hierarchy (source for the heir list from SK Pensiun data) */}
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
-                                <label className="text-sm font-medium">Susunan Keluarga</label>
+                                <div>
+                                  <label className="text-sm font-medium">Susunan Keluarga</label>
+                                  <p className="text-xs text-muted-foreground">
+                                    Daftar keluarga dari data SK Pensiun — digunakan untuk memilih ahli waris
+                                  </p>
+                                </div>
                                 <Button type="button" size="sm" variant="outline" onClick={addFamilyMember}>
                                   <Plus className="h-3.5 w-3.5 mr-1" />
                                   Tambah
@@ -873,11 +1077,52 @@ export function DanaKematianFormModal({
                                 </div>
                               )}
                             </div>
+
+                            {/* SK Pensiun hilang → pernyataan resmi */}
+                            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                              <div className="flex items-start gap-2.5">
+                                <Checkbox
+                                  id="sk-pensiun-missing"
+                                  checked={docMeta.sk_pensiun_missing === true}
+                                  onCheckedChange={(checked) => {
+                                    updateMeta('sk_pensiun_missing', checked === true);
+                                    if (checked !== true) {
+                                      updateMeta('sk_pensiun_hilang_keterangan', '');
+                                    }
+                                  }}
+                                  className="mt-0.5"
+                                />
+                                <div>
+                                  <label htmlFor="sk-pensiun-missing" className="text-sm font-medium cursor-pointer">
+                                    SK Pensiun hilang / tidak dapat ditemukan
+                                  </label>
+                                  <p className="text-xs text-muted-foreground">
+                                    Centang jika dokumen tidak ada — berikan pernyataan resmi sebagai pengganti.
+                                  </p>
+                                </div>
+                              </div>
+                              {docMeta.sk_pensiun_missing === true && (
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">
+                                    Pernyataan Resmi / Penjelasan <span className="text-destructive">*</span>
+                                  </label>
+                                  <Textarea
+                                    placeholder="Contoh: SK Pensiun almarhum hilang karena banjir. Surat keterangan kehilangan dari kelurahan terlampir."
+                                    value={docMeta.sk_pensiun_hilang_keterangan || ''}
+                                    onChange={(e) => updateMeta('sk_pensiun_hilang_keterangan', e.target.value)}
+                                    rows={3}
+                                  />
+                                  <p className="text-xs text-muted-foreground">
+                                    Pernyataan ini akan diperiksa oleh Pusat pada tahap verifikasi.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
 
-                        {documentStep === 1 && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {currentDocStep.stepKey === 'akte_kematian' && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                             <div className="space-y-2">
                               <label className="text-sm font-medium">NIK</label>
                               <Input
@@ -910,6 +1155,38 @@ export function DanaKematianFormModal({
                             </div>
 
                             <div className="space-y-2">
+                              <label className="text-sm font-medium">
+                                Sumber Dokumen <span className="text-destructive">*</span>
+                              </label>
+                              <Select
+                                value={docMeta.akte_kematian_sumber || ''}
+                                onValueChange={(value) => {
+                                  updateMeta('akte_kematian_sumber', value);
+                                  if (value !== 'lainnya') {
+                                    updateMeta('akte_kematian_sumber_lainnya', '');
+                                  }
+                                }}
+                                required
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Pilih sumber dokumen" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {AKTE_KEMATIAN_SOURCES.map(s => (
+                                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {docMeta.akte_kematian_sumber === 'lainnya' && (
+                                <Input
+                                  placeholder="Sebutkan sumber lainnya"
+                                  value={docMeta.akte_kematian_sumber_lainnya || ''}
+                                  onChange={(e) => updateMeta('akte_kematian_sumber_lainnya', e.target.value)}
+                                />
+                              )}
+                            </div>
+
+                            <div className="space-y-2 md:col-span-2">
                               <label className="text-sm font-medium">Besaran Dana Kematian *</label>
                               <Select
                                 value={formData.besaran_dana_kematian.toString()}
@@ -952,15 +1229,63 @@ export function DanaKematianFormModal({
                           </div>
                         )}
 
-                        {documentStep === 2 && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {currentDocStep.stepKey === 'surat_ahli_waris' && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                             <div className="space-y-2">
-                              <label className="text-sm font-medium">Nama Ahli Waris</label>
-                              <Input
-                                placeholder="Nama lengkap ahli waris"
-                                value={formData.nama_ahli_waris}
-                                onChange={(e) => handleFieldChange('nama_ahli_waris', e.target.value)}
-                              />
+                              <label className="text-sm font-medium">
+                                Nama Ahli Waris {namedFamilyMembers.length > 0 && <span className="text-xs text-muted-foreground font-normal">(dari data SK Pensiun)</span>}
+                              </label>
+                              {namedFamilyMembers.length > 0 && !manualHeirInput ? (
+                                <div className="space-y-2">
+                                  <Select
+                                    value={namedFamilyMembers.some(m => m.nama === formData.nama_ahli_waris)
+                                      ? formData.nama_ahli_waris
+                                      : '__manual__'}
+                                    onValueChange={(value) => {
+                                      if (value === '__manual__') {
+                                        setManualHeirInput(true);
+                                      } else {
+                                        handleFieldChange('nama_ahli_waris', value);
+                                        const match = namedFamilyMembers.find(m => m.nama === value);
+                                        if (match) handleFieldChange('status_ahli_waris', match.hubungan as any);
+                                      }
+                                    }}
+                                    required
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Pilih nama ahli waris" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {namedFamilyMembers.map((m, i) => (
+                                        <SelectItem key={i} value={m.nama}>
+                                          {m.nama} {m.hubungan ? `(${m.hubungan})` : ''}
+                                        </SelectItem>
+                                      ))}
+                                      <SelectItem value="__manual__">— Ketik Manual —</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  <Input
+                                    placeholder="Nama lengkap ahli waris"
+                                    value={formData.nama_ahli_waris}
+                                    onChange={(e) => handleFieldChange('nama_ahli_waris', e.target.value)}
+                                  />
+                                  {namedFamilyMembers.length > 0 && (
+                                    <button
+                                      type="button"
+                                      className="text-xs text-primary hover:underline"
+                                      onClick={() => setManualHeirInput(false)}
+                                    >
+                                      Pilih dari daftar keluarga (SK Pensiun)
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                              {validationErrors.nama_ahli_waris && (
+                                <p className="text-sm text-destructive">{validationErrors.nama_ahli_waris}</p>
+                              )}
                             </div>
                             <div className="space-y-2">
                               <label className="text-sm font-medium">Hubungan Dengan Meninggal</label>
@@ -978,12 +1303,17 @@ export function DanaKematianFormModal({
                                   <SelectItem value="keluarga">Keluarga</SelectItem>
                                 </SelectContent>
                               </Select>
+                              <p className="text-xs text-muted-foreground">
+                                {isKeluargaInti
+                                  ? 'Keluarga inti — dokumen berupa Surat Keterangan Ahli Waris'
+                                  : 'Bukan keluarga inti — dokumen berupa Surat Kuasa Ahli Waris'}
+                              </p>
                             </div>
                           </div>
                         )}
 
-                        {documentStep === 3 && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {currentDocStep.stepKey === 'kk' && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                             <div className="space-y-2">
                               <label className="text-sm font-medium">Nama Ahli Waris</label>
                               <Input
@@ -993,25 +1323,79 @@ export function DanaKematianFormModal({
                               />
                             </div>
                             <div className="space-y-2">
-                              <label className="text-sm font-medium">Keterangan Dengan Meninggal</label>
+                              <label className="text-sm font-medium">Hubungan Dengan Meninggal</label>
                               <Input
                                 value={formData.status_ahli_waris
                                   ? formData.status_ahli_waris.charAt(0).toUpperCase() + formData.status_ahli_waris.slice(1)
                                   : ''}
                                 readOnly
                                 className="bg-muted cursor-not-allowed"
-                                placeholder="Diisi otomatis dari Keterangan Ahli Waris"
+                                placeholder="Diisi otomatis dari Hubungan Ahli Waris"
                               />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                              <div className="flex items-start gap-2.5 rounded-lg border bg-muted/30 p-4">
+                                <Checkbox
+                                  id="kk-ahli-waris-konfirmasi"
+                                  checked={docMeta.kk_ahli_waris_konfirmasi === true}
+                                  onCheckedChange={(checked) => updateMeta('kk_ahli_waris_konfirmasi', checked === true)}
+                                  className="mt-0.5"
+                                />
+                                <label htmlFor="kk-ahli-waris-konfirmasi" className="text-sm cursor-pointer">
+                                  Saya menyatakan ahli waris tercatat dalam Kartu Keluarga ini dan merupakan
+                                  <span className="font-semibold"> garis keturunan langsung</span> dari almarhum/almarhumah. <span className="text-destructive">*</span>
+                                </label>
+                              </div>
                             </div>
                           </div>
                         )}
 
-                        {/* Hint for optional Dokumen Pendukung step */}
-                        {!currentDocStep.required && (() => {
-                          const requiredSteps = DOCUMENT_STEPS.filter(s => s.required);
-                          const missingRequired = requiredSteps.filter(s => !(formData[s.field] as string));
-                          const allDone = missingRequired.length === 0;
+                        {currentDocStep.stepKey === 'e_ktp' && (
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/40">
+                              <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                              <p className="text-xs text-blue-800 dark:text-blue-300">
+                                Pastikan <strong>nama pada E-KTP sesuai dengan nama ahli waris yang diinput</strong>
+                                {formData.nama_ahli_waris && (
+                                  <> — yaitu <strong>{formData.nama_ahli_waris}</strong></>
+                                )}. Jika tidak sesuai, pembaruan dokumen akan diminta pada tahap verifikasi.
+                              </p>
+                            </div>
+                          </div>
+                        )}
 
+                        {currentDocStep.stepKey === 'surat_nikah' && (
+                          <div className="space-y-3">
+                            <div className="rounded-lg border bg-muted/30 p-4">
+                              <p className="text-sm text-muted-foreground">
+                                Surat nikah sering kali tidak ditemukan atau status perkawinan tidak jelas.
+                                Jika dokumen tidak dapat diupload, isi <strong>Keterangan</strong> di bawah sebagai pengganti.
+                              </p>
+                            </div>
+                            {!hasFileValue('file_surat_nikah') && (
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                  Keterangan <span className="text-destructive">*</span> (wajib jika dokumen tidak diupload)
+                                </label>
+                                <Textarea
+                                  placeholder="Contoh: Buku nikah hilang terbakar saat kebakaran rumah. Surat keterangan belum menikah lagi dari kelurahan terlampir."
+                                  value={docMeta.surat_nikah_keterangan || ''}
+                                  onChange={(e) => updateMeta('surat_nikah_keterangan', e.target.value)}
+                                  rows={3}
+                                />
+                              </div>
+                            )}
+                            {hasFileValue('file_surat_nikah') && (
+                              <p className="text-xs text-muted-foreground">
+                                Dokumen terupload — keterangan opsional tidak diperlukan.
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Berkas completeness checklist */}
+                        {(() => {
+                          const allDone = isBerkasLengkap;
                           return (
                             <div className={`rounded-lg border p-4 space-y-3 ${allDone ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/40' : 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40'}`}>
                               <div className="flex items-start gap-2.5">
@@ -1022,43 +1406,39 @@ export function DanaKematianFormModal({
                                 <div className="space-y-1">
                                   <p className={`text-sm font-semibold ${allDone ? 'text-green-800 dark:text-green-300' : 'text-amber-800 dark:text-amber-300'}`}>
                                     {allDone
-                                      ? 'Semua dokumen wajib sudah terupload!'
-                                      : 'Selesaikan dokumen wajib terlebih dahulu'
+                                      ? 'Berkas lengkap — siap dikirim ke Verifikasi Pusat'
+                                      : `Berkas belum lengkap (${missingBerkasItems.length} item tersisa)`
                                     }
                                   </p>
                                   <p className={`text-xs ${allDone ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
                                     {allDone
-                                      ? 'Dokumen Pendukung bersifat opsional — Anda dapat melewati langkah ini jika tidak ada dokumen tambahan.'
-                                      : 'Dokumen ini bersifat opsional dan tidak diwajibkan. Pastikan semua dokumen wajib di bawah sudah terupload sebelum menyelesaikan pengajuan.'
+                                      ? 'Klik tombol "Berkas Lengkap" untuk mengirim pengajuan ke Verifikasi Pusat.'
+                                      : 'Lengkapi item berikut sebelum mengirim ke Verifikasi Pusat. Atau gunakan "Simpan Draft" untuk menyimpan sementara.'
                                     }
                                   </p>
                                 </div>
                               </div>
 
-                              {/* Required docs checklist */}
-                              <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-current/10">
-                                {requiredSteps.map((s) => {
-                                  const uploaded = !!(formData[s.field] as string);
-                                  return (
-                                    <div key={s.field} className="flex items-center gap-1.5">
-                                      {uploaded
-                                        ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                                        : <Circle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                                      }
-                                      <span className={`text-xs ${uploaded ? 'text-green-700 dark:text-green-400 line-through opacity-70' : 'text-amber-700 dark:text-amber-400 font-medium'}`}>
-                                        {s.label}
-                                      </span>
+                              {/* Missing items checklist */}
+                              {!allDone && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 border-t border-current/10">
+                                  {missingBerkasItems.map((item) => (
+                                    <div key={item} className="flex items-center gap-1.5">
+                                      <Circle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                                      <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">{item}</span>
                                     </div>
-                                  );
-                                })}
-                              </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
 
                         {/* File Upload Zone */}
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Dokumen Pendukung</label>
+                          <label className="text-sm font-medium">
+                            Dokumen {currentDocStep.stepKey === 'surat_ahli_waris' ? suratAhliWarisLabel : currentDocStep.label}
+                          </label>
                           <div
                             className={`
                               border-2 border-dashed rounded-lg p-8 text-center transition-all
@@ -1119,7 +1499,7 @@ export function DanaKematianFormModal({
                               <div className="space-y-2">
                                 <Upload className="h-10 w-10 mx-auto text-muted-foreground/50" />
                                 <p className="font-medium text-muted-foreground">
-                                  Klik untuk upload {currentDocStep.label}
+                                  Klik untuk upload {currentDocStep.stepKey === 'surat_ahli_waris' ? suratAhliWarisLabel : currentDocStep.label}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   Format: PDF, JPG, PNG (maks. 5MB)
@@ -1142,7 +1522,7 @@ export function DanaKematianFormModal({
                           </Button>
 
                           <span className="text-xs text-muted-foreground">
-                            {DOCUMENT_STEPS.filter(s => formData[s.field] as string).length} / {DOCUMENT_STEPS.length} dokumen terupload
+                            {DOCUMENT_STEPS.filter(s => isStepComplete(s)).length} / {DOCUMENT_STEPS.length} dokumen terupload
                           </span>
 
                           {documentStep < DOCUMENT_STEPS.length - 1 ? (
@@ -1171,33 +1551,56 @@ export function DanaKematianFormModal({
               </div>
             </Tabs>
 
-            <DialogFooter className="shrink-0 border-t pt-4 px-2">
+            <DialogFooter className="shrink-0 border-t pt-4 px-2 flex-wrap gap-2">
               <div className="text-sm text-muted-foreground mr-auto">
-                * Field wajib diisi
+                {validationErrors.berkas ? (
+                  <span className="text-destructive">{validationErrors.berkas}</span>
+                ) : (
+                  '* Field wajib diisi'
+                )}
               </div>
               <DialogClose asChild>
                 <Button type="button" variant="outline">
                   Batal
                 </Button>
               </DialogClose>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Menyimpan...
-                  </>
-                ) : mode === 'create' ? (
-                  <>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Ajukan Dana
-                  </>
-                ) : (
-                  <>
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Perbarui Data
-                  </>
-                )}
-              </Button>
+
+              {claimEditable && (
+                <>
+                  {/* Save as draft — basic validation only */}
+                  <Button type="submit" variant="outline" disabled={isPending}>
+                    {isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Menyimpan...
+                      </>
+                    ) : mode === 'create' ? (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Simpan Draft
+                      </>
+                    ) : (
+                      <>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Perbarui Data
+                      </>
+                    )}
+                  </Button>
+
+                  {/* Submit complete berkas to Verifikasi Pusat */}
+                  <Button
+                    type="button"
+                    disabled={isPending || !isBerkasLengkap}
+                    title={isBerkasLengkap
+                      ? 'Kirim pengajuan ke Verifikasi Pusat'
+                      : `Lengkapi: ${missingBerkasItems.join(', ')}`}
+                    onClick={handleSubmitBerkasLengkap}
+                  >
+                    <FolderCheck className="h-4 w-4 mr-2" />
+                    Berkas Lengkap
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </form>
         </DialogContent>

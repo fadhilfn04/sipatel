@@ -4,18 +4,24 @@
  * Manages status transitions and validation rules for death benefit claims
  */
 
+import { getStatusProps } from './dana-kematian-status';
+
 // =====================================================
 // TYPES & INTERFACES
 // =====================================================
 
 export type DanaKematianStatus =
+  | 'draft'
   | 'dilaporkan'
   | 'pending_dokumen'
   | 'verifikasi_cabang'
   | 'revisi_pusat'
   | 'proses_pusat'
   | 'verified'
+  | 'batal'
   | 'penyaluran'
+  | 'terima_ahli_waris'
+  | 'laporan'
   | 'selesai'
   | 'ditolak';
 
@@ -52,7 +58,24 @@ export interface ClaimValidation {
 // =====================================================
 
 export const STATE_TRANSITIONS: StateTransition[] = [
-  // Phase A to B: Death Report to PC Validation
+  // Draft: complete berkas submitted to PP (Berkas Lengkap)
+  {
+    from: 'draft',
+    to: 'proses_pusat',
+    allowed_roles: ['cabang', 'admin'],
+    description: 'Berkas lengkap dikirim ke Pusat untuk verifikasi (Berkas Lengkap)',
+    condition: (claim) => areDocumentsComplete(claim)
+  },
+
+  // Draft can be canceled while incomplete
+  {
+    from: 'draft',
+    to: 'batal',
+    allowed_roles: ['cabang', 'admin'],
+    description: 'Pengajuan draft dibatalkan oleh cabang'
+  },
+
+  // Legacy Phase A to B: Death Report to PC Validation
   {
     from: 'dilaporkan',
     to: 'verifikasi_cabang',
@@ -65,18 +88,7 @@ export const STATE_TRANSITIONS: StateTransition[] = [
     }
   },
 
-  // Phase B to C: Initial documents incomplete
-  {
-    from: 'verifikasi_cabang',
-    to: 'pending_dokumen',
-    allowed_roles: ['cabang', 'admin'],
-    description: 'Initial documents received but incomplete (Berkas-1 at Waktu-1)',
-    condition: (claim) => {
-      return claim.waktu_1 !== null && !areDocumentsComplete(claim);
-    }
-  },
-
-  // Phase C to D: Complete documents submitted to PP
+  // Legacy: complete documents submitted to PP
   {
     from: 'verifikasi_cabang',
     to: 'proses_pusat',
@@ -89,7 +101,7 @@ export const STATE_TRANSITIONS: StateTransition[] = [
     }
   },
 
-  // Alternative: From pending_dokumen to proses_pusat
+  // Legacy: From pending_dokumen to proses_pusat (resubmit after koreksi)
   {
     from: 'pending_dokumen',
     to: 'proses_pusat',
@@ -100,6 +112,14 @@ export const STATE_TRANSITIONS: StateTransition[] = [
              claim.cabang_tanggal_kirim_ke_pusat !== null &&
              claim.is_validated_pc === true;
     }
+  },
+
+  {
+    from: 'revisi_pusat',
+    to: 'proses_pusat',
+    allowed_roles: ['cabang', 'admin'],
+    description: 'Revised documents resubmitted to PP',
+    condition: (claim) => areDocumentsComplete(claim)
   },
 
   // Phase D: PP validation
@@ -115,7 +135,7 @@ export const STATE_TRANSITIONS: StateTransition[] = [
     }
   },
 
-  // Return to PC for corrections
+  // Return to PC for corrections (Koreksi)
   {
     from: 'proses_pusat',
     to: 'pending_dokumen',
@@ -131,6 +151,14 @@ export const STATE_TRANSITIONS: StateTransition[] = [
     allowed_roles: ['pusat', 'admin'],
     description: 'Application rejected due to eligibility or fraud',
     requires_approval: true
+  },
+
+  // PP or PC can cancel a not-yet-distributed submission
+  {
+    from: 'proses_pusat',
+    to: 'batal',
+    allowed_roles: ['cabang', 'pusat', 'admin'],
+    description: 'Pengajuan dibatalkan sebelum penyaluran'
   },
 
   // Phase E: Approval to fund transfer
@@ -156,21 +184,51 @@ export const STATE_TRANSITIONS: StateTransition[] = [
     requires_approval: true
   },
 
-  // Phase F: Fund delivery and reporting
+  // Phase F1: Fund delivery to heir (requires handover documentation)
+  {
+    from: 'penyaluran',
+    to: 'terima_ahli_waris',
+    allowed_roles: ['cabang', 'admin'],
+    description: 'Dana diserahkan ke ahli waris dengan berkas serah terima (Waktu-6)',
+    condition: (claim) => {
+      return claim.is_delivered === true &&
+             claim.cabang_tanggal_serah_ke_ahli_waris !== null &&
+             claim.file_bukti_penyerahan !== null;
+    }
+  },
+
+  // Phase F2: Branch report uploaded (Archive Management integration)
+  {
+    from: 'terima_ahli_waris',
+    to: 'laporan',
+    allowed_roles: ['cabang', 'admin'],
+    description: 'Laporan cabang diupload ke modul Arsip (Waktu-7)',
+    condition: (claim) => {
+      return !!getClaimMetadata(claim).file_laporan_cabang;
+    }
+  },
+
+  // Phase F3: Final completion
+  {
+    from: 'laporan',
+    to: 'selesai',
+    allowed_roles: ['cabang', 'pusat', 'admin'],
+    description: 'Semua laporan lengkap, pengajuan selesai (Waktu-7)',
+    condition: (claim) => claim.cabang_tanggal_lapor_ke_pusat !== null
+  },
+
+  // Legacy: direct delivery completion (old rows may still use this path)
   {
     from: 'penyaluran',
     to: 'selesai',
     allowed_roles: ['cabang', 'admin'],
-    description: 'Funds delivered to heir and all reports submitted (Waktu-6 → Waktu-7)',
+    description: 'Funds delivered to heir and all reports submitted (legacy direct path)',
     condition: (claim) => {
       return claim.is_delivered === true &&
              claim.cabang_tanggal_serah_ke_ahli_waris !== null &&
              claim.file_bukti_penyerahan !== null &&
              claim.is_reported === true &&
-             claim.cabang_tanggal_lapor_ke_pusat !== null &&
-             claim.file_berita_acara !== null &&
-             claim.file_laporan_keuangan !== null &&
-             claim.file_laporan_feedback !== null;
+             claim.cabang_tanggal_lapor_ke_pusat !== null;
     }
   },
 
@@ -203,21 +261,51 @@ export const STATE_TRANSITIONS: StateTransition[] = [
 // =====================================================
 
 /**
- * Check if all required documents are present
+ * Read document_metadata regardless of whether it arrives parsed (Supabase)
+ * or as a JSON string.
  */
-function areDocumentsComplete(claim: any): boolean {
-  const requiredDocs = [
-    'file_surat_kematian',
-    'file_sk_pensiun',
-    'file_surat_pernyataan_ahli_waris',
-    'file_kartu_keluarga',
-    'file_e_ktp'
-  ];
+export function getClaimMetadata(claim: any): Record<string, any> {
+  const raw = claim?.document_metadata;
+  if (!raw) return {};
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof raw === 'object' ? raw : {};
+}
 
-  return requiredDocs.every(doc => {
-    const value = claim[doc];
-    return value !== null && value !== undefined && value !== '';
-  });
+function hasFile(value: any): boolean {
+  return value !== null && value !== undefined && value !== '';
+}
+
+/**
+ * Check if the 6 mandatory documents (UAT 2026) are present.
+ * SK Pensiun may be substituted by the lost-document statement
+ * (document_metadata.sk_pensiun_missing + formal explanation).
+ */
+export function areDocumentsComplete(claim: any): boolean {
+  const meta = getClaimMetadata(claim);
+
+  const skPensiunOk =
+    hasFile(claim.file_sk_pensiun) ||
+    (meta.sk_pensiun_missing === true && !!meta.sk_pensiun_hilang_keterangan);
+
+  // Surat Nikah is conditional: file OR keterangan (remarks) when missing
+  const suratNikahOk = hasFile(claim.file_surat_nikah) || !!meta.surat_nikah_keterangan;
+
+  return (
+    skPensiunOk &&
+    hasFile(claim.file_surat_kematian) && !!meta.akte_kematian_sumber &&
+    hasFile(claim.file_surat_pernyataan_ahli_waris) &&
+    hasFile(claim.file_kartu_keluarga) && meta.kk_ahli_waris_konfirmasi === true &&
+    hasFile(claim.file_e_ktp) &&
+    hasFile(claim.file_surat_keterangan) &&
+    suratNikahOk
+  );
 }
 
 /**
@@ -249,21 +337,53 @@ export function validateClaim(claim: any): ClaimValidation {
   }
 
   // Check documents
-  if (!areDocumentsComplete(claim)) {
-    const requiredDocs = [
-      { field: 'file_surat_kematian', name: 'Surat Kematian' },
-      { field: 'file_sk_pensiun', name: 'SK Pensiun' },
-      { field: 'file_surat_pernyataan_ahli_waris', name: 'Surat Pernyataan Ahli Waris' },
-      { field: 'file_kartu_keluarga', name: 'Kartu Keluarga' },
-      { field: 'file_e_ktp', name: 'KTP Ahli Waris' }
-    ];
+  const meta = getClaimMetadata(claim);
+  const requiredDocs: Array<{ field: string; name: string; ok: boolean }> = [
+    {
+      field: 'file_sk_pensiun',
+      name: 'SK Pensiun',
+      ok: hasFile(claim.file_sk_pensiun) ||
+          (meta.sk_pensiun_missing === true && !!meta.sk_pensiun_hilang_keterangan),
+    },
+    {
+      field: 'file_surat_kematian',
+      name: 'Akte Kematian',
+      ok: hasFile(claim.file_surat_kematian) && !!meta.akte_kematian_sumber,
+    },
+    {
+      field: 'file_surat_pernyataan_ahli_waris',
+      name: 'Surat Keterangan / Kuasa Ahli Waris',
+      ok: hasFile(claim.file_surat_pernyataan_ahli_waris),
+    },
+    {
+      field: 'file_kartu_keluarga',
+      name: 'Kartu Keluarga Ahli Waris',
+      ok: hasFile(claim.file_kartu_keluarga) && meta.kk_ahli_waris_konfirmasi === true,
+    },
+    {
+      field: 'file_e_ktp',
+      name: 'E-KTP Ahli Waris',
+      ok: hasFile(claim.file_e_ktp),
+    },
+    {
+      field: 'file_surat_keterangan',
+      name: 'Surat Permohonan',
+      ok: hasFile(claim.file_surat_keterangan),
+    },
+    {
+      field: 'file_surat_nikah',
+      name: 'Surat Nikah / Keterangan',
+      ok: hasFile(claim.file_surat_nikah) || !!meta.surat_nikah_keterangan,
+    },
+  ];
 
-    requiredDocs.forEach(doc => {
-      if (!claim[doc.field]) {
-        validation.missing_documents.push(doc.name);
-      }
-    });
+  requiredDocs.forEach(doc => {
+    if (!doc.ok) {
+      validation.missing_documents.push(doc.name);
+    }
+  });
 
+  if (validation.missing_documents.length > 0) {
     validation.can_proceed = false;
     validation.warnings.push('Dokumen belum lengkap');
   }
@@ -367,21 +487,12 @@ function getConditionErrors(transition: StateTransition, claim: any): string[] {
   const errors: string[] = [];
 
   switch (transition.to) {
-    case 'verifikasi_cabang':
-      if (!areDocumentsComplete(claim)) {
-        errors.push('Dokumen belum lengkap');
-      }
-      if (!claim.cabang_tanggal_awal_terima_berkas) {
-        errors.push('Tanggal penerimaan berkas belum diisi');
-      }
-      break;
-
     case 'proses_pusat':
-      if (!claim.cabang_tanggal_kirim_ke_pusat) {
-        errors.push('Tanggal kirim ke pusat belum diisi');
+      if (!areDocumentsComplete(claim)) {
+        errors.push('Dokumen wajib belum lengkap');
       }
-      if (claim.cabang_status_kelengkapan !== 'lengkap') {
-        errors.push('Status kelengkapan harus "lengkap"');
+      if (claim.status_proses !== 'draft' && !claim.cabang_tanggal_kirim_ke_pusat) {
+        errors.push('Tanggal kirim ke pusat belum diisi');
       }
       break;
 
@@ -394,6 +505,21 @@ function getConditionErrors(transition: StateTransition, claim: any): string[] {
       }
       break;
 
+    case 'terima_ahli_waris':
+      if (!claim.cabang_tanggal_serah_ke_ahli_waris) {
+        errors.push('Tanggal penyerahan ke ahli waris belum diisi');
+      }
+      if (!claim.file_bukti_penyerahan) {
+        errors.push('Berkas serah terima (bukti penyerahan) belum diupload');
+      }
+      break;
+
+    case 'laporan':
+      if (!getClaimMetadata(claim).file_laporan_cabang) {
+        errors.push('Laporan cabang belum diupload');
+      }
+      break;
+
     case 'selesai':
       if (!claim.cabang_tanggal_serah_ke_ahli_waris) {
         errors.push('Tanggal penyerahan ke ahli waris belum diisi');
@@ -401,7 +527,7 @@ function getConditionErrors(transition: StateTransition, claim: any): string[] {
       if (!claim.cabang_tanggal_lapor_ke_pusat) {
         errors.push('Tanggal lapor ke pusat belum diisi');
       }
-      if (!claim.cabang_bukti_penyerahan) {
+      if (!claim.file_bukti_penyerahan) {
         errors.push('Bukti penyerahan belum diupload');
       }
       break;
@@ -420,7 +546,7 @@ export class DanaKematianStateMachine {
 
   constructor(claim: any) {
     this.claim = claim;
-    this.currentStatus = claim.status_proses || 'dilaporkan';
+    this.currentStatus = claim.status_proses || 'draft';
   }
 
   /**
@@ -503,6 +629,11 @@ export class DanaKematianStateMachine {
    */
   getRequiredActions(): string[] {
     const actions: Record<DanaKematianStatus, string[]> = {
+      'draft': [
+        'Lengkapi data pengajuan dan ahli waris',
+        'Upload 6 dokumen wajib',
+        'Klik Berkas Lengkap untuk mengirim ke Verifikasi Pusat'
+      ],
       'dilaporkan': [
         'Upload semua dokumen yang diperlukan',
         'Verifikasi kelengkapan dokumen',
@@ -530,10 +661,21 @@ export class DanaKematianStateMachine {
         'Persiapkan penyaluran dana',
         'Jadwalkan penyerahan ke ahli waris'
       ],
+      'batal': [
+        'Pengajuan dibatalkan — data tetap tersimpan sebagai arsip'
+      ],
       'penyaluran': [
         'Input tanggal penyerahan ke ahli waris',
-        'Upload bukti penyerahan dana',
-        'Konfirmasi penyerahan untuk menyelesaikan pengajuan'
+        'Upload berkas serah terima (bukti penyerahan)',
+        'Konfirmasi penyerahan dana ke ahli waris'
+      ],
+      'terima_ahli_waris': [
+        'Upload laporan cabang',
+        'Kirim laporan ke modul Arsip'
+      ],
+      'laporan': [
+        'Pastikan tanggal lapor ke pusat terisi',
+        'Selesaikan pengajuan'
       ],
       'selesai': [
         'Arsipkan berkas klaim',
@@ -573,21 +715,10 @@ export class DanaKematianStateMachine {
 // =====================================================
 
 /**
- * Get state label for display
+ * Get state label for display (delegates to the central status config)
  */
 export function getStateLabel(status: DanaKematianStatus): string {
-  const labels: Record<DanaKematianStatus, string> = {
-    'dilaporkan': 'Dilaporkan',
-    'pending_dokumen': 'Revisi Dokumen',
-    'verifikasi_cabang': 'Verifikasi Cabang',
-    'revisi_pusat': 'Revisi Pusat',
-    'proses_pusat': 'Proses Pusat',
-    'verified': 'Terverifikasi',
-    'penyaluran': 'Penyaluran',
-    'selesai': 'Selesai',
-    'ditolak': 'Ditolak'
-  };
-  return labels[status] || status;
+  return getStatusProps(status).label;
 }
 
 /**
@@ -595,13 +726,17 @@ export function getStateLabel(status: DanaKematianStatus): string {
  */
 export function getStateDescription(status: DanaKematianStatus): string {
   const descriptions: Record<DanaKematianStatus, string> = {
+    'draft': 'Formulir pengajuan belum dikirim (sedang diproses)',
     'dilaporkan': 'Laporan kematian telah diterima (Waktu-0)',
-    'pending_dokumen': 'PP menolak dokumen, cabang perlu upload ulang',
+    'pending_dokumen': 'PP mengembalikan berkas untuk dikoreksi',
     'verifikasi_cabang': 'PC melakukan validasi dan komunikasi aktif dengan ahli waris',
     'revisi_pusat': 'PP menolak dokumen, cabang perlu upload ulang dan kirim kembali',
     'proses_pusat': 'Berkas sedang diverifikasi oleh PP (Waktu-2 → Waktu-3)',
-    'verified': 'Terverifikasi oleh PP, menunggu penyaluran dana',
+    'verified': 'Valid — terverifikasi oleh PP, menunggu penyaluran dana',
+    'batal': 'Pengajuan dibatalkan (data tetap tersimpan)',
     'penyaluran': 'Dana disetujui PP, menunggu penyerahan ke ahli waris',
+    'terima_ahli_waris': 'Dana telah diterima ahli waris — berkas serah terima dikirim ke modul Keuangan',
+    'laporan': 'Laporan cabang diupload ke modul Manajemen Arsip',
     'selesai': 'Dana telah diserahkan dan semua laporan lengkap (Waktu-7)',
     'ditolak': 'Pengajuan ditolak'
   };
@@ -613,13 +748,17 @@ export function getStateDescription(status: DanaKematianStatus): string {
  */
 export function getStateColor(status: DanaKematianStatus): string {
   const colors: Record<DanaKematianStatus, string> = {
+    'draft': 'gray',
     'dilaporkan': 'blue',
     'pending_dokumen': 'red',
     'verifikasi_cabang': 'cyan',
     'revisi_pusat': 'red',
     'proses_pusat': 'purple',
     'verified': 'indigo',
+    'batal': 'red',
     'penyaluran': 'orange',
+    'terima_ahli_waris': 'amber',
+    'laporan': 'amber',
     'selesai': 'green',
     'ditolak': 'red'
   };
@@ -627,21 +766,10 @@ export function getStateColor(status: DanaKematianStatus): string {
 }
 
 /**
- * Get state badge variant
+ * Get state badge variant (delegates to the central status config)
  */
 export function getStateBadgeVariant(status: DanaKematianStatus): 'success' | 'warning' | 'destructive' | 'secondary' {
-  const variants: Record<DanaKematianStatus, 'success' | 'warning' | 'destructive' | 'secondary'> = {
-    'selesai': 'success',
-    'verified': 'success',
-    'ditolak': 'destructive',
-    'pending_dokumen': 'destructive',
-    'revisi_pusat': 'destructive',
-    'penyaluran': 'warning',
-    'dilaporkan': 'secondary',
-    'verifikasi_cabang': 'secondary',
-    'proses_pusat': 'secondary'
-  };
-  return variants[status] || 'secondary';
+  return getStatusProps(status).variant;
 }
 
 /**
@@ -649,13 +777,17 @@ export function getStateBadgeVariant(status: DanaKematianStatus): 'success' | 'w
  */
 export function getCurrentPhase(status: DanaKematianStatus): string {
   const phaseMap: Record<DanaKematianStatus, string> = {
-    'dilaporkan': 'A. Laporan Kematian',
-    'verifikasi_cabang': 'B. Pengajuan Dakem',
-    'pending_dokumen': 'C. Revisi Dokumen',
-    'revisi_pusat': 'C. Revisi Dokumen',
-    'proses_pusat': 'D. Verifikasi Pengajuan',
-    'verified': 'E. Finalisasi Pengajuan',
-    'penyaluran': 'F. Penyerahan ke Ahli Waris',
+    'draft': 'A. Draft Pengajuan',
+    'dilaporkan': 'A. Draft Pengajuan',
+    'verifikasi_cabang': 'A. Draft Pengajuan',
+    'pending_dokumen': 'B. Koreksi Berkas',
+    'revisi_pusat': 'B. Koreksi Berkas',
+    'proses_pusat': 'C. Verifikasi Pusat',
+    'verified': 'D. Validasi Selesai',
+    'batal': 'Batal',
+    'penyaluran': 'E. Penyaluran Dana',
+    'terima_ahli_waris': 'F. Terima Ahli Waris',
+    'laporan': 'G. Laporan',
     'selesai': 'Selesai',
     'ditolak': 'Ditolak'
   };
@@ -667,13 +799,17 @@ export function getCurrentPhase(status: DanaKematianStatus): string {
  */
 export function getNextWaktu(status: DanaKematianStatus): string {
   const nextWaktu: Record<DanaKematianStatus, string> = {
+    'draft': 'Waktu-2 (Pengiriman ke PP)',
     'dilaporkan': 'Waktu-1 (Initial Documents)',
     'verifikasi_cabang': 'Waktu-1 (Initial Documents)',
     'pending_dokumen': 'Waktu-2 (Final Documents)',
     'revisi_pusat': 'Waktu-2 (Revised Documents)',
     'proses_pusat': 'Waktu-3 (PP Validation)',
     'verified': 'Waktu-4 (Processing Complete)',
+    'batal': 'N/A',
     'penyaluran': 'Waktu-6 (Delivery to Heir)',
+    'terima_ahli_waris': 'Waktu-7 (Branch Report)',
+    'laporan': 'Waktu-7 (Completion)',
     'selesai': 'Complete',
     'ditolak': 'N/A'
   };
@@ -684,14 +820,14 @@ export function getNextWaktu(status: DanaKematianStatus): string {
  * Check if status allows communication tracking
  */
 export function allowsCommunicationTracking(status: DanaKematianStatus): boolean {
-  return ['dilaporkan', 'verifikasi_cabang'].includes(status);
+  return ['draft', 'dilaporkan', 'verifikasi_cabang'].includes(status);
 }
 
 /**
  * Check if status allows document upload
  */
 export function allowsDocumentUpload(status: DanaKematianStatus): boolean {
-  return ['dilaporkan', 'verifikasi_cabang', 'pending_dokumen'].includes(status);
+  return ['draft', 'dilaporkan', 'verifikasi_cabang', 'pending_dokumen', 'revisi_pusat'].includes(status);
 }
 
 /**
@@ -712,7 +848,7 @@ export function allowsDeliveryActions(status: DanaKematianStatus): boolean {
  * Check if status allows reporting
  */
 export function allowsReporting(status: DanaKematianStatus): boolean {
-  return ['penyaluran', 'selesai'].includes(status);
+  return ['penyaluran', 'terima_ahli_waris', 'laporan', 'selesai'].includes(status);
 }
 
 /**
@@ -739,8 +875,7 @@ export function calculateProcessingTime(claim: any): number {
  */
 export function isOverdue(claim: any, maxDays: number = 30): boolean {
   const processingDays = calculateProcessingTime(claim);
-  return claim.status_proses !== 'selesai' &&
-         claim.status_proses !== 'ditolak' &&
+  return !['selesai', 'ditolak', 'batal'].includes(claim.status_proses) &&
          processingDays > maxDays;
 }
 
@@ -773,54 +908,82 @@ export function getCurrentStageInfo(claim: any): {
   const status = claim.status_proses;
 
   const stageInfo: Record<string, any> = {
+    'draft': {
+      stage: 'A. Draft Pengajuan',
+      description: 'Formulir pengajuan sedang diisi / belum dikirim',
+      waktu: 'Waktu-0 → Waktu-2',
+      percentComplete: 8,
+      nextStep: 'Lengkapi 6 dokumen wajib lalu klik Berkas Lengkap'
+    },
     'dilaporkan': {
-      stage: 'A. Laporan Kematian',
+      stage: 'A. Draft Pengajuan',
       description: 'Laporan kematian telah diterima',
       waktu: 'Waktu-0',
       percentComplete: 12.5,
       nextStep: 'PC memulai validasi dan komunikasi dengan ahli waris'
     },
     'verifikasi_cabang': {
-      stage: 'B. Pengajuan Dakem',
+      stage: 'A. Draft Pengajuan',
       description: 'PC melakukan validasi aktif dan komunikasi dengan ahli waris',
       waktu: 'Waktu-0 → Waktu-1',
-      percentComplete: 25,
+      percentComplete: 20,
       nextStep: 'Menerima dan memverifikasi dokumen dari ahli waris'
     },
     'pending_dokumen': {
-      stage: 'C. Kompilasi Berkas',
-      description: 'Menunggu pelengkapan dokumen dari ahli waris',
+      stage: 'B. Koreksi Berkas',
+      description: 'PP mengembalikan berkas — lengkapi dokumen yang dikoreksi',
       waktu: 'Waktu-1',
       percentComplete: 37.5,
-      nextStep: 'Menerima dokumen lengkap dan mengirim ke PP'
-    },
-    'proses_pusat': {
-      stage: 'D. Verifikasi Pengajuan',
-      description: 'PP menerima dan memverifikasi kelengkapan dokumen',
-      waktu: 'Waktu-2 → Waktu-3',
-      percentComplete: 50,
-      nextStep: 'Menunggu validasi dan persetujuan dari PP'
+      nextStep: 'Perbaiki dokumen lalu kirim kembali ke PP'
     },
     'revisi_pusat': {
-      stage: 'Revisi Dokumen',
+      stage: 'B. Koreksi Berkas',
       description: 'PP menolak satu atau lebih dokumen, cabang perlu mengupload ulang',
       waktu: 'Waktu-2',
       percentComplete: 40,
       nextStep: 'Upload ulang dokumen yang ditolak lalu klik Update Data'
     },
+    'proses_pusat': {
+      stage: 'C. Verifikasi Pusat',
+      description: 'PP menerima dan memverifikasi kelengkapan dokumen',
+      waktu: 'Waktu-2 → Waktu-3',
+      percentComplete: 50,
+      nextStep: 'Menunggu validasi dan persetujuan dari PP'
+    },
     'verified': {
-      stage: 'E. Finalisasi Pengajuan',
-      description: 'Terverifikasi oleh PP, siap disalurkan',
+      stage: 'D. Validasi Selesai',
+      description: 'Valid — terverifikasi oleh PP, siap disalurkan',
       waktu: 'Waktu-3 → Waktu-4',
       percentComplete: 62.5,
       nextStep: 'PP menyetujui dan menyalurkan dana ke cabang'
     },
+    'batal': {
+      stage: 'Batal',
+      description: 'Pengajuan dibatalkan (data tetap tersimpan)',
+      waktu: 'N/A',
+      percentComplete: 0,
+      nextStep: 'Buat pengajuan baru jika diperlukan'
+    },
     'penyaluran': {
-      stage: 'F. Penyerahan ke Ahli Waris',
+      stage: 'E. Penyaluran Dana',
       description: 'Dana disetujui PP, menunggu cabang menyerahkan ke ahli waris',
       waktu: 'Waktu-4 → Waktu-6',
-      percentComplete: 80,
-      nextStep: 'PC input tanggal penyerahan dan upload bukti penyerahan'
+      percentComplete: 75,
+      nextStep: 'PC input tanggal penyerahan dan upload berkas serah terima'
+    },
+    'terima_ahli_waris': {
+      stage: 'F. Terima Ahli Waris',
+      description: 'Dana diterima ahli waris — berkas serah terima diteruskan ke modul Keuangan',
+      waktu: 'Waktu-6 → Waktu-7',
+      percentComplete: 87.5,
+      nextStep: 'Upload laporan cabang ke modul Arsip'
+    },
+    'laporan': {
+      stage: 'G. Laporan',
+      description: 'Laporan cabang telah diupload — siap diselesaikan',
+      waktu: 'Waktu-7',
+      percentComplete: 95,
+      nextStep: 'Selesaikan pengajuan'
     },
     'selesai': {
       stage: 'Selesai',
@@ -838,7 +1001,7 @@ export function getCurrentStageInfo(claim: any): {
     }
   };
 
-  return stageInfo[status] || stageInfo['dilaporkan'];
+  return stageInfo[status] || stageInfo['draft'];
 }
 
 /**
@@ -891,8 +1054,15 @@ export function getTimelineEvents(claim: any): Array<{
       waktu: 'waktu_6',
       label: 'PC Serahkan Dana ke Ahli Waris',
       date: claim.waktu_6 || claim.cabang_tanggal_serah_ke_ahli_waris,
-      description: 'Pengurus cabang menyerahkan dana kematian kepada ahli waris dan mengupload bukti penyerahan',
+      description: 'Pengurus cabang menyerahkan dana kematian kepada ahli waris dan mengupload berkas serah terima (diteruskan ke modul Keuangan)',
       completed: !!(claim.waktu_6 || claim.cabang_tanggal_serah_ke_ahli_waris),
+    },
+    {
+      waktu: 'laporan_cabang',
+      label: 'PC Upload Laporan Cabang (Modul Arsip)',
+      date: getClaimMetadata(claim).laporan_cabang_uploaded_at || null,
+      description: 'PC mengupload laporan cabang ke modul Manajemen Arsip',
+      completed: !!getClaimMetadata(claim).file_laporan_cabang,
     },
     {
       waktu: 'laporan_akhir',

@@ -12,13 +12,17 @@
  */
 
 export type DanaKematianStatus =
+  | 'draft'
   | 'dilaporkan'
   | 'pending_dokumen'
   | 'verifikasi_cabang'
   | 'revisi_pusat'
   | 'proses_pusat'
   | 'verified'
+  | 'batal'
   | 'penyaluran'
+  | 'terima_ahli_waris'
+  | 'laporan'
   | 'selesai'
   | 'ditolak';
 
@@ -27,16 +31,24 @@ export type DanaKematianStatus =
  *
  * Derived from STATE_TRANSITIONS in dana-kematian-state-machine.ts.
  * Every valid forward/backward path is explicitly listed.
+ *
+ * Flow (UAT 2026):
+ *   Draft → Verifikasi Pusat → Koreksi/Batal/Ditolak/Valid
+ *         → Penyaluran → Terima Ahli Waris → Laporan → Selesai
  */
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  dilaporkan: ['verifikasi_cabang', 'ditolak'],
-  verifikasi_cabang: ['pending_dokumen', 'proses_pusat', 'ditolak'],
-  pending_dokumen: ['proses_pusat', 'ditolak'],
-  revisi_pusat: ['proses_pusat', 'ditolak'],
-  proses_pusat: ['verified', 'pending_dokumen', 'ditolak'],
+  draft: ['proses_pusat', 'batal'],
+  dilaporkan: ['verifikasi_cabang', 'proses_pusat', 'batal', 'ditolak'],
+  verifikasi_cabang: ['pending_dokumen', 'proses_pusat', 'batal', 'ditolak'],
+  pending_dokumen: ['proses_pusat', 'batal', 'ditolak'],
+  revisi_pusat: ['proses_pusat', 'batal', 'ditolak'],
+  proses_pusat: ['verified', 'pending_dokumen', 'batal', 'ditolak'],
   verified: ['penyaluran', 'ditolak'],
-  penyaluran: ['selesai', 'ditolak'],
+  penyaluran: ['terima_ahli_waris', 'selesai', 'ditolak'],
+  terima_ahli_waris: ['laporan'],
+  laporan: ['selesai'],
   selesai: [], // Terminal state — no further transitions
+  batal: [], // Terminal state — record kept as archive
   ditolak: ['dilaporkan'], // Allow resubmission (admin only, enforced separately)
 };
 

@@ -22,13 +22,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Pencil,
-  Trash2,
   Eye,
   ChevronsLeft,
   ChevronsRight,
-  User,
   FileText,
   Upload,
+  Download,
+  XCircle,
+  Loader2,
 } from 'lucide-react';
 import { Card, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,7 +53,6 @@ import {
 import {
   useDanaKematianList,
   useCreateDanaKematian,
-  useDeleteDanaKematian,
   useUpdateDanaKematian,
   useDanaKematian,
 } from '@/lib/hooks/use-dana-kematian-api';
@@ -60,10 +60,16 @@ import { DanaKematian, CreateDanaKematianInput } from '@/lib/supabase';
 import { DanaKematianDetailModal } from '@/components/dana-kematian/DanaKematianDetailModal';
 import { DanaKematianFormModal } from '@/components/dana-kematian/DanaKematianFormModal';
 import { DanaKematianImportModal } from '@/components/dana-kematian/DanaKematianImportModal';
-import { DeleteConfirmDialog } from '@/components/dana-kematian/DeleteConfirmDialog';
+import { CancelSubmissionDialog } from '@/components/dana-kematian/CancelSubmissionDialog';
 import { LaporanPeriodeModal } from '@/components/dana-kematian/LaporanPeriodeModal';
 import { ToastNotification } from '@/components/anggota/ToastNotification';
 import { useAnggotaList } from '@/lib/hooks/use-anggota-api';
+import {
+  getStatusProps,
+  STATUS_FILTER_OPTIONS,
+  isCancelable,
+  isEditable,
+} from '@/lib/workflow/dana-kematian-status';
 
 export default function DanaKematianPage() {
   // State
@@ -94,9 +100,10 @@ export default function DanaKematianPage() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editClaimId, setEditClaimId] = useState<string | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [claimToDelete, setClaimToDelete] = useState<DanaKematian | null>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [claimToCancel, setClaimToCancel] = useState<DanaKematian | null>(null);
   const [laporanPeriodeOpen, setLaporanPeriodeOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Toast state
   const [toast, setToast] = useState<{
@@ -122,11 +129,11 @@ export default function DanaKematianPage() {
     limit: 1000,
   });
 
-  // Fetch all claimed anggota IDs for duplicate prevention
+  // Fetch all claimed anggota IDs for duplicate prevention (batal/ditolak don't block re-submission)
   const { data: allClaimsData } = useDanaKematianList({ page: 1, limit: 10000 });
   const existingAnggotaIds = new Set(
     (allClaimsData?.data || [])
-      .filter(c => c.status_proses !== 'ditolak')
+      .filter(c => c.status_proses !== 'ditolak' && c.status_proses !== 'batal')
       .map(c => c.anggota_id)
       .filter(Boolean) as string[]
   );
@@ -134,7 +141,7 @@ export default function DanaKematianPage() {
   const { data: editClaimData } = useDanaKematian(editClaimId || '');
   const createMutation = useCreateDanaKematian();
   const updateMutation = useUpdateDanaKematian(editClaimId || '');
-  const deleteMutation = useDeleteDanaKematian();
+  const cancelMutation = useUpdateDanaKematian(claimToCancel?.id || '');
 
   // Helper functions
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -146,21 +153,6 @@ export default function DanaKematianPage() {
     setToast({ show: false, message: '', type: 'success' });
   };
 
-  const getStatusProps = (status: DanaKematian['status_proses']) => {
-    switch (status) {
-      case 'dilaporkan':       return { variant: 'secondary' as const,    label: 'Dilaporkan' };
-      case 'verifikasi_cabang':return { variant: 'warning' as const,      label: 'Verifikasi Cabang' };
-      case 'pending_dokumen':  return { variant: 'warning' as const,      label: 'Pending Dokumen' };
-      case 'proses_pusat':     return { variant: 'warning' as const,      label: 'Proses Pusat' };
-      case 'verified':         return { variant: 'success' as const,      label: 'Terverifikasi' };
-      case 'penyaluran':       return { variant: 'warning' as const,      label: 'Penyaluran' };
-      case 'selesai':          return { variant: 'success' as const,      label: 'Selesai' };
-      case 'ditolak':          return { variant: 'destructive' as const,  label: 'Ditolak' };
-      default:                 return { variant: 'secondary' as const,    label: status };
-    }
-  };
-
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
       day: 'numeric',
@@ -170,22 +162,32 @@ export default function DanaKematianPage() {
   };
 
   // Event handlers
-  const handleCreate = async (data: CreateDanaKematianInput) => {
+  const handleCreate = async (data: CreateDanaKematianInput, submitMode: 'draft' | 'lengkap') => {
     try {
       await createMutation.mutateAsync(data);
-      showToast('Pengajuan dana kematian berhasil diajukan', 'success');
+      showToast(
+        submitMode === 'lengkap'
+          ? 'Berkas lengkap — pengajuan dikirim ke Verifikasi Pusat'
+          : 'Draft pengajuan dana kematian berhasil disimpan',
+        'success'
+      );
       setAddModalOpen(false);
     } catch (error) {
       console.error('Error creating claim:', error);
-      showToast('Gagal mengajukan dana kematian', 'error');
+      showToast('Gagal menyimpan pengajuan dana kematian', 'error');
       throw error;
     }
   };
 
-  const handleUpdate = async (data: CreateDanaKematianInput) => {
+  const handleUpdate = async (data: CreateDanaKematianInput, submitMode: 'lengkap' | 'draft') => {
     try {
       await updateMutation.mutateAsync(data);
-      showToast('Data dana kematian berhasil diperbarui', 'success');
+      showToast(
+        submitMode === 'lengkap'
+          ? 'Berkas lengkap — pengajuan dikirim ke Verifikasi Pusat'
+          : 'Data dana kematian berhasil diperbarui',
+        'success'
+      );
       setEditModalOpen(false);
       setEditClaimId(null);
     } catch (error) {
@@ -195,17 +197,63 @@ export default function DanaKematianPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (claimToDelete) {
+  const handleCancelSubmission = async () => {
+    if (claimToCancel) {
       try {
-        await deleteMutation.mutateAsync(claimToDelete.id);
-        showToast('Pengajuan dana kematian berhasil dihapus', 'success');
-        setDeleteConfirmOpen(false);
-        setClaimToDelete(null);
+        await cancelMutation.mutateAsync({ status_proses: 'batal' } as any);
+        showToast('Pengajuan telah dibatalkan. Data tetap tersimpan sebagai arsip.', 'success');
+        setCancelConfirmOpen(false);
+        setClaimToCancel(null);
       } catch (error) {
-        console.error('Error deleting claim:', error);
-        showToast('Gagal menghapus data dana kematian', 'error');
+        console.error('Error canceling claim:', error);
+        showToast('Gagal membatalkan pengajuan', 'error');
       }
+    }
+  };
+
+  // Export the currently filtered submissions to XLSX
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      // Fetch all rows matching the active filters
+      const params = new URLSearchParams();
+      if (searchQuery) params.set('search', searchQuery);
+      if (selectedStatus && selectedStatus !== 'all') params.set('status_proses', selectedStatus);
+      if (dateFrom) params.set('tanggal_meninggal_from', dateFrom);
+      if (dateTo) params.set('tanggal_meninggal_to', dateTo);
+      params.set('page', '1');
+      params.set('limit', '10000');
+
+      const res = await fetch(`/api/dana-kematian?${params.toString()}`);
+      if (!res.ok) throw new Error('Gagal mengambil data');
+      const json = await res.json();
+      const rows: DanaKematian[] = json.data || [];
+
+      const XLSX = await import('xlsx');
+      const worksheet = XLSX.utils.json_to_sheet(
+        rows.map((row, index) => ({
+          'NO': index + 1,
+          'NIK': (row as any).anggota?.nik || '',
+          'NAMA ANGGOTA': row.nama_anggota,
+          'CABANG': row.cabang_asal_melapor || '',
+          'TGL MENINGGAL': formatDate(row.tanggal_meninggal),
+          'AHLI WARIS': row.nama_ahli_waris,
+          'STATUS AHLI WARIS': row.status_ahli_waris || '',
+          'BESARAN DANA': row.besaran_dana_kematian,
+          'STATUS': getStatusProps(row.status_proses).label,
+          'TGL DIBUAT': formatDate(row.created_at),
+        }))
+      );
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Dana Kematian');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `dana_kematian_${timestamp}.xlsx`);
+      showToast(`Berhasil mengekspor ${rows.length} data pengajuan`, 'success');
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      showToast('Gagal mengekspor data', 'error');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -268,52 +316,61 @@ export default function DanaKematianPage() {
       {
         id: 'actions',
         header: 'AKSI',
-        cell: ({ row }) => (
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Button
-              mode="icon"
-              variant="dim"
-              size="sm"
-              className="h-6 w-6 sm:h-7 sm:w-7"
-              title="Lihat Detail"
-              onClick={() => {
-                setSelectedClaim(row.original);
-                setDetailModalOpen(true);
-              }}
-            >
-              <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
-            </Button>
+        cell: ({ row }) => {
+          const status = row.original.status_proses;
+          const cancelable = isCancelable(status);
+          const editable = isEditable(status);
+          return (
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button
+                mode="icon"
+                variant="dim"
+                size="sm"
+                className="h-6 w-6 sm:h-7 sm:w-7"
+                title="Lihat Detail"
+                onClick={() => {
+                  setSelectedClaim(row.original);
+                  setDetailModalOpen(true);
+                }}
+              >
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
 
-            <Button
-              mode="icon"
-              variant="dim"
-              size="sm"
-              className="h-6 w-6 sm:h-7 sm:w-7"
-              title="Edit"
-              onClick={() => {
-                setEditClaimId(row.original.id);
-                setEditModalOpen(true);
-              }}
-              disabled={!row.original.id || row.original.status_proses === 'selesai'}
-            >
-              <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
-            </Button>
-            <Button
-              mode="icon"
-              variant="destructive"
-              size="sm"
-              className="h-6 w-6 sm:h-7 sm:w-7"
-              title="Hapus"
-              onClick={() => {
-                setClaimToDelete(row.original);
-                setDeleteConfirmOpen(true);
-              }}
-              disabled={row.original.status_proses === 'selesai'}
-            >
-              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-            </Button>
-          </div>
-        ),
+              {editable && (
+                <Button
+                  mode="icon"
+                  variant="dim"
+                  size="sm"
+                  className="h-6 w-6 sm:h-7 sm:w-7"
+                  title="Edit"
+                  onClick={() => {
+                    setEditClaimId(row.original.id);
+                    setEditModalOpen(true);
+                  }}
+                >
+                  <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
+                </Button>
+              )}
+
+              {/* Batal — replaces "Hapus": sets status Batal, keeps the record */}
+              {cancelable && (
+                <Button
+                  mode="icon"
+                  variant="destructive"
+                  size="sm"
+                  className="h-6 w-6 sm:h-7 sm:w-7"
+                  title="Batal"
+                  onClick={() => {
+                    setClaimToCancel(row.original);
+                    setCancelConfirmOpen(true);
+                  }}
+                >
+                  <XCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                </Button>
+              )}
+            </div>
+          );
+        },
       },
     ],
     [pagination.pageIndex, pagination.pageSize]
@@ -383,12 +440,11 @@ export default function DanaKematianPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Status</SelectItem>
-                    <SelectItem value="dilaporkan">Dilaporkan</SelectItem>
-                    <SelectItem value="proses_pusat">Proses Pusat</SelectItem>
-                    <SelectItem value="verified">Terverifikasi</SelectItem>
-                    <SelectItem value="penyaluran">Penyaluran</SelectItem>
-                    <SelectItem value="selesai">Selesai</SelectItem>
-                    <SelectItem value="ditolak">Ditolak</SelectItem>
+                    {STATUS_FILTER_OPTIONS.map(status => (
+                      <SelectItem key={status.value} value={status.value}>
+                        {status.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
 
@@ -416,18 +472,23 @@ export default function DanaKematianPage() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button variant="outline" onClick={() => setLaporanPeriodeOpen(true)}>
                   <FileText />
-                  Laporan Periode
+                  <span className="hidden lg:inline">Laporan Periode</span>
                 </Button>
                 <Button variant="outline" onClick={() => setImportModalOpen(true)}>
                   <Upload />
-                  Import Data
+                  <span className="hidden lg:inline">Import Data</span>
+                </Button>
+                <Button variant="outline" onClick={handleExport} disabled={isExporting}>
+                  {isExporting ? <Loader2 className="animate-spin" /> : <Download />}
+                  <span className="hidden lg:inline">Export Data</span>
                 </Button>
                 <Button onClick={() => setAddModalOpen(true)}>
                   <Plus />
-                  Ajukan Dana
+                  <span className="hidden sm:inline">Pengajuan Dana Kematian</span>
+                  <span className="sm:hidden">Pengajuan</span>
                 </Button>
               </div>
             </div>
@@ -605,15 +666,15 @@ export default function DanaKematianPage() {
         isPending={updateMutation.isPending}
         members={[]}
       />
-      <DeleteConfirmDialog
-        open={deleteConfirmOpen}
+      <CancelSubmissionDialog
+        open={cancelConfirmOpen}
         onClose={() => {
-          setDeleteConfirmOpen(false);
-          setClaimToDelete(null);
+          setCancelConfirmOpen(false);
+          setClaimToCancel(null);
         }}
-        onConfirm={handleDelete}
-        claim={claimToDelete}
-        isPending={deleteMutation.isPending}
+        onConfirm={handleCancelSubmission}
+        claim={claimToCancel}
+        isPending={cancelMutation.isPending}
       />
 
       <LaporanPeriodeModal

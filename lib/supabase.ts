@@ -214,7 +214,9 @@ export interface AnggotaFilter {
 
 // Death benefits types
 export type StatusAhliWarisEnum = 'istri' | 'suami' | 'anak' | 'keluarga';
-export type StatusProsesDakemEnum = 'dilaporkan' | 'verifikasi_cabang' | 'pending_dokumen' | 'proses_pusat' | 'revisi_pusat' | 'verified' | 'penyaluran' | 'selesai' | 'ditolak';
+// draft / batal / terima_ahli_waris / laporan added by migration 023 —
+// labels & flow: see lib/workflow/dana-kematian-status.ts
+export type StatusProsesDakemEnum = 'draft' | 'dilaporkan' | 'verifikasi_cabang' | 'pending_dokumen' | 'proses_pusat' | 'revisi_pusat' | 'verified' | 'batal' | 'penyaluran' | 'terima_ahli_waris' | 'laporan' | 'selesai' | 'ditolak';
 
 export interface DanaKematian {
   id: string;
