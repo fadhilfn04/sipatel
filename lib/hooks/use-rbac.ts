@@ -4,7 +4,7 @@
 
 import { useSession } from 'next-auth/react';
 import { useMemo } from 'react';
-import { hasPermission, hasAnyPermission, hasAllPermissions, filterMenuByPermissions, getPermissionSlugs } from '@/lib/rbac';
+import { hasPermission, hasAnyPermission, hasAllPermissions, filterMenuByPermissions } from '@/lib/rbac';
 import { User } from '@/app/models/user';
 
 /**
@@ -72,7 +72,7 @@ export function useUserPermissions() {
       return ['all_access'];
     }
 
-    return getPermissionSlugs(user);
+    return user.role.permissions?.map((rp) => rp.permission?.slug).filter((slug): slug is string => !!slug) ?? [];
   }, [session]);
 }
 
