@@ -111,7 +111,6 @@ export async function POST(request: NextRequest) {
           'status_anggota',
           'status_mps',
           'cabang_asal_melapor',
-          'nama_ahli_waris',
         ]
       : [
           'nama_anggota',

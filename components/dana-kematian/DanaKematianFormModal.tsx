@@ -288,7 +288,14 @@ export function DanaKematianFormModal({
 
       try {
         const parsed = JSON.parse(claim.susunan_keluarga || '[]');
-        setFamilyMembers(Array.isArray(parsed) ? parsed : []);
+        const list = Array.isArray(parsed) ? parsed : [];
+        setFamilyMembers(list);
+        // Heir was typed manually (not present in the SK Pensiun family list) →
+        // start in manual-input mode so the saved name stays visible
+        setManualHeirInput(
+          !!claim.nama_ahli_waris &&
+          !list.some(m => (m.nama || '').trim() === (claim.nama_ahli_waris || '').trim())
+        );
       } catch {
         setFamilyMembers([]);
       }
@@ -303,6 +310,7 @@ export function DanaKematianFormModal({
       setDocMeta({});
       setSelectedMember(null);
       setFamilyMembers([]);
+      setManualHeirInput(false);
     }
 
     setValidationErrors({});
@@ -310,7 +318,6 @@ export function DanaKematianFormModal({
     setActiveTab('informasi-utama');
     setDocumentStep(0);
     setManualTariffOverride(false);
-    setManualHeirInput(false);
   }, [claim, mode, open, members, currentUserAnggota]);
 
   useEffect(() => {
@@ -472,7 +479,8 @@ export function DanaKematianFormModal({
   };
 
   const handleFieldChange = (field: keyof CreateDanaKematianInput, value: any) => {
-    setFormData({ ...formData, [field]: value });
+    // Functional update so consecutive calls (e.g. nama + status) don't clobber each other
+    setFormData(prev => ({ ...prev, [field]: value }));
 
     if (validationErrors[field]) {
       setValidationErrors(prev => {
@@ -1235,17 +1243,27 @@ export function DanaKematianFormModal({
                               {namedFamilyMembers.length > 0 && !manualHeirInput ? (
                                 <div className="space-y-2">
                                   <Select
+                                    // '' (not '__manual__') when nothing is chosen yet — Radix suppresses
+                                    // onValueChange for same-value selections, so the resting value must
+                                    // always differ from the item values, including the manual-entry item.
                                     value={namedFamilyMembers.some(m => m.nama === formData.nama_ahli_waris)
                                       ? formData.nama_ahli_waris
-                                      : '__manual__'}
+                                      : ''}
                                     onValueChange={(value) => {
                                       if (value === '__manual__') {
                                         setManualHeirInput(true);
-                                      } else {
-                                        handleFieldChange('nama_ahli_waris', value);
-                                        const match = namedFamilyMembers.find(m => m.nama === value);
-                                        if (match) handleFieldChange('status_ahli_waris', match.hubungan as any);
+                                        return;
                                       }
+                                      const match = namedFamilyMembers.find(m => m.nama === value);
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        nama_ahli_waris: value,
+                                        // Keep core relations as-is; other relations map to 'keluarga'
+                                        // (the only non-core option in the Hubungan dropdown)
+                                        status_ahli_waris: match && ['istri', 'suami', 'anak'].includes(match.hubungan)
+                                          ? (match.hubungan as any)
+                                          : 'keluarga',
+                                      }));
                                     }}
                                     required
                                   >
