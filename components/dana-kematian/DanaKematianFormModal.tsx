@@ -391,9 +391,6 @@ export function DanaKematianFormModal({
     if (mode === 'create' && !selectedMember) {
       errors.member = 'Silakan pilih anggota terlebih dahulu';
     }
-    if (!formData.nama_ahli_waris) {
-      errors.nama_ahli_waris = 'Nama ahli waris wajib diisi';
-    }
     return errors;
   };
 
