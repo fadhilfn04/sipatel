@@ -5,6 +5,10 @@ import { UpdateDanaKematianInput } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-storage';
 import { isValidStatusTransition } from '@/lib/workflow/dana-kematian-transitions';
 import {
+  getDeathClaimPeriodExceededMessage,
+  isDeathClaimWithinPeriod,
+} from '@/lib/utils/death-claim-period';
+import {
   notifyDanaKematianVerifikasiCabang,
   notifyDanaKematianProsesPusat,
   notifyDanaKematianVerified,
@@ -69,6 +73,7 @@ export async function PUT(
       .from('dana_kematian')
       .select(`
         id, nama_anggota, cabang_asal_melapor, status_proses, besaran_dana_kematian, keterangan,
+        tanggal_meninggal,
         dokumen_surat_kematian_verified, dokumen_sk_pensiun_verified,
         dokumen_surat_pernyataan_verified, dokumen_kartu_keluarga_verified,
         dokumen_ktp_ahli_waris_verified, dokumen_surat_nikah_verified,
@@ -184,6 +189,36 @@ export async function PUT(
       const transition = isValidStatusTransition(existingClaim.status_proses, requestedStatus);
       if (!transition.valid) {
         return NextResponse.json({ error: transition.message }, { status: 400 });
+      }
+    }
+
+    // Batas waktu pengajuan Dana Kematian (MAX_DEATH_CLAIM_PERIOD_YEARS, di
+    // lib/config/dana-kematian-config.ts): pengajuan hanya boleh diproses jika
+    // jarak tanggal meninggal → tanggal pengajuan masih dalam batas. Gate
+    // berlaku saat (1) draft dikirim untuk diproses, atau (2) tanggal meninggal
+    // diubah pada pengajuan non-draft. Pengajuan existing yang sudah berjalan
+    // tidak divalidasi ulang selama tanggalnya tidak diubah, dan status
+    // draft/batal tidak diblokir (draft divalidasi saat dikirim; batal adalah
+    // arsip).
+    const isDraftClaim = existingClaim.status_proses === 'draft';
+    const tanggalMeninggalChanged =
+      patch['tanggal_meninggal'] != null &&
+      patch['tanggal_meninggal'] !== existingClaim.tanggal_meninggal;
+    const nextStatus = (requestedStatus || existingClaim.status_proses) as string;
+    const isProcessingStatus = nextStatus !== 'draft' && nextStatus !== 'batal';
+    const needsPeriodValidation =
+      isProcessingStatus &&
+      ((isDraftClaim && requestedStatus !== undefined) ||
+        (!isDraftClaim && tanggalMeninggalChanged));
+
+    if (needsPeriodValidation) {
+      const effectiveTanggalMeninggal =
+        (patch['tanggal_meninggal'] as string | null | undefined) ?? existingClaim.tanggal_meninggal;
+      if (effectiveTanggalMeninggal && !isDeathClaimWithinPeriod(effectiveTanggalMeninggal)) {
+        return NextResponse.json(
+          { error: getDeathClaimPeriodExceededMessage() },
+          { status: 400 }
+        );
       }
     }
 

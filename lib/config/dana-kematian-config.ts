@@ -3,6 +3,21 @@
  * Centralized configuration for tariffs, phases, and SLA thresholds
  */
 
+/**
+ * Batas maksimal jarak waktu (tahun) antara tanggal meninggal anggota dan
+ * tanggal pengajuan Dana Kematian. Pengajuan dengan jarak lebih dari nilai
+ * ini tidak dapat diproses.
+ *
+ * Sumber tunggal aturan ini — ubah nilai di sini saja jika ketentuan
+ * berubah (mis. menjadi 3 atau 5 tahun). Dipakai bersama oleh backend
+ * (app/api/dana-kematian) dan frontend (lib/utils/death-claim-period.ts).
+ */
+export const MAX_DEATH_CLAIM_PERIOD_YEARS = 4;
+
+/** Pesan validasi saat batas waktu terlampaui ('{years}' diganti nilai di atas). */
+export const DEATH_CLAIM_PERIOD_EXCEEDED_MESSAGE =
+  'Pengajuan Dana Kematian tidak dapat diproses karena telah melewati batas waktu pengajuan {years} tahun sejak tanggal meninggal.';
+
 export const TARIFF_CONFIG = {
   // Tarif berdasarkan tanggal meninggal
   cutoffDate: '2023-03-01', // Batas tarif lama vs baru

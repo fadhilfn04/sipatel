@@ -8,7 +8,8 @@
     "start": "next start",
     "build:staging": "cp .env.staging .env.local && next build",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test": "tsx --test lib/utils/death-claim-period.test.ts"
   },
   "prisma": {
     "seed": "node prisma/seed.js",
@@ -94,6 +95,7 @@
     "prettier-plugin-tailwindcss": "^0.6.14",
     "prisma": "^6.19.2",
     "tailwindcss": "^4.1.17",
+    "tsx": "^4.23.13",
     "typescript": "^5.8.3"
   },
   "overrides": {

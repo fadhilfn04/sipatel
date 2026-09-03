@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -)",
+      "Bash(npx tsx *)",
+      "Bash(node -e ' *)",
+      "Bash(npm test *)",
+      "Bash(echo \"TSC_EXIT=$?\")"
+    ],
+    "additionalDirectories": [
+      "/Users"
+    ]
+  }
+}

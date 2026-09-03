@@ -174,7 +174,12 @@ export default function DanaKematianPage() {
       setAddModalOpen(false);
     } catch (error) {
       console.error('Error creating claim:', error);
-      showToast('Gagal menyimpan pengajuan dana kematian', 'error');
+      showToast(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Gagal menyimpan pengajuan dana kematian',
+        'error'
+      );
       throw error;
     }
   };
@@ -192,7 +197,12 @@ export default function DanaKematianPage() {
       setEditClaimId(null);
     } catch (error) {
       console.error('Error updating claim:', error);
-      showToast('Gagal memperbarui data dana kematian', 'error');
+      showToast(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Gagal memperbarui data dana kematian',
+        'error'
+      );
       throw error;
     }
   };

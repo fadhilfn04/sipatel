@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { CreateDanaKematianInput, DanaKematianFilter } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-storage';
 import { notifyDanaKematianCreated } from '@/lib/server/create-notification';
+import {
+  getDeathClaimPeriodExceededMessage,
+  isDeathClaimWithinPeriod,
+} from '@/lib/utils/death-claim-period';
 
 function getClient() {
   if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
@@ -130,6 +134,18 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+    }
+
+    // Batas waktu pengajuan (MAX_DEATH_CLAIM_PERIOD_YEARS, di
+    // lib/config/dana-kematian-config.ts): pengajuan hanya boleh diproses
+    // jika jarak tanggal meninggal → tanggal pengajuan masih dalam batas.
+    // Draft bebas dari rule ini — gate berlaku saat berkas dikirim untuk
+    // diproses.
+    if (!isDraft && !isDeathClaimWithinPeriod(body.tanggal_meninggal)) {
+      return NextResponse.json(
+        { error: getDeathClaimPeriodExceededMessage() },
+        { status: 400 }
+      );
     }
 
     // Check if member exists (if anggota_id is provided)

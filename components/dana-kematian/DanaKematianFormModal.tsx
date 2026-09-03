@@ -47,6 +47,10 @@ import { Badge } from '@/components/ui/badge';
 import { DanaKematian, CreateDanaKematianInput, Anggota } from '@/lib/supabase';
 import { MemberSearchModal } from './MemberSearchModal';
 import { calculateTariff, formatTariffLabel, getTariffDisplayLabel } from '@/lib/utils/tariff-calculator';
+import {
+  getDeathClaimPeriodExceededMessage,
+  isDeathClaimWithinPeriod,
+} from '@/lib/utils/death-claim-period';
 import { useCurrentUserAnggota } from '@/lib/hooks/use-anggota-api';
 import { getStatusProps } from '@/lib/workflow/dana-kematian-status';
 
@@ -405,6 +409,8 @@ export function DanaKematianFormModal({
     const errors = validateForDraft();
     if (!formData.tanggal_meninggal) {
       errors.tanggal_meninggal = 'Tanggal meninggal wajib diisi';
+    } else if (!isDeathClaimWithinPeriod(formData.tanggal_meninggal)) {
+      errors.tanggal_meninggal = getDeathClaimPeriodExceededMessage();
     }
     if (!formData.cabang_asal_melapor) {
       errors.cabang_asal_melapor = 'Cabang pelapor wajib diisi';
