@@ -79,7 +79,7 @@ export default function Page() {
           </h1>
         </div>
 
-        <Alert size="sm" close={false}>
+        {/* <Alert size="sm" close={false}>
           <AlertIcon>
             <RiErrorWarningFill className="text-primary" />
           </AlertIcon>
@@ -89,7 +89,7 @@ export default function Page() {
             dan <span className="text-mono font-semibold">Demo123@.</span> untuk
             akses demo.
           </AlertTitle>
-        </Alert>
+        </Alert> */}
 
         {/* <div className="flex flex-col gap-3.5">
           <Button
