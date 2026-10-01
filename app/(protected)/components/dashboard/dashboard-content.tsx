@@ -338,14 +338,14 @@ export function DashboardContent() {
                   </Link>
                 </Button>
               )}
-              {canAccessDanaSosial && (
+              {/* {canAccessDanaSosial && (
                 <Button variant="outline" className="w-full justify-start gap-3 h-11" asChild>
                   <Link href="/pelayanan/dana-sosial">
                     <Heart className="h-5 w-5" />
                     Dana Sosial
                   </Link>
                 </Button>
-              )}
+              )} */}
             </CardContent>
           </Card>
 
