@@ -302,47 +302,47 @@ export const MENU_SIDEBAR: MenuConfig = [
         path: '/pelayanan/dana-kematian',
         permissions: [PERMISSIONS.ACCESS_DANA_KEMATIAN],
       },
-      {
-        title: 'Dana Sosial',
-        path: '/pelayanan/dana-sosial',
-        permissions: [PERMISSIONS.ACCESS_DANA_SOCIAL],
-      },
+      // {
+      //   title: 'Dana Sosial',
+      //   path: '/pelayanan/dana-sosial',
+      //   permissions: [PERMISSIONS.ACCESS_DANA_SOCIAL],
+      // },
     ],
   },
-  {
-    title: 'Keuangan',
-    icon: DollarSign,
-    permissions: [PERMISSIONS.ACCESS_KEUANGAN],
-    children: [
-      {
-        title: 'Laporan Keuangan',
-        path: '/keuangan/laporan-keuangan',
-        permissions: [PERMISSIONS.MANAGE_LAPORAN],
-      },
-      {
-        title: 'Mekanisme Iuran',
-        path: '/keuangan/mekanisme-iuran',
-        permissions: [PERMISSIONS.VIEW_IURAN],
-      },
-    ],
-  },
-  {
-    title: 'Surat Elektronik',
-    icon: FileText,
-    permissions: [PERMISSIONS.ACCESS_SURAT],
-    children: [
-      {
-        title: 'Surat Elektronik',
-        path: '/surat-elektronik/surat',
-        permissions: [PERMISSIONS.MANAGE_SURAT],
-      },
-      {
-        title: 'Agenda Surat',
-        path: '/surat-elektronik/agenda-surat',
-        permissions: [PERMISSIONS.MANAGE_SURAT],
-      },
-    ],
-  },
+  // {
+  //   title: 'Keuangan',
+  //   icon: DollarSign,
+  //   permissions: [PERMISSIONS.ACCESS_KEUANGAN],
+  //   children: [
+  //     {
+  //       title: 'Laporan Keuangan',
+  //       path: '/keuangan/laporan-keuangan',
+  //       permissions: [PERMISSIONS.MANAGE_LAPORAN],
+  //     },
+  //     {
+  //       title: 'Mekanisme Iuran',
+  //       path: '/keuangan/mekanisme-iuran',
+  //       permissions: [PERMISSIONS.VIEW_IURAN],
+  //     },
+  //   ],
+  // },
+  // {
+  //   title: 'Surat Elektronik',
+  //   icon: FileText,
+  //   permissions: [PERMISSIONS.ACCESS_SURAT],
+  //   children: [
+  //     {
+  //       title: 'Surat Elektronik',
+  //       path: '/surat-elektronik/surat',
+  //       permissions: [PERMISSIONS.MANAGE_SURAT],
+  //     },
+  //     {
+  //       title: 'Agenda Surat',
+  //       path: '/surat-elektronik/agenda-surat',
+  //       permissions: [PERMISSIONS.MANAGE_SURAT],
+  //     },
+  //   ],
+  // },
   {
     title: 'Manajemen Pengguna',
     icon: ShieldUser,
@@ -378,12 +378,12 @@ export const MENU_SIDEBAR: MenuConfig = [
       // },
     ],
   },
-  {
-    title: 'Manajemen Notifikasi',
-    icon: Bell,
-    path: '/user-management/notification-routing',
-    permissions: [PERMISSIONS.ACCESS_USER_MANAGEMENT],
-  },
+  // {
+  //   title: 'Manajemen Notifikasi',
+  //   icon: Bell,
+  //   path: '/user-management/notification-routing',
+  //   permissions: [PERMISSIONS.ACCESS_USER_MANAGEMENT],
+  // },
 ];
 
 export const MENU_SIDEBAR_CUSTOM: MenuConfig = [
