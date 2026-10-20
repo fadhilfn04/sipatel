@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Circle,
+  Trash2,
   X,
   XCircle,
   Lock,
@@ -224,6 +225,7 @@ export function DanaKematianFormModal({
   const [manualTariffOverride, setManualTariffOverride] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
+  const [removingField, setRemovingField] = useState<string | null>(null);
   const [duplicateMemberError, setDuplicateMemberError] = useState<string | null>(null);
   const [manualHeirInput, setManualHeirInput] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -528,6 +530,47 @@ export function DanaKematianFormModal({
   };
 
   const currentDocStep = DOCUMENT_STEPS[documentStep];
+
+  /**
+   * Hapus dokumen pengajuan.
+   * - Edit mode: lewat endpoint dokumen (server memeriksa status editable,
+   *   kepemilikan cabang, menghapus file dari bucket + mencatat audit).
+   * - Create mode: hapus file dari bucket storage langsung (belum terikat klaim).
+   */
+  const handleRemoveFile = async (
+    field: keyof CreateDanaKematianInput,
+  ) => {
+    const fileUrl = formData[field] as string | undefined;
+    if (!fileUrl) return;
+
+    setRemovingField(field as string);
+    try {
+      if (mode === 'edit' && claim?.id) {
+        const res = await fetch(
+          `/api/dana-kematian/${claim.id}/documents?fileKey=${encodeURIComponent(String(field))}`,
+          { method: 'DELETE' },
+        );
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || 'Gagal menghapus dokumen');
+      } else {
+        const url = encodeURIComponent(fileUrl);
+        const res = await fetch(`/api/upload?url=${url}&bucket=dana-kematian`, { method: 'DELETE' });
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          throw new Error(json?.error || 'Gagal menghapus file');
+        }
+      }
+      handleFieldChange(field, undefined as any);
+    } catch (err) {
+      setUploadErrors(prev => ({
+        ...prev,
+        [field as string]: err instanceof Error ? err.message : 'Gagal menghapus dokumen',
+      }));
+    } finally {
+      setRemovingField(null);
+    }
+  };
+
 
   /** Step completion counts substituted docs (SK Pensiun missing statement, nikah remark) */
   const isStepComplete = (step: DocumentStep): boolean => {
@@ -1528,6 +1571,25 @@ export function DanaKematianFormModal({
                               </div>
                             )}
                           </div>
+
+                          {/* Hapus dokumen — hanya saat editable (draft / koreksi) */}
+                          {(formData[currentDocStep.field] as string) && claimEditable && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive"
+                              disabled={removingField === currentDocStep.field}
+                              onClick={() => handleRemoveFile(currentDocStep.field)}
+                            >
+                              {removingField === currentDocStep.field ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4 mr-2" />
+                              )}
+                              Hapus Dokumen
+                            </Button>
+                          )}
                         </div>
 
                         {/* Step Navigation */}

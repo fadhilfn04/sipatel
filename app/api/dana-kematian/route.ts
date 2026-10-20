@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import authOptions from '@/app/api/auth/[...nextauth]/auth-options';
 import { CreateDanaKematianInput, DanaKematianFilter } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-storage';
 import { notifyDanaKematianCreated } from '@/lib/server/create-notification';
@@ -6,6 +8,10 @@ import {
   getDeathClaimPeriodExceededMessage,
   isDeathClaimWithinPeriod,
 } from '@/lib/utils/death-claim-period';
+import { validateDakemDateOrder, formatDateOrderErrors } from '@/lib/utils/dakem-date-order';
+import { getDakemActorContext, getActorCabang } from '@/lib/server/dakem-enforcement';
+import { getMaxDeathClaimPeriodYears, getRequiredDocumentOverride } from '@/lib/server/dakem-config';
+import { isBerkasLengkap } from '@/lib/config/dana-kematian-berkas';
 
 function getClient() {
   if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
@@ -106,6 +112,25 @@ export async function POST(request: NextRequest) {
   try {
     const body: CreateDanaKematianInput = await request.json();
 
+    // Auth: hanya user cabang/pusat dengan akses Dana Kematian yang boleh
+    // membuat pengajuan.
+    const actor = await getDakemActorContext();
+    if (!actor.userId) {
+      return NextResponse.json(
+        { error: 'Silakan login terlebih dahulu', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
+    if (!actor.canManagePC) {
+      return NextResponse.json(
+        { error: 'Anda tidak memiliki akses untuk membuat pengajuan Dana Kematian', code: 'PERMISSION_DENIED' },
+        { status: 403 }
+      );
+    }
+    const actorCabang = await getActorCabang(actor.userId);
+    const kodeCabangPengaju = body.kode_cabang || actorCabang.kode_cabang || null;
+    const cabangPengaju = body.cabang_asal_melapor || actorCabang.nama_cabang || '';
+
     // Drafts (on going process) only require the identity fields; full
     // validation applies when the berkas is submitted for verification.
     const isDraft = body.status_proses === 'draft';
@@ -136,16 +161,55 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Batas waktu pengajuan (MAX_DEATH_CLAIM_PERIOD_YEARS, di
-    // lib/config/dana-kematian-config.ts): pengajuan hanya boleh diproses
-    // jika jarak tanggal meninggal → tanggal pengajuan masih dalam batas.
+    // Batas waktu pengajuan: nilai tahun dikelola admin pusat (tabel
+    // dana_kematian_config); fallback ke MAX_DEATH_CLAIM_PERIOD_YEARS (4).
     // Draft bebas dari rule ini — gate berlaku saat berkas dikirim untuk
     // diproses.
-    if (!isDraft && !isDeathClaimWithinPeriod(body.tanggal_meninggal)) {
+    const maxYears = await getMaxDeathClaimPeriodYears();
+    if (!isDraft && !isDeathClaimWithinPeriod(body.tanggal_meninggal, new Date(), maxYears)) {
       return NextResponse.json(
-        { error: getDeathClaimPeriodExceededMessage() },
+        { error: getDeathClaimPeriodExceededMessage(maxYears) },
         { status: 400 }
       );
+    }
+
+    // Urutan tanggal kronologis workflow (lib/utils/dakem-date-order.ts).
+    // Hanya pasangan tanggal yang terisi yang divalidasi — draft parsial aman.
+    const dateErrors = validateDakemDateOrder({
+      tanggal_meninggal: body.tanggal_meninggal,
+      tanggal_lapor_keluarga: body.tanggal_lapor_keluarga,
+      cabang_tanggal_awal_terima_berkas: body.cabang_tanggal_awal_terima_berkas,
+      cabang_tanggal_kirim_ke_pusat: body.cabang_tanggal_kirim_ke_pusat,
+      pusat_tanggal_awal_terima: body.pusat_tanggal_awal_terima,
+      pusat_tanggal_validasi: body.pusat_tanggal_validasi,
+      pusat_tanggal_selesai: body.pusat_tanggal_selesai,
+      cabang_tanggal_lapor_ke_pusat: body.cabang_tanggal_lapor_ke_pusat,
+      cabang_tanggal_serah_ke_ahli_waris: body.cabang_tanggal_serah_ke_ahli_waris,
+    });
+    if (dateErrors.length > 0) {
+      return NextResponse.json(
+        { error: formatDateOrderErrors(dateErrors), fields: dateErrors },
+        { status: 400 }
+      );
+    }
+
+    // Gate dokumen wajib saat langsung submit "Berkas Lengkap" ke Verifikasi
+    // Pusat. Konfigurasi wajib/opsional dikelola admin pusat.
+    if (body.status_proses === 'proses_pusat') {
+      const override = await getRequiredDocumentOverride();
+      const claimForCheck = {
+        ...body,
+        document_metadata: body.document_metadata || {},
+      } as Record<string, any>;
+      if (!isBerkasLengkap(claimForCheck, { statusAhliWaris: body.status_ahli_waris }, override)) {
+        return NextResponse.json(
+          {
+            error: 'Dokumen wajib belum lengkap — lengkapi dokumen sebelum mengirim ke Verifikasi Pusat.',
+            code: 'DOCUMENTS_INCOMPLETE',
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Check if member exists (if anggota_id is provided)
@@ -165,10 +229,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Create dana kematian
+    const sessionForActor = await getServerSession(authOptions);
+    const nowIso = new Date().toISOString();
     const { data: newDanaKematian, error } = await getClient()
       .from('dana_kematian')
       .insert([{
         ...body,
+        kode_cabang: kodeCabangPengaju,
+        cabang_asal_melapor: cabangPengaju || body.cabang_asal_melapor,
         penyebab_meninggal: body.penyebab_meninggal || null,
         tanggal_lapor_keluarga: body.tanggal_lapor_keluarga || null,
         cabang_nama_pelapor: body.cabang_nama_pelapor || null,
@@ -188,11 +256,19 @@ export async function POST(request: NextRequest) {
         file_surat_nikah: body.file_surat_nikah || null,
         status_proses: body.status_proses || 'draft',
         keterangan: body.keterangan || null,
+        // Penugasan: pengajuan baru otomatis diklaim oleh cabang pembuatnya.
+        claim_status: 'diklaim',
+        cabang_pemilik_kode: kodeCabangPengaju,
+        diklaim_oleh: actor.userId,
+        diklaim_pada: nowIso,
+        // Waktu-0: pelaporan awal (untuk pengukuran waktu proses).
+        waktu_0: body.waktu_0 || nowIso,
         data_perubahan: {
-          actor_id: null,
-          actor_role: 'cabang',
-          actor_nama: 'System',
-          catatan: 'Pembuatan baru'
+          actor_id: actor.userId,
+          actor_role: actor.canVerifyPP ? 'pusat' : 'cabang',
+          actor_nama: sessionForActor?.user?.name || 'Sistem',
+          actor_cabang: cabangPengaju || null,
+          catatan: 'Pembuatan pengajuan baru'
         }
       }])
       .select()

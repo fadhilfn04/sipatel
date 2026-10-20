@@ -328,6 +328,12 @@ export interface DanaKematian {
   spouse_alive: boolean | null;
   both_deceased: boolean | null;
 
+  // Claim / assignment (migration 027)
+  claim_status: 'tersedia' | 'diklaim';
+  cabang_pemilik_kode: string | null;
+  diklaim_oleh: string | null;
+  diklaim_pada: string | null;
+
   status_proses: StatusProsesDakemEnum;
   keterangan: string | null;
   data_perubahan: Record<string, any> | null;
@@ -347,6 +353,7 @@ export interface CreateDanaKematianInput {
   cabang_asal_melapor: string;
   cabang_nama_pelapor?: string;
   cabang_nik_pelapor?: string;
+  kode_cabang?: string;
   cabang_tanggal_awal_terima_berkas?: string;
   cabang_tanggal_kirim_ke_pusat?: string;
   pusat_tanggal_awal_terima?: string;

@@ -8,6 +8,11 @@ import {
   getDeathClaimPeriodExceededMessage,
   isDeathClaimWithinPeriod,
 } from '@/lib/utils/death-claim-period';
+import { validateDakemDateOrder, formatDateOrderErrors } from '@/lib/utils/dakem-date-order';
+import { getDakemActorContext, getActorCabang, validateCabangPatchPermissions } from '@/lib/server/dakem-enforcement';
+import { canEditClaim } from '@/lib/server/dakem-claim-rules';
+import { getMaxDeathClaimPeriodYears, getRequiredDocumentOverride } from '@/lib/server/dakem-config';
+import { isBerkasLengkap } from '@/lib/config/dana-kematian-berkas';
 import {
   notifyDanaKematianVerifikasiCabang,
   notifyDanaKematianProsesPusat,
@@ -34,6 +39,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const actor = await getDakemActorContext();
+    if (!actor.userId) {
+      return NextResponse.json({ error: 'Silakan login terlebih dahulu', code: 'UNAUTHORIZED' }, { status: 401 });
+    }
+    if (!actor.canManagePC && !actor.canVerifyPP) {
+      return NextResponse.json({ error: 'Anda tidak memiliki akses ke modul Dana Kematian', code: 'PERMISSION_DENIED' }, { status: 403 });
+    }
+
     const { id } = await params;
     const { data: danaKematian, error } = await getClient()
       .from('dana_kematian')
@@ -73,7 +86,11 @@ export async function PUT(
       .from('dana_kematian')
       .select(`
         id, nama_anggota, cabang_asal_melapor, status_proses, besaran_dana_kematian, keterangan,
-        tanggal_meninggal,
+        tanggal_meninggal, status_ahli_waris, data_perubahan,
+        kode_cabang, claim_status, cabang_pemilik_kode, diklaim_oleh,
+        tanggal_lapor_keluarga, cabang_tanggal_awal_terima_berkas, cabang_tanggal_kirim_ke_pusat,
+        pusat_tanggal_awal_terima, pusat_tanggal_validasi, pusat_tanggal_selesai,
+        cabang_tanggal_lapor_ke_pusat, cabang_tanggal_serah_ke_ahli_waris, waktu_2,
         dokumen_surat_kematian_verified, dokumen_sk_pensiun_verified,
         dokumen_surat_pernyataan_verified, dokumen_kartu_keluarga_verified,
         dokumen_ktp_ahli_waris_verified, dokumen_surat_nikah_verified,
@@ -214,13 +231,119 @@ export async function PUT(
     if (needsPeriodValidation) {
       const effectiveTanggalMeninggal =
         (patch['tanggal_meninggal'] as string | null | undefined) ?? existingClaim.tanggal_meninggal;
-      if (effectiveTanggalMeninggal && !isDeathClaimWithinPeriod(effectiveTanggalMeninggal)) {
+      if (effectiveTanggalMeninggal) {
+        // Batas tahun dikelola admin pusat (tabel dana_kematian_config);
+        // fallback ke MAX_DEATH_CLAIM_PERIOD_YEARS (4) bila belum dikonfigurasi.
+        const maxYears = await getMaxDeathClaimPeriodYears();
+        if (!isDeathClaimWithinPeriod(effectiveTanggalMeninggal, new Date(), maxYears)) {
+          return NextResponse.json(
+            { error: getDeathClaimPeriodExceededMessage(maxYears) },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // AUTHORIZATION & BUSINESS-RULE ENFORCEMENT (backend, anti-bypass API)
+    // ─────────────────────────────────────────────────────────────────────
+    const actor = await getDakemActorContext();
+    if (!actor.userId) {
+      return NextResponse.json(
+        { error: 'Silakan login terlebih dahulu', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
+    if (!actor.canManagePC && !actor.canVerifyPP) {
+      return NextResponse.json(
+        { error: 'Anda tidak memiliki akses ke modul Dana Kematian', code: 'PERMISSION_DENIED' },
+        { status: 403 }
+      );
+    }
+
+    // 1) Field-level lock: read-only pasca submit ke Pusat untuk Cabang,
+    //    bidang ranah Pusat hanya oleh Pusat (lib/server/dakem-enforcement-rules).
+    const permissionCheck = validateCabangPatchPermissions(patch, existingClaim, actor);
+    if (!permissionCheck.allowed) {
+      return NextResponse.json({ error: permissionCheck.message, code: 'PERMISSION_DENIED' }, { status: 403 });
+    }
+
+    // 2) Kepemilikan pengajuan (anti akses lintas-cabang / IDOR): user cabang
+    //    hanya boleh mengubah pengajuan milik cabangnya sendiri.
+    if (actor.isCabangOnly) {
+      const actorCabang = await getActorCabang(actor.userId);
+      const ownership = canEditClaim(existingClaim, {
+        isPusat: false,
+        userId: actor.userId,
+        kodeCabang: actorCabang.kode_cabang || actorCabang.nama_cabang,
+      });
+      if (!ownership.allowed) {
+        return NextResponse.json({ error: ownership.reason, code: 'PERMISSION_DENIED' }, { status: 403 });
+      }
+    }
+
+    // 3) Urutan tanggal kronologis (lib/utils/dakem-date-order.ts).
+    const dateFields = [
+      'tanggal_meninggal',
+      'tanggal_lapor_keluarga',
+      'cabang_tanggal_awal_terima_berkas',
+      'cabang_tanggal_kirim_ke_pusat',
+      'pusat_tanggal_awal_terima',
+      'pusat_tanggal_validasi',
+      'pusat_tanggal_selesai',
+      'cabang_tanggal_lapor_ke_pusat',
+      'cabang_tanggal_serah_ke_ahli_waris',
+    ];
+    const mergedDates: Record<string, string | null> = {};
+    for (const field of dateFields) {
+      mergedDates[field] =
+        patch[field] !== undefined
+          ? ((patch[field] as string | null) ?? null)
+          : ((existingClaim as any)[field] ?? null);
+    }
+    const dateErrors = validateDakemDateOrder(mergedDates);
+    if (dateErrors.length > 0) {
+      return NextResponse.json(
+        { error: formatDateOrderErrors(dateErrors), fields: dateErrors },
+        { status: 400 }
+      );
+    }
+
+    // 4) Gate dokumen wajib saat submit/submit ulang ke Verifikasi Pusat.
+    //    Konfigurasi wajib/opsional dikelola admin pusat (dana_kematian_config).
+    const finalStatus = (patch['status_proses'] as string | undefined) ?? existingClaim.status_proses;
+    if (finalStatus === 'proses_pusat' && existingClaim.status_proses !== 'proses_pusat') {
+      const override = await getRequiredDocumentOverride();
+      const mergedClaim = { ...existingClaim, ...patch } as Record<string, any>;
+      if (!isBerkasLengkap(mergedClaim, { statusAhliWaris: mergedClaim.status_ahli_waris }, override)) {
         return NextResponse.json(
-          { error: getDeathClaimPeriodExceededMessage() },
+          {
+            error:
+              'Dokumen wajib belum lengkap — lengkapi dokumen sebelum mengirim ke Verifikasi Pusat.',
+            code: 'DOCUMENTS_INCOMPLETE',
+          },
           { status: 400 }
         );
       }
+      // Waktu-2: submit final dokumen ke PP (untuk pengukuran waktu proses).
+      if (!patch['waktu_2'] && !(existingClaim as any).waktu_2) {
+        patch['waktu_2'] = new Date().toISOString();
+      }
     }
+
+    // 5) Audit aktor: data_perubahan dipakai trigger riwayat_proses_dakem &
+    //    audit_dana_kematian (migration 006/011/012) — kolom actor_* wajib terisi.
+    const sessionForActor = await getServerSession(authOptions);
+    patch['data_perubahan'] = {
+      ...(existingClaim.data_perubahan || {}),
+      actor_id: actor.userId,
+      actor_role: actor.canVerifyPP ? 'pusat' : 'cabang',
+      actor_nama: sessionForActor?.user?.name || 'Sistem',
+      actor_cabang: existingClaim.cabang_asal_melapor || null,
+      catatan: (body as any).keterangan || `Update oleh ${actor.canVerifyPP ? 'Pusat' : 'Cabang'}`,
+      changed_fields: Object.keys(patch).filter(k => k !== 'data_perubahan' && k !== 'updated_at'),
+    };
+    // ─────────────────────────────────────────────────────────────────────
 
     // Update dana kematian
     const { data: updatedDanaKematian, error } = await getClient()
@@ -323,11 +446,21 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Auth: hanya user dengan akses Dana Kematian; cabang hanya boleh
+    // menghapus pengajuan milik cabangnya sendiri (anti akses lintas-cabang).
+    const actor = await getDakemActorContext();
+    if (!actor.userId) {
+      return NextResponse.json({ error: 'Silakan login terlebih dahulu', code: 'UNAUTHORIZED' }, { status: 401 });
+    }
+    if (!actor.canManagePC) {
+      return NextResponse.json({ error: 'Anda tidak memiliki akses untuk menghapus pengajuan Dana Kematian', code: 'PERMISSION_DENIED' }, { status: 403 });
+    }
+
     const { id } = await params;
     // Check if claim exists
     const { data: existingClaim } = await getClient()
       .from('dana_kematian')
-      .select('id, status_proses, nama_anggota')
+      .select('id, status_proses, nama_anggota, kode_cabang, cabang_asal_melapor, claim_status, cabang_pemilik_kode')
       .eq('id', id)
       .is('deleted_at', null)
       .single();
@@ -337,6 +470,19 @@ export async function DELETE(
         { error: 'Dana kematian tidak ditemukan' },
         { status: 404 }
       );
+    }
+
+    // Kepemilikan: cabang hanya boleh menghapus pengajuan miliknya.
+    if (actor.isCabangOnly) {
+      const actorCabang = await getActorCabang(actor.userId);
+      const ownership = canEditClaim(existingClaim, {
+        isPusat: false,
+        userId: actor.userId,
+        kodeCabang: actorCabang.kode_cabang || actorCabang.nama_cabang,
+      });
+      if (!ownership.allowed) {
+        return NextResponse.json({ error: ownership.reason, code: 'PERMISSION_DENIED' }, { status: 403 });
+      }
     }
 
     // Prevent deletion if already completed

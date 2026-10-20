@@ -30,6 +30,7 @@ import {
   Download,
   XCircle,
   Loader2,
+  Handshake,
 } from 'lucide-react';
 import { Card, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -70,6 +71,13 @@ import {
   isCancelable,
   isEditable,
 } from '@/lib/workflow/dana-kematian-status';
+import {
+  getClaimBadge,
+  canClaimClaim,
+  canEditClaim,
+  DAKEM_CLAIM_BADGE_LABELS,
+} from '@/lib/server/dakem-claim-rules';
+import { useUserPermissions } from '@/lib/hooks/use-user-permissions';
 
 export default function DanaKematianPage() {
   // State
@@ -111,6 +119,23 @@ export default function DanaKematianPage() {
     message: string;
     type: 'success' | 'error' | 'info';
   }>({ show: false, message: '', type: 'success' });
+
+  // Context user untuk badge penugasan & tombol klaim
+  const { canVerifyPP } = useUserPermissions();
+  const [myCabangKode, setMyCabangKode] = useState<string | null>(null);
+  const [myUserId, setMyUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/anggota/me')
+      .then(r => (r.ok ? r.json() : null))
+      .then(json => {
+        if (json?.data) {
+          setMyCabangKode(json.data.kode_cabang || json.data.nama_cabang || null);
+          setMyUserId(json.data.user_id || null);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // API hooks
   const { data: danaKematianData, isLoading, refetch } = useDanaKematianList({
@@ -221,6 +246,28 @@ export default function DanaKematianPage() {
     }
   };
 
+  // Klaim pengajuan tersedia untuk cabang user saat ini (race-safe di backend).
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+
+  const handleClaimAssignment = async (claimId: string) => {
+    setClaimingId(claimId);
+    try {
+      const res = await fetch(`/api/dana-kematian/${claimId}/claim`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) {
+        showToast(json?.error || 'Gagal mengklaim pengajuan', 'error');
+      } else {
+        showToast(json?.message || 'Pengajuan berhasil diklaim', 'success');
+        await refetch();
+      }
+    } catch (error) {
+      console.error('Error claiming assignment:', error);
+      showToast('Gagal mengklaim pengajuan', 'error');
+    } finally {
+      setClaimingId(null);
+    }
+  };
+
   // Export the currently filtered submissions to XLSX
   const handleExport = async () => {
     setIsExporting(true);
@@ -324,12 +371,66 @@ export default function DanaKematianPage() {
         },
       },
       {
+        id: 'penugasan',
+        header: 'PENUGASAN',
+        cell: ({ row }) => {
+          const claim = row.original as any;
+          const badge = getClaimBadge(
+            {
+              claim_status: claim.claim_status,
+              cabang_pemilik_kode: claim.cabang_pemilik_kode,
+              kode_cabang: claim.kode_cabang,
+              status_proses: claim.status_proses,
+            },
+            { isPusat: canVerifyPP, userId: myUserId, kodeCabang: myCabangKode },
+          );
+          const variant =
+            badge === 'milik_cabang_sendiri'
+              ? 'success'
+              : badge === 'diklaim_cabang_lain'
+              ? 'warning'
+              : 'secondary';
+          return (
+            <Badge variant={variant} appearance="light" className="text-xs whitespace-nowrap">
+              {DAKEM_CLAIM_BADGE_LABELS[badge]}
+            </Badge>
+          );
+        },
+      },
+      {
         id: 'actions',
         header: 'AKSI',
         cell: ({ row }) => {
           const status = row.original.status_proses;
+          const claim = row.original as any;
           const cancelable = isCancelable(status);
-          const editable = isEditable(status);
+          const actorContext = { isPusat: canVerifyPP, userId: myUserId, kodeCabang: myCabangKode };
+          // Edit/batal hanya untuk cabang pemilik pengajuan (atau Pusat).
+          const owned =
+            canVerifyPP ||
+            (myCabangKode !== null &&
+              canEditClaim(
+                {
+                  claim_status: claim.claim_status,
+                  cabang_pemilik_kode: claim.cabang_pemilik_kode,
+                  kode_cabang: claim.kode_cabang,
+                  status_proses: status,
+                },
+                actorContext,
+              ).allowed);
+          const editable = isEditable(status) && owned;
+          const claimable =
+            !canVerifyPP &&
+            myCabangKode !== null &&
+            canClaimClaim(
+              {
+                claim_status: claim.claim_status,
+                cabang_pemilik_kode: claim.cabang_pemilik_kode,
+                kode_cabang: claim.kode_cabang,
+                status_proses: status,
+              },
+              actorContext,
+            ).allowed;
           return (
             <div className="flex items-center gap-1 sm:gap-2">
               <Button
@@ -362,8 +463,27 @@ export default function DanaKematianPage() {
                 </Button>
               )}
 
+              {/* Klaim pengajuan tersedia untuk cabang user */}
+              {claimable && (
+                <Button
+                  mode="icon"
+                  variant="dim"
+                  size="sm"
+                  className="h-6 w-6 sm:h-7 sm:w-7"
+                  title="Klaim Pengajuan"
+                  disabled={claimingId === row.original.id}
+                  onClick={() => handleClaimAssignment(row.original.id)}
+                >
+                  {claimingId === row.original.id ? (
+                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                  ) : (
+                    <Handshake className="h-3 w-3 sm:h-4 sm:w-4" />
+                  )}
+                </Button>
+              )}
+
               {/* Batal — replaces "Hapus": sets status Batal, keeps the record */}
-              {cancelable && (
+              {cancelable && owned && (
                 <Button
                   mode="icon"
                   variant="destructive"
@@ -383,7 +503,7 @@ export default function DanaKematianPage() {
         },
       },
     ],
-    [pagination.pageIndex, pagination.pageSize]
+    [pagination.pageIndex, pagination.pageSize, canVerifyPP, myCabangKode, myUserId, claimingId]
   );
 
   const table = useReactTable({

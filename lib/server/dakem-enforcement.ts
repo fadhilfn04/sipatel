@@ -14,12 +14,44 @@
 
 import { getCurrentUser } from '@/lib/rbac-server';
 import { hasPermission } from '@/lib/rbac';
+import { supabaseAdmin } from '@/lib/supabase-storage';
 import type { DakemActorContext } from './dakem-enforcement-rules';
 
+/**
+ * Slug permission kanonik (dot notation) yang dipakai UI (`use-user-permissions`)
+ * dan aturan server. Seed lama memakai underscore (`dana_kematian_pc_*` /
+ * `dana_kematian_pp_*`), sehingga keduanya diperiksa agar capability tidak
+ * salah resolve (drift permission).
+ */
 export const DAKEM_PERMISSION_MANAGE_PC = 'dana_kematian.manage_pc';
 export const DAKEM_PERMISSION_VERIFY_PP = 'dana_kematian.verify_pp';
 
+/** Alias legacy (underscore) yang setara dengan capability Pusat. */
+const PP_PERMISSION_SLUGS = [
+  DAKEM_PERMISSION_VERIFY_PP,
+  'dana_kematian_pp_view_all',
+  'dana_kematian_pp_verify_documents',
+  'dana_kematian_pp_approve_claim',
+  'dana_kematian_admin_full_access',
+];
+
+/** Alias legacy (underscore) yang setara dengan capability Cabang. */
+const PC_PERMISSION_SLUGS = [
+  DAKEM_PERMISSION_MANAGE_PC,
+  'dana_kematian_pc_view',
+  'dana_kematian_pc_create',
+  'dana_kematian_pc_edit',
+  'dana_kematian_pc_submit_to_pp',
+  'manage_dana_kematian',
+  'access_dana_kematian',
+];
+
 const SUPERUSER_ROLE_SLUGS = ['admin', 'administrator', 'owner'];
+
+function userHasAny(user: any, slugs: string[]): boolean {
+  return slugs.some(slug => hasPermission(user, slug));
+}
+
 
 /**
  * Resolve konteks aktor dari session. User tanpa permission Pusat diperlakukan
@@ -31,10 +63,8 @@ export async function getDakemActorContext(): Promise<DakemActorContext> {
     const user = await getCurrentUser();
     const roleSlug = (user?.role?.slug as string) || '';
     const isSuperuser = SUPERUSER_ROLE_SLUGS.includes(roleSlug);
-    const canVerifyPP =
-      isSuperuser || (!!user && hasPermission(user as any, DAKEM_PERMISSION_VERIFY_PP));
-    const canManagePC =
-      isSuperuser || (!!user && hasPermission(user as any, DAKEM_PERMISSION_MANAGE_PC));
+    const canVerifyPP = isSuperuser || userHasAny(user, PP_PERMISSION_SLUGS);
+    const canManagePC = isSuperuser || userHasAny(user, PC_PERMISSION_SLUGS);
 
     return {
       userId: user?.id ?? null,
@@ -54,6 +84,28 @@ export async function getDakemActorContext(): Promise<DakemActorContext> {
       canVerifyPP: false,
       isCabangOnly: true,
     };
+  }
+}
+
+/** Cabang tempat user terdaftar (dari tabel anggota). Null bila tidak ada. */
+export async function getActorCabang(userId: string): Promise<{
+  nama_cabang: string | null;
+  kode_cabang: string | null;
+}> {
+  try {
+    if (!supabaseAdmin || !userId) return { nama_cabang: null, kode_cabang: null };
+    const { data } = await supabaseAdmin
+      .from('anggota')
+      .select('nama_cabang, kode_cabang')
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    return {
+      nama_cabang: data?.nama_cabang ?? null,
+      kode_cabang: data?.kode_cabang ?? null,
+    };
+  } catch {
+    return { nama_cabang: null, kode_cabang: null };
   }
 }
 

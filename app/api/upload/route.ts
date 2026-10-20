@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadToSupabaseStorageGeneric, deleteFromSupabaseStorage, DanaKematianFolder, AnggotaFolder } from '@/lib/supabase-storage';
+import { getCurrentUser } from '@/lib/rbac-server';
 
 // POST /api/upload - Upload file to Supabase storage
 export async function POST(request: NextRequest) {
   try {
+    // Auth: upload file hanya untuk user yang terautentikasi.
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Silakan login terlebih dahulu', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const bucket = formData.get('bucket') as 'dana-kematian' | 'anggota';
@@ -98,6 +108,15 @@ export async function POST(request: NextRequest) {
 // DELETE /api/upload - Delete file from Supabase storage
 export async function DELETE(request: NextRequest) {
   try {
+    // Auth: hapus file hanya untuk user yang terautentikasi.
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Silakan login terlebih dahulu', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const url = searchParams.get('url');
     const bucket = searchParams.get('bucket') as 'dana-kematian' | 'anggota' | null;

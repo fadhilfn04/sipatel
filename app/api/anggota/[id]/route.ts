@@ -3,6 +3,12 @@ import { supabase } from '@/lib/supabase';
 import { UpdateAnggotaInput } from '@/lib/supabase';
 import { requirePermission, requireAnyPermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS } from '@/lib/rbac';
+import {
+  buildAnggotaUpdatePayload,
+  isAdminActor,
+  recordMutasiIfCabangChanged,
+  hasActiveDakemTransactions,
+} from '@/lib/server/anggota-service';
 
 // GET /api/anggota/[id] - Get single member by ID
 export async function GET(
@@ -58,7 +64,7 @@ export async function PUT(
 ) {
   try {
     // Check permission - require manage permission
-    await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
 
     const { id } = await context.params;
     const body: UpdateAnggotaInput = await request.json();
@@ -66,7 +72,7 @@ export async function PUT(
     // Check if member exists
     const { data: existingAnggota } = await supabase
       .from('anggota')
-      .select('id')
+      .select('*')
       .eq('id', id)
       .is('deleted_at', null)
       .single();
@@ -96,49 +102,41 @@ export async function PUT(
       }
     }
 
-    // Update anggota
+    // ── Approval perubahan data anggota ──────────────────────────────
+    // Edit oleh non-admin → buat usulan approval; data utama TIDAK berubah.
+    // Admin (penyetuju) dapat langsung mengubah data utama.
+    if (!isAdminActor(user)) {
+      const { error: proposalError } = await supabase
+        .from('anggota_perubahan')
+        .insert({
+          anggota_id: id,
+          jenis: 'edit',
+          status: 'menunggu',
+          data_sebelum: existingAnggota,
+          data_usulan: body,
+          alasan: (body as any).alasan_perubahan || null,
+          diajukan_oleh: user.id,
+        });
+
+      if (proposalError) {
+        console.error('Error creating anggota edit approval:', proposalError);
+        return NextResponse.json(
+          { error: 'Gagal membuat usulan perubahan anggota', details: proposalError.message },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json(
+        { message: 'Usulan perubahan data anggota menunggu persetujuan admin.', status: 'menunggu' },
+        { status: 202 }
+      );
+    }
+
+    // Admin: terapkan perubahan langsung.
+    const payload = buildAnggotaUpdatePayload(body);
     const { data: updatedAnggota, error } = await supabase
       .from('anggota')
-      .update({
-        ...body,
-        alamat: body.alamat || null,
-        rt: body.rt || null,
-        rw: body.rw || null,
-        kelurahan: body.kelurahan || null,
-        kecamatan: body.kecamatan || null,
-        provinsi: body.provinsi || null,
-        kota: body.kota || null,
-        kode_pos: body.kode_pos || null,
-        nomor_handphone: body.nomor_handphone || null,
-        nomor_telepon: body.nomor_telepon || null,
-        email: body.email || null,
-        sosial_media: body.sosial_media || null,
-        e_ktp: body.e_ktp || null,
-        kartu_keluarga: body.kartu_keluarga || null,
-        npwp: body.npwp || null,
-        tempat_lahir: body.tempat_lahir || null,
-        tanggal_lahir: body.tanggal_lahir || null,
-        jenis_kelamin: body.jenis_kelamin || null,
-        agama: body.agama || null,
-        golongan_darah: body.golongan_darah || null,
-        besaran_iuran: body.besaran_iuran || null,
-        form_kesediaan_iuran: body.form_kesediaan_iuran || null,
-        nama_bank: body.nama_bank || null,
-        norek_bank: body.norek_bank || null,
-        kategori_bantuan: body.kategori_bantuan || null,
-        tanggal_terima_bantuan: body.tanggal_terima_bantuan || null,
-        gambar_kondisi_tempat_tinggal: body.gambar_kondisi_tempat_tinggal || null,
-        alasan_mutasi: body.alasan_mutasi || null,
-        tanggal_mutasi: body.tanggal_mutasi || null,
-        cabang_pengajuan_mutasi: body.cabang_pengajuan_mutasi || null,
-        pusat_pengesahan_mutasi: body.pusat_pengesahan_mutasi || null,
-        status_bpjs: body.status_bpjs || null,
-        bpjs_kelas: body.bpjs_kelas || null,
-        bpjs_insentif: body.bpjs_insentif || null,
-        kategori_datul: body.kategori_datul || null,
-        media_datul: body.media_datul || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(payload)
       .eq('id', id)
       .select()
       .single();
@@ -150,6 +148,15 @@ export async function PUT(
         { status: 500 }
       );
     }
+
+    // Catat riwayat mutasi bila cabang berubah (append-only).
+    await recordMutasiIfCabangChanged({
+      before: existingAnggota,
+      after: updatedAnggota,
+      diajukanOleh: user.id,
+      disetujuiOleh: user.id,
+      alasan: (body as any).alasan_perubahan || null,
+    });
 
     return NextResponse.json({
       data: updatedAnggota,
@@ -181,12 +188,12 @@ export async function DELETE(
 ) {
   try {
     // Check permission - require manage permission
-    await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
 
     const { id } = await context.params;
     const { data: existingAnggota } = await supabase
       .from('anggota')
-      .select('id')
+      .select('*')
       .eq('id', id)
       .is('deleted_at', null)
       .single();
@@ -198,7 +205,50 @@ export async function DELETE(
       );
     }
 
-    // Soft delete by setting deleted_at
+    // ── Approval penghapusan: non-admin mengajukan usulan hapus ──────
+    // Admin (penyetuju) dapat langsung melakukan soft delete.
+    if (!isAdminActor(user)) {
+      const { error: proposalError } = await supabase
+        .from('anggota_perubahan')
+        .insert({
+          anggota_id: id,
+          jenis: 'hapus',
+          status: 'menunggu',
+          data_sebelum: existingAnggota,
+          data_usulan: {},
+          alasan: (request.nextUrl.searchParams.get('alasan')) || null,
+          diajukan_oleh: user.id,
+        });
+
+      if (proposalError) {
+        console.error('Error creating anggota delete approval:', proposalError);
+        return NextResponse.json(
+          { error: 'Gagal membuat usulan penghapusan anggota', details: proposalError.message },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json(
+        { message: 'Usulan penghapusan anggota menunggu persetujuan admin.', status: 'menunggu' },
+        { status: 202 }
+      );
+    }
+
+    // Guard: cegah penghapusan yang merusak relasi / transaksi historis —
+    // anggota dengan pengajuan Dana Kematian aktif tidak boleh dihapus.
+    const hasActiveTransactions = await hasActiveDakemTransactions(id);
+    if (hasActiveTransactions) {
+      return NextResponse.json(
+        {
+          error:
+            'Anggota masih memiliki pengajuan Dana Kematian aktif dan tidak dapat dihapus. ' +
+            'Selesaikan atau batalkan pengajuan terkait terlebih dahulu.',
+        },
+        { status: 409 }
+      );
+    }
+
+    // Soft delete by setting deleted_at (pola aplikasi: data historis dipertahankan)
     const { error } = await supabase
       .from('anggota')
       .update({ deleted_at: new Date().toISOString() })

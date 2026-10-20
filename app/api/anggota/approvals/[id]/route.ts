@@ -1,0 +1,160 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+import { requirePermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
+import { PERMISSIONS } from '@/lib/rbac';
+import {
+  buildAnggotaUpdatePayload,
+  isAdminActor,
+  recordMutasiIfCabangChanged,
+  hasActiveDakemTransactions,
+} from '@/lib/server/anggota-service';
+
+/**
+ * POST /api/anggota/approvals/[id] — keputusan usulan perubahan anggota.
+ * Hanya admin. body: { keputusan: 'setujui' | 'tolak', alasan?: string }
+ *
+ * - 'tolak'   : data utama TIDAK berubah.
+ * - 'setujui' : edit → terapkan data_usulan; hapus → soft delete.
+ * - Double-decision dihindari lewat optimistic lock (status harus 'menunggu').
+ */
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    if (!isAdminActor(user)) {
+      return unauthorizedResponse('Hanya admin yang dapat memutuskan usulan perubahan anggota');
+    }
+
+    const { id } = await context.params;
+    const body = await request.json();
+    const keputusan = body?.keputusan === 'tolak' ? 'tolak' : body?.keputusan === 'setujui' ? 'setujui' : null;
+    if (!keputusan) {
+      return NextResponse.json({ error: 'keputusan wajib diisi (setujui|tolak).' }, { status: 400 });
+    }
+    if (keputusan === 'tolak' && !(body?.alasan || '').trim()) {
+      return NextResponse.json({ error: 'Alasan wajib diisi saat menolak usulan.' }, { status: 400 });
+    }
+
+    const { data: proposal, error: proposalError } = await supabase
+      .from('anggota_perubahan')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (proposalError || !proposal) {
+      return NextResponse.json({ error: 'Usulan tidak ditemukan' }, { status: 404 });
+    }
+    if (proposal.status !== 'menunggu') {
+      return NextResponse.json(
+        { error: `Usulan sudah diputuskan (status: ${proposal.status}).` },
+        { status: 409 }
+      );
+    }
+
+    const nowIso = new Date().toISOString();
+
+    if (keputusan === 'tolak') {
+      // Data utama TIDAK berubah — hanya status usulan + alasan keputusan.
+      const { data: updated, error } = await supabase
+        .from('anggota_perubahan')
+        .update({
+          status: 'ditolak',
+          diputuskan_oleh: user.id,
+          diputuskan_pada: nowIso,
+          alasan_keputusan: body.alasan,
+        })
+        .eq('id', id)
+        .eq('status', 'menunggu')
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error rejecting approval:', error);
+        return NextResponse.json({ error: 'Gagal memutuskan usulan', details: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ data: updated, message: 'Usulan ditolak — data utama tidak berubah.' });
+    }
+
+    // ── SETUJUI ──
+    // 1) Tandai usulan disetujui (optimistic lock).
+    const { data: approvedProposal, error: approveError } = await supabase
+      .from('anggota_perubahan')
+      .update({
+        status: 'disetujui',
+        diputuskan_oleh: user.id,
+        diputuskan_pada: nowIso,
+        alasan_keputusan: body?.alasan || null,
+      })
+      .eq('id', id)
+      .eq('status', 'menunggu')
+      .select()
+      .single();
+
+    if (approveError) {
+      console.error('Error approving proposal:', approveError);
+      return NextResponse.json({ error: 'Gagal menyetujui usulan', details: approveError.message }, { status: 500 });
+    }
+
+    const anggotaId = proposal.anggota_id;
+
+    // 2) Terapkan perubahan.
+    if (proposal.jenis === 'edit') {
+      const payload = buildAnggotaUpdatePayload(proposal.data_usulan || {});
+      const { data: updatedAnggota, error } = await supabase
+        .from('anggota')
+        .update(payload)
+        .eq('id', anggotaId)
+        .is('deleted_at', null)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error applying approved edit:', error);
+        return NextResponse.json({ error: 'Usulan disetujui tetapi gagal diterapkan', details: error.message }, { status: 500 });
+      }
+
+      await recordMutasiIfCabangChanged({
+        before: proposal.data_sebelum || {},
+        after: updatedAnggota,
+        diajukanOleh: proposal.diajukan_oleh,
+        disetujuiOleh: user.id,
+        alasan: proposal.alasan,
+      });
+
+      return NextResponse.json({ data: updatedAnggota, message: 'Usulan edit disetujui dan diterapkan.' });
+    }
+
+    // jenis 'hapus'
+    const hasActiveTransactions = await hasActiveDakemTransactions(anggotaId);
+    if (hasActiveTransactions) {
+      return NextResponse.json(
+        {
+          error:
+            'Anggota masih memiliki pengajuan Dana Kematian aktif dan tidak dapat dihapus. ' +
+            'Selesaikan atau batalkan pengajuan terkait terlebih dahulu.',
+        },
+        { status: 409 }
+      );
+    }
+
+    const { error: deleteError } = await supabase
+      .from('anggota')
+      .update({ deleted_at: nowIso })
+      .eq('id', anggotaId)
+      .is('deleted_at', null);
+
+    if (deleteError) {
+      console.error('Error applying approved delete:', deleteError);
+      return NextResponse.json({ error: 'Usulan disetujui tetapi gagal menghapus', details: deleteError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'Usulan hapus disetujui dan anggota dinonaktifkan.' });
+  } catch (error: any) {
+    if (error.message === 'UNAUTHORIZED') return notAuthenticatedResponse();
+    if (error.message === 'FORBIDDEN') return unauthorizedResponse('Anda tidak memiliki akses ke approval keanggotaan');
+    console.error('Error in POST /api/anggota/approvals/[id]:', error);
+    return NextResponse.json({ error: 'Terjadi kesalahan pada server' }, { status: 500 });
+  }
+}

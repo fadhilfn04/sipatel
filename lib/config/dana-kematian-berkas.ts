@@ -334,21 +334,38 @@ export function getBerkasDocuments(): BerkasDocumentConfig[] {
   return BERKAS_DOCUMENTS;
 }
 
-/** Dokumen yang wajib sebelum "Berkas Lengkap" */
-export function getMandatoryBerkasDocuments(): BerkasDocumentConfig[] {
-  return BERKAS_DOCUMENTS.filter(doc => doc.requiredForLengkap);
+/**
+ * Override konfigurasi dokumen wajib/opsional yang dikelola admin pusat
+ * (tabel dana_kematian_config, key `required_documents`).
+ * Hanya menimpa flag `requiredForLengkap` untuk fileKey yang disebutkan —
+ * dokumen lain mengikuti konfigurasi default di file ini.
+ */
+export interface BerkasRequiredOverride {
+  requiredByFileKey?: Record<string, boolean>;
+}
+
+/** Apakah dokumen wajib menurut override (atau default bila tidak dioverride)? */
+function isDocRequired(doc: BerkasDocumentConfig, override?: BerkasRequiredOverride): boolean {
+  const overridden = override?.requiredByFileKey?.[doc.fileKey];
+  return overridden === undefined ? !!doc.requiredForLengkap : !!overridden;
+}
+
+/** Dokumen yang wajib sebelum "Berkas Lengkap" (mendukung override admin) */
+export function getMandatoryBerkasDocuments(override?: BerkasRequiredOverride): BerkasDocumentConfig[] {
+  return BERKAS_DOCUMENTS.filter(doc => isDocRequired(doc, override));
 }
 
 /**
  * Daftar item berkas yang belum terpenuhi (label, siap ditampilkan ke user).
- * Hanya dokumen dengan requiredForLengkap yang dievaluasi.
+ * Hanya dokumen wajib (default / override admin) yang dievaluasi.
  */
 export function getMissingBerkasItems(
   claim: Record<string, any>,
   options?: BerkasEvaluationOptions,
+  override?: BerkasRequiredOverride,
 ): string[] {
   const missing: string[] = [];
-  for (const doc of getMandatoryBerkasDocuments()) {
+  for (const doc of getMandatoryBerkasDocuments(override)) {
     const evaluation = evaluateBerkasDocument(doc, claim, options);
     missing.push(...evaluation.missingItems);
   }
@@ -362,6 +379,7 @@ export function getMissingBerkasItems(
 export function isBerkasLengkap(
   claim: Record<string, any>,
   options?: BerkasEvaluationOptions,
+  override?: BerkasRequiredOverride,
 ): boolean {
-  return getMissingBerkasItems(claim, options).length === 0;
+  return getMissingBerkasItems(claim, options, override).length === 0;
 }
