@@ -2,12 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requirePermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS } from '@/lib/rbac';
+import { isAdminActor } from '@/lib/server/anggota-service';
 
 // POST /api/anggota/bulk-delete - Bulk soft delete members (optimized single-query)
 export async function POST(request: NextRequest) {
   try {
-    // Check permission - require manage permission
-    await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    // Penghapusan massal hanya oleh admin: penghapusan non-admin wajib melalui
+    // usulan approval per anggota (anggota_perubahan) agar tetap teraudit.
+    const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    if (!isAdminActor(user)) {
+      return unauthorizedResponse(
+        'Penghapusan massal hanya dapat dilakukan admin. Gunakan usulan penghapusan per anggota untuk persetujuan.'
+      );
+    }
 
     const body = await request.json();
     const { ids, deleteAll, filters } = body;

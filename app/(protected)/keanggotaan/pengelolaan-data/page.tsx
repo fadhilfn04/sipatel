@@ -32,6 +32,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
+  ClipboardList,
 } from 'lucide-react';
 import { Card, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -71,6 +72,8 @@ import { ExportExcelModal } from '@/components/anggota/ExportExcelModal';
 import { ToastNotification } from '@/components/anggota/ToastNotification';
 import { ExpandableRow } from '@/components/anggota/ExpandableRow';
 import { DocumentStatusBadge } from '@/components/anggota/DocumentStatusBadge';
+import { AnggotaApprovalsModal } from '@/components/anggota/AnggotaApprovalsModal';
+import { useUserPermissions } from '@/lib/hooks/use-user-permissions';
 import {
   Dialog,
   DialogBody,
@@ -116,6 +119,11 @@ export default function PengelolaanDataPage() {
   const [memberToDelete, setMemberToDelete] = useState<Anggota | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [approvalsOpen, setApprovalsOpen] = useState(false);
+
+  // Approval keanggotaan: hanya admin (superuser) yang dapat memutuskan usulan.
+  const { role: userRole } = useUserPermissions();
+  const isAdminApprover = ['admin', 'administrator', 'owner'].includes(userRole);
 
   // Toast state
   const [toast, setToast] = useState<{
@@ -237,8 +245,15 @@ export default function PengelolaanDataPage() {
   // Event handlers
   const handleCreate = async (data: CreateAnggotaInput) => {
     try {
-      await createMutation.mutateAsync(data);
-      showToast('Anggota baru berhasil ditambahkan', 'success');
+      const result: any = await createMutation.mutateAsync(data);
+      if (result?.status === 'menunggu') {
+        showToast(
+          result.message || 'Usulan penambahan anggota menunggu persetujuan admin.',
+          'info'
+        );
+      } else {
+        showToast('Anggota baru berhasil ditambahkan', 'success');
+      }
       setAddModalOpen(false);
     } catch (error: any) {
       console.error('Error creating member:', error);
@@ -250,8 +265,15 @@ export default function PengelolaanDataPage() {
 
   const handleUpdate = async (data: CreateAnggotaInput) => {
     try {
-      await updateMutation.mutateAsync(data);
-      showToast('Data anggota berhasil diperbarui', 'success');
+      const result: any = await updateMutation.mutateAsync(data);
+      if (result?.status === 'menunggu') {
+        showToast(
+          result.message || 'Usulan perubahan data anggota menunggu persetujuan admin.',
+          'info'
+        );
+      } else {
+        showToast('Data anggota berhasil diperbarui', 'success');
+      }
       setEditModalOpen(false);
       setEditMemberId(null);
     } catch (error: any) {
@@ -266,8 +288,15 @@ export default function PengelolaanDataPage() {
   const handleDelete = async () => {
     if (memberToDelete) {
       try {
-        await deleteMutation.mutateAsync(memberToDelete.id);
-        showToast('Data anggota berhasil dihapus', 'success');
+        const result: any = await deleteMutation.mutateAsync(memberToDelete.id);
+        if (result?.status === 'menunggu') {
+          showToast(
+            result.message || 'Usulan penghapusan anggota menunggu persetujuan admin.',
+            'info'
+          );
+        } else {
+          showToast('Data anggota berhasil dihapus', 'success');
+        }
         setDeleteConfirmOpen(false);
         setMemberToDelete(null);
       } catch (error) {
@@ -691,14 +720,24 @@ export default function PengelolaanDataPage() {
                   <span className="hidden sm:inline">Ekspor</span>
                   <span className="sm:hidden">Export Excel</span>
                 </Button>
+                {isAdminApprover && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setImportModalOpen(true)}
+                    className="w-full sm:w-auto"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    <span className="hidden sm:inline">Impor</span>
+                    <span className="sm:hidden">Import Excel</span>
+                  </Button>
+                )}
                 <Button
                   variant="outline"
-                  onClick={() => setImportModalOpen(true)}
+                  onClick={() => setApprovalsOpen(true)}
                   className="w-full sm:w-auto"
                 >
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">Impor</span>
-                  <span className="sm:hidden">Import Excel</span>
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  <span>Approval</span>
                 </Button>
                 <Button
                   onClick={() => setAddModalOpen(true)}
@@ -708,8 +747,9 @@ export default function PengelolaanDataPage() {
                   <span>Tambah Anggota</span>
                 </Button>
 
-                {/* Delete Button — appears when there is any selection */}
-                {hasSelection && (
+                {/* Delete Button — appears when there is any selection (admin only:
+                    penghapusan non-admin wajib melalui usulan approval per anggota) */}
+                {hasSelection && isAdminApprover && (
                   <Button
                     variant="destructive"
                     onClick={() => {
@@ -939,6 +979,12 @@ export default function PengelolaanDataPage() {
         isPending={deleteMutation.isPending}
       />
       <ImportExcelModal open={importModalOpen} onClose={() => setImportModalOpen(false)} onImport={handleImport} />
+
+      <AnggotaApprovalsModal
+        open={approvalsOpen}
+        onClose={() => setApprovalsOpen(false)}
+        isAdmin={isAdminApprover}
+      />
       <ExportExcelModal
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}

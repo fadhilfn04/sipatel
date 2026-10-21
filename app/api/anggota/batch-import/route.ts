@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requirePermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS } from '@/lib/rbac';
+import { isAdminActor } from '@/lib/server/anggota-service';
 
 /**
  * POST /api/anggota/batch-import - Insert a batch of validated records.
@@ -19,7 +20,15 @@ import { PERMISSIONS } from '@/lib/rbac';
 
 export async function POST(request: NextRequest) {
   try {
-    await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    // Import Excel membuat anggota secara langsung — dengan aturan approval,
+    // create oleh non-admin harus melalui usulan. Maka import dibatasi admin.
+    // (Alternatif untuk cabang: import → usulan massal — menunggu keputusan bisnis.)
+    const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    if (!isAdminActor(user)) {
+      return unauthorizedResponse(
+        'Import Excel hanya dapat dilakukan admin. Penambahan anggota oleh cabang wajib melalui usulan yang disetujui admin.'
+      );
+    }
 
     const body = await request.json();
     const { records } = body;

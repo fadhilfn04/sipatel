@@ -4,7 +4,9 @@ import { requirePermission, notAuthenticatedResponse, unauthorizedResponse } fro
 import { PERMISSIONS } from '@/lib/rbac';
 import {
   buildAnggotaUpdatePayload,
+  buildAnggotaCreatePayload,
   isAdminActor,
+  isNikExists,
   recordMutasiIfCabangChanged,
   hasActiveDakemTransactions,
 } from '@/lib/server/anggota-service';
@@ -99,12 +101,65 @@ export async function POST(
 
     const anggotaId = proposal.anggota_id;
 
-    // 2) Terapkan perubahan.
+    // Helper: kembalikan status usulan ke 'menunggu' bila apply gagal,
+    // agar dapat diputuskan ulang tanpa duplikasi.
+    const revertToPending = async () => {
+      await supabase
+        .from('anggota_perubahan')
+        .update({ status: 'menunggu', diputuskan_oleh: null, diputuskan_pada: null, alasan_keputusan: null })
+        .eq('id', id);
+    };
+
+    // Usulan edit/hapus wajib terhubung ke anggota yang ada.
+    if (proposal.jenis !== 'create' && !anggotaId) {
+      await revertToPending();
+      return NextResponse.json({ error: 'Usulan tidak terhubung ke anggota yang valid.' }, { status: 400 });
+    }
+
+    // ── CREATE: usulan anggota baru ──
+    if (proposal.jenis === 'create') {
+      const payload = proposal.data_usulan || {};
+      if (!payload.nik || !payload.nama_anggota || !payload.nama_cabang) {
+        await revertToPending();
+        return NextResponse.json({ error: 'Usulan anggota tidak lengkap (nik/nama_anggota/nama_cabang wajib).' }, { status: 400 });
+      }
+
+      if (await isNikExists(payload.nik)) {
+        await revertToPending();
+        return NextResponse.json({ error: 'NIK sudah terdaftar — usulan tidak dapat disetujui.' }, { status: 409 });
+      }
+
+      const { data: createdAnggota, error } = await supabase
+        .from('anggota')
+        .insert([buildAnggotaCreatePayload(payload)])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error applying approved create:', error);
+        await revertToPending();
+        return NextResponse.json({ error: 'Usulan disetujui tetapi gagal dibuat', details: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ data: createdAnggota, message: 'Usulan penambahan anggota disetujui dan dibuat.' }, { status: 201 });
+    }
+
+    // ── EDIT ──
     if (proposal.jenis === 'edit') {
-      const payload = buildAnggotaUpdatePayload(proposal.data_usulan || {});
+      const payload = proposal.data_usulan || {};
+
+      // Re-cek NIK saat apply (data mungkin berubah sejak usulan diajukan).
+      if (payload.nik && payload.nik !== proposal.data_sebelum?.nik) {
+        if (await isNikExists(payload.nik, anggotaId)) {
+          await revertToPending();
+          return NextResponse.json({ error: 'NIK sudah terdaftar pada anggota lain.' }, { status: 409 });
+        }
+      }
+
+      const updatePayload = buildAnggotaUpdatePayload(payload);
       const { data: updatedAnggota, error } = await supabase
         .from('anggota')
-        .update(payload)
+        .update(updatePayload)
         .eq('id', anggotaId)
         .is('deleted_at', null)
         .select()
@@ -112,6 +167,7 @@ export async function POST(
 
       if (error) {
         console.error('Error applying approved edit:', error);
+        await revertToPending();
         return NextResponse.json({ error: 'Usulan disetujui tetapi gagal diterapkan', details: error.message }, { status: 500 });
       }
 

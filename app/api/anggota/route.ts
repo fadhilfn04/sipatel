@@ -4,6 +4,10 @@ import { CreateAnggotaInput, AnggotaFilter } from '@/lib/supabase';
 import { requirePermission, requireAnyPermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS, ROLES } from '@/lib/rbac';
 import { notifyAnggotaBaru } from '@/lib/server/create-notification';
+import {
+  buildAnggotaCreatePayload,
+  isAdminActor,
+} from '@/lib/server/anggota-service';
 
 // GET /api/anggota - Get all members with filtering and pagination
 export async function GET(request: NextRequest) {
@@ -116,7 +120,7 @@ export async function GET(request: NextRequest) {
 // POST /api/anggota - Create new member
 export async function POST(request: NextRequest) {
     // Check permission
-    await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
 
   try {
     const body: CreateAnggotaInput = await request.json();
@@ -148,63 +152,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create new anggota with defaults for missing required fields
+    // ── Approval pembuatan anggota ─────────────────────────────────
+    // Create oleh non-admin → buat usulan approval; data utama TIDAK dibuat
+    // sampai disetujui admin. Admin (penyetuju) dapat langsung membuat.
+    if (!isAdminActor(user)) {
+      const { error: proposalError } = await supabase
+        .from('anggota_perubahan')
+        .insert({
+          anggota_id: null,
+          jenis: 'create',
+          status: 'menunggu',
+          data_sebelum: null,
+          data_usulan: body,
+          alasan: (body as any).alasan_perubahan || null,
+          diajukan_oleh: user.id,
+        });
+
+      if (proposalError) {
+        console.error('Error creating anggota create approval:', proposalError);
+        return NextResponse.json(
+          { error: 'Gagal membuat usulan penambahan anggota', details: proposalError.message },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json(
+        { message: 'Usulan penambahan anggota menunggu persetujuan admin.', status: 'menunggu' },
+        { status: 202 }
+      );
+    }
+
+    // Admin: buat langsung.
     const { data: newAnggota, error } = await supabase
       .from('anggota')
-      .insert([{
-        ...body,
-        // Set defaults for required database fields
-        kategori_anggota: body.kategori_anggota || 'biasa',
-        status_anggota: body.status_anggota || 'pegawai',
-        status_mps: body.status_mps || 'non_mps',
-        status_iuran: body.status_iuran || 'iuran',
-        posisi_kepengurusan: body.posisi_kepengurusan || 'Anggota',
-        // Optional fields
-        status_kepesertaan: body.status_kepesertaan || null,
-        cabang_kelas: body.cabang_kelas || null,
-        cabang_area_regional: body.cabang_area_regional || null,
-        cabang_area_witel: body.cabang_area_witel || null,
-        pasutri: body.pasutri || null,
-        status_perkawinan: body.status_perkawinan || null,
-        sk_pensiun: body.sk_pensiun || null,
-        nomor_sk_pensiun: body.nomor_sk_pensiun || null,
-        alamat: body.alamat || null,
-        rt: body.rt || null,
-        rw: body.rw || null,
-        kelurahan: body.kelurahan || null,
-        kecamatan: body.kecamatan || null,
-        provinsi: body.provinsi || null,
-        kota: body.kota || null,
-        kode_pos: body.kode_pos || null,
-        nomor_handphone: body.nomor_handphone || null,
-        nomor_telepon: body.nomor_telepon || null,
-        email: body.email || null,
-        sosial_media: body.sosial_media || null,
-        e_ktp: body.e_ktp || null,
-        kartu_keluarga: body.kartu_keluarga || null,
-        npwp: body.npwp || null,
-        tempat_lahir: body.tempat_lahir || null,
-        tanggal_lahir: body.tanggal_lahir || null,
-        jenis_kelamin: body.jenis_kelamin || null,
-        agama: body.agama || null,
-        golongan_darah: body.golongan_darah || null,
-        besaran_iuran: body.besaran_iuran || null,
-        form_kesediaan_iuran: body.form_kesediaan_iuran || null,
-        nama_bank: body.nama_bank || null,
-        norek_bank: body.norek_bank || null,
-        kategori_bantuan: body.kategori_bantuan || null,
-        tanggal_terima_bantuan: body.tanggal_terima_bantuan || null,
-        gambar_kondisi_tempat_tinggal: body.gambar_kondisi_tempat_tinggal || null,
-        alasan_mutasi: body.alasan_mutasi || null,
-        tanggal_mutasi: body.tanggal_mutasi || null,
-        cabang_pengajuan_mutasi: body.cabang_pengajuan_mutasi || null,
-        pusat_pengesahan_mutasi: body.pusat_pengesahan_mutasi || null,
-        status_bpjs: body.status_bpjs || null,
-        bpjs_kelas: body.bpjs_kelas || null,
-        bpjs_insentif: body.bpjs_insentif || null,
-        kategori_datul: body.kategori_datul || null,
-        media_datul: body.media_datul || null,
-      }])
+      .insert([buildAnggotaCreatePayload(body)])
       .select()
       .single();
 

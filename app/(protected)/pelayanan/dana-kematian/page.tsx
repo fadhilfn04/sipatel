@@ -31,6 +31,10 @@ import {
   XCircle,
   Loader2,
   Handshake,
+  Settings2,
+  Timer,
+  ArrowLeftRight,
+  Undo2,
 } from 'lucide-react';
 import { Card, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -63,6 +67,9 @@ import { DanaKematianFormModal } from '@/components/dana-kematian/DanaKematianFo
 import { DanaKematianImportModal } from '@/components/dana-kematian/DanaKematianImportModal';
 import { CancelSubmissionDialog } from '@/components/dana-kematian/CancelSubmissionDialog';
 import { LaporanPeriodeModal } from '@/components/dana-kematian/LaporanPeriodeModal';
+import { DakemConfigModal } from '@/components/dana-kematian/DakemConfigModal';
+import { DurationRecapModal } from '@/components/dana-kematian/DurationRecapModal';
+import { ClaimReassignDialog } from '@/components/dana-kematian/ClaimReassignDialog';
 import { ToastNotification } from '@/components/anggota/ToastNotification';
 import { useAnggotaList } from '@/lib/hooks/use-anggota-api';
 import {
@@ -121,9 +128,19 @@ export default function DanaKematianPage() {
   }>({ show: false, message: '', type: 'success' });
 
   // Context user untuk badge penugasan & tombol klaim
-  const { canVerifyPP } = useUserPermissions();
+  const { canVerifyPP, permissions, role } = useUserPermissions();
+  // Konfigurasi dinamis hanya untuk admin pusat (otorisasi juga ditegakkan di API).
+  const isAdminConfig =
+    ['admin', 'administrator', 'owner'].includes(role) ||
+    permissions.includes('manage_system') ||
+    permissions.includes('all_access');
   const [myCabangKode, setMyCabangKode] = useState<string | null>(null);
   const [myUserId, setMyUserId] = useState<string | null>(null);
+
+  // Modal states (konfigurasi, rekap durasi, pengalihan penugasan)
+  const [configOpen, setConfigOpen] = useState(false);
+  const [durationOpen, setDurationOpen] = useState(false);
+  const [reassignTarget, setReassignTarget] = useState<DanaKematian | null>(null);
 
   useEffect(() => {
     fetch('/api/anggota/me')
@@ -265,6 +282,28 @@ export default function DanaKematianPage() {
       showToast('Gagal mengklaim pengajuan', 'error');
     } finally {
       setClaimingId(null);
+    }
+  };
+
+  // Lepas pengajuan kembali ke tersedia (hanya cabang pemilik).
+  const [releasingId, setReleasingId] = useState<string | null>(null);
+
+  const handleRelease = async (claimId: string) => {
+    setReleasingId(claimId);
+    try {
+      const res = await fetch(`/api/dana-kematian/${claimId}/claim`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) {
+        showToast(json?.error || 'Gagal melepas pengajuan', 'error');
+      } else {
+        showToast(json?.message || 'Pengajuan dilepas ke status tersedia', 'success');
+        await refetch();
+      }
+    } catch (error) {
+      console.error('Error releasing assignment:', error);
+      showToast('Gagal melepas pengajuan', 'error');
+    } finally {
+      setReleasingId(null);
     }
   };
 
@@ -482,6 +521,42 @@ export default function DanaKematianPage() {
                 </Button>
               )}
 
+              {/* Lepas penugasan — cabang pemilik, hanya tahap sebelum submit */}
+              {!canVerifyPP &&
+                claim.claim_status === 'diklaim' &&
+                owned &&
+                ['draft', 'dilaporkan', 'verifikasi_cabang'].includes(String(status)) && (
+                  <Button
+                    mode="icon"
+                    variant="dim"
+                    size="sm"
+                    className="h-6 w-6 sm:h-7 sm:w-7"
+                    title="Lepas Penugasan"
+                    disabled={releasingId === row.original.id}
+                    onClick={() => handleRelease(row.original.id)}
+                  >
+                    {releasingId === row.original.id ? (
+                      <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                    ) : (
+                      <Undo2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                    )}
+                  </Button>
+                )}
+
+              {/* Alihkan kepemilikan — hanya Pusat */}
+              {canVerifyPP && claim.claim_status === 'diklaim' && (
+                <Button
+                  mode="icon"
+                  variant="dim"
+                  size="sm"
+                  className="h-6 w-6 sm:h-7 sm:w-7"
+                  title="Alihkan Kepemilikan"
+                  onClick={() => setReassignTarget(row.original)}
+                >
+                  <ArrowLeftRight className="h-3 w-3 sm:h-4 sm:w-4" />
+                </Button>
+              )}
+
               {/* Batal — replaces "Hapus": sets status Batal, keeps the record */}
               {cancelable && owned && (
                 <Button
@@ -503,7 +578,7 @@ export default function DanaKematianPage() {
         },
       },
     ],
-    [pagination.pageIndex, pagination.pageSize, canVerifyPP, myCabangKode, myUserId, claimingId]
+    [pagination.pageIndex, pagination.pageSize, canVerifyPP, myCabangKode, myUserId, claimingId, releasingId]
   );
 
   const table = useReactTable({
@@ -603,6 +678,16 @@ export default function DanaKematianPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-2 flex-wrap">
+                {isAdminConfig && (
+                  <Button variant="outline" onClick={() => setConfigOpen(true)}>
+                    <Settings2 />
+                    <span className="hidden lg:inline">Konfigurasi</span>
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setDurationOpen(true)}>
+                  <Timer />
+                  <span className="hidden lg:inline">Rekap Durasi</span>
+                </Button>
                 <Button variant="outline" onClick={() => setLaporanPeriodeOpen(true)}>
                   <FileText />
                   <span className="hidden lg:inline">Laporan Periode</span>
@@ -810,6 +895,18 @@ export default function DanaKematianPage() {
       <LaporanPeriodeModal
         open={laporanPeriodeOpen}
         onClose={() => setLaporanPeriodeOpen(false)}
+      />
+
+      <DakemConfigModal open={configOpen} onClose={() => setConfigOpen(false)} />
+
+      <DurationRecapModal open={durationOpen} onClose={() => setDurationOpen(false)} />
+
+      <ClaimReassignDialog
+        open={!!reassignTarget}
+        onClose={() => setReassignTarget(null)}
+        claimId={reassignTarget?.id ?? null}
+        currentOwner={(reassignTarget as any)?.cabang_pemilik_kode || null}
+        onDone={() => refetch()}
       />
 
       {/* Toast Notification */}
