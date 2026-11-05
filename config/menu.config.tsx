@@ -53,7 +53,7 @@ import {
   Briefcase as WorkIcon,
   Zap,
 } from 'lucide-react';
-import { PERMISSIONS, ENTRY_KEMATIAN_MANAGE_PERMISSIONS } from '@/lib/rbac';
+import { PERMISSIONS, ENTRY_KEMATIAN_MANAGE_PERMISSIONS, PENGAKHIRAN_MANAGE_PERMISSIONS } from '@/lib/rbac';
 import { type MenuConfig } from './types';
 
 export const MENU_SIDEBAR: MenuConfig = [
@@ -305,6 +305,14 @@ export const MENU_SIDEBAR: MenuConfig = [
         title: 'Data Meninggal Dunia',
         path: '/keanggotaan/entry-meninggal-dunia',
         permissions: [...ENTRY_KEMATIAN_MANAGE_PERMISSIONS],
+      },
+      {
+        // Pengakhiran keanggotaan (anggota berhenti) — pengajuan oleh PC,
+        // verifikasi PC, keputusan PP. Saat disetujui, status keanggotaan
+        // anggota menjadi 'berhenti' (data historis tetap dipertahankan).
+        title: 'Pengakhiran Keanggotaan',
+        path: '/keanggotaan/pengakhiran-keanggotaan',
+        permissions: [...PENGAKHIRAN_MANAGE_PERMISSIONS],
       },
       // {
       //   title: 'History Anggota',

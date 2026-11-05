@@ -14,6 +14,7 @@ export const PERMISSIONS = {
   HISTORY_ANGGOTA_VIEW: 'history_anggota_view',
   HISTORY_ANGGOTA_MANAGE: 'history_anggota_manage',
   MANAGE_KEMATIAN_ANGGOTA: 'manage_kematian_anggota',
+  MANAGE_PENGAKHIRAN_KEANGGOTAAN: 'manage_pengakhiran_keanggotaan',
 
   // Pelayanan
   ACCESS_DANA_KEMATIAN: 'access_dana_kematian',
@@ -68,6 +69,7 @@ export const PERMISSION_GROUPS = {
       PERMISSIONS.HISTORY_ANGGOTA_VIEW,
       PERMISSIONS.HISTORY_ANGGOTA_MANAGE,
       PERMISSIONS.MANAGE_KEMATIAN_ANGGOTA,
+      PERMISSIONS.MANAGE_PENGAKHIRAN_KEANGGOTAAN,
     ],
   },
   PELAYANAN: {
@@ -246,6 +248,11 @@ export const INITIAL_PERMISSIONS = [
     name: 'Manage Entry Meninggal Dunia',
     description: 'Mencatat data karyawan/anggota meninggal dunia (tanggal meninggal & surat kematian)',
   },
+  {
+    slug: PERMISSIONS.MANAGE_PENGAKHIRAN_KEANGGOTAAN,
+    name: 'Manage Pengakhiran Keanggotaan',
+    description: 'Mengajukan & memverifikasi pengakhiran keanggotaan (anggota berhenti)',
+  },
 
   // Pelayanan
   {
@@ -363,4 +370,24 @@ export const ENTRY_KEMATIAN_VIEW_PERMISSIONS = [
   ...ENTRY_KEMATIAN_MANAGE_PERMISSIONS,
   PERMISSIONS.VIEW_KEANGGOTAAN,
   PERMISSIONS.ACCESS_DANA_KEMATIAN,
+];
+
+/**
+ * Akses fitur Pengakhiran Keanggotaan (keanggotaan/pengakhiran-keanggotaan).
+ *
+ * Workflow 2 tahap: pengajuan/verifikasi PC → keputusan PP. Boleh diakses oleh
+ * pengurus/admin: kelola keanggotaan, permission khusus manage_pengakhiran_keanggotaan,
+ * kapabilitas Dakem PC (cabang) / PP (pusat). Administrator selalu lolos.
+ */
+export const PENGAKHIRAN_MANAGE_PERMISSIONS = [
+  PERMISSIONS.MANAGE_KEANGGOTAAN,
+  PERMISSIONS.MANAGE_PENGAKHIRAN_KEANGGOTAAN,
+  PERMISSIONS.DAKEM_MANAGE_PC,
+  PERMISSIONS.DAKEM_VERIFY_PP,
+];
+
+/** Akses baca daftar/detail pengakhiran keanggotaan. */
+export const PENGAKHIRAN_VIEW_PERMISSIONS = [
+  ...PENGAKHIRAN_MANAGE_PERMISSIONS,
+  PERMISSIONS.VIEW_KEANGGOTAAN,
 ];

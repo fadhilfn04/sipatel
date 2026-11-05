@@ -33,6 +33,7 @@ export type AnggotaFolder =
   | 'kartu-keluarga'
   | 'npwp'
   | 'surat-kematian'
+  | 'surat-pengakhiran'
   | 'dokumen-lainnya';
 
 // File validation config

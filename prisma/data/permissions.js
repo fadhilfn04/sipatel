@@ -151,6 +151,13 @@ const permissions = [
 		name: 'Akses Keuangan Dana Kematian',
 		description: 'Dapat mengakses fitur keuangan dan menyetujui penyaluran dana kematian.',
 	},
+	// Keanggotaan capability permissions
+	{
+		slug: 'manage_pengakhiran_keanggotaan',
+		name: 'Manage Pengakhiran Keanggotaan',
+		description:
+			'Dapat mengajukan & memverifikasi pengakhiran keanggotaan (anggota berhenti).',
+	},
 ];
 
 module.exports = permissions;

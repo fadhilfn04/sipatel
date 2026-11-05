@@ -147,7 +147,9 @@ export async function POST(request: NextRequest) {
     // Anggota dipilih pengurus dari daftar NIK — diverifikasi server-side.
     const { data: anggota, error: anggotaError } = await client
       .from('anggota')
-      .select('id, nik, nama_anggota, nama_cabang, kode_cabang, kategori_anggota, status_anggota')
+      .select(
+        'id, nik, nama_anggota, nama_cabang, kode_cabang, kategori_anggota, status_anggota, status_keanggotaan',
+      )
       .eq('id', anggotaId)
       .is('deleted_at', null)
       .maybeSingle();
@@ -164,6 +166,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Anggota tidak ditemukan', code: 'ANGGOTA_NOT_FOUND' },
         { status: 404 },
+      );
+    }
+
+    // Anggota yang sudah berhenti / non-aktif tidak dapat dimutasikan.
+    if (anggota.status_keanggotaan && anggota.status_keanggotaan !== 'aktif') {
+      return NextResponse.json(
+        {
+          error:
+            'Anggota berstatus tidak aktif (berhenti/non-aktif) dan tidak dapat diajukan mutasi cabang.',
+          code: 'ANGGOTA_TIDAK_AKTIF',
+        },
+        { status: 409 },
       );
     }
 

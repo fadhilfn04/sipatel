@@ -19,6 +19,7 @@ export type SkPensiunEnum = 'ada' | 'tidak_ada';
 export type StatusPerkawinanEnum = 'belum_kawin' | 'kawin' | 'cerai_hidup' | 'cerai_mati';
 export type AgamaEnum = 'islam' | 'kristen' | 'katolik' | 'hindu' | 'buddha' | 'konghucu';
 export type GolonganDarahEnum = 'A' | 'B' | 'AB' | 'O';
+export type StatusKeanggotaanEnum = 'aktif' | 'non_aktif' | 'berhenti';
 
 // Wilayah tables
 export interface Province {
@@ -62,6 +63,7 @@ export interface Anggota {
   status_mps: StatusMpsEnum;
   status_iuran: StatusIuranEnum;
   status_kepesertaan: string | null;
+  status_keanggotaan?: StatusKeanggotaanEnum;
   nama_cabang: string;
   kode_cabang: string | null;
   posisi_kepengurusan: string;
@@ -674,6 +676,85 @@ export interface CreatePengajuanMutasiCabangInput {
 export interface UpdateMutasiCabangStatusInput {
   status: MutasiCabangStatus;
   catatan?: string;
+}
+
+// Pengakhiran Keanggotaan types (pengakhiran_keanggotaan — migration 032)
+export type PengakhiranStatus =
+  | 'menunggu'
+  | 'diverifikasi_pc'
+  | 'disetujui_pp'
+  | 'ditolak'
+  | 'dibatalkan';
+
+export type AlasanPengakhiranEnum = 'mengundurkan_diri' | 'diberhentikan' | 'lainnya';
+
+export interface PengakhiranKeanggotaan {
+  id: string;
+  anggota_id: string;
+  diajukan_oleh: string;
+  nik: string | null;
+  nama_anggota: string | null;
+  nama_cabang: string | null;
+  kode_cabang: string | null;
+  alasan: AlasanPengakhiranEnum;
+  keterangan_alasan: string | null;
+  tanggal_efektif_berhenti: string;
+  nomor_dokumen: string;
+  tanggal_dokumen: string;
+  keterangan: string | null;
+  file_dokumen_pendukung: string | null;
+  metadata: Record<string, any> | null;
+  status: PengakhiranStatus;
+  catatan_pengaju: string | null;
+  diverifikasi_oleh: string | null;
+  diverifikasi_pada: string | null;
+  catatan_verifikasi: string | null;
+  diputuskan_oleh: string | null;
+  diputuskan_pada: string | null;
+  alasan_keputusan: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+/** pengakhiran_keanggotaan dengan relasi anggota (GET list/detail). */
+export interface PengakhiranKeanggotaanWithAnggota extends PengakhiranKeanggotaan {
+  anggota: Pick<
+    Anggota,
+    | 'id'
+    | 'nik'
+    | 'nama_anggota'
+    | 'nama_cabang'
+    | 'kode_cabang'
+    | 'kategori_anggota'
+    | 'status_anggota'
+    | 'status_keanggotaan'
+    | 'status_mps'
+  > | null;
+}
+
+export interface CreatePengakhiranKeanggotaanInput {
+  anggota_id: string;
+  alasan: AlasanPengakhiranEnum;
+  keterangan_alasan?: string | null;
+  tanggal_efektif_berhenti: string;
+  nomor_dokumen: string;
+  tanggal_dokumen: string;
+  keterangan?: string | null;
+  file_dokumen_pendukung?: string | null;
+  catatan_pengaju?: string | null;
+}
+
+export interface UpdatePengakhiranKeanggotaanStatusInput {
+  status: PengakhiranStatus;
+  catatan?: string;
+}
+
+export interface PengakhiranKeanggotaanFilter {
+  search?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
 }
 
 // Contribution payment types

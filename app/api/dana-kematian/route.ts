@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
     if (body.anggota_id) {
       const { data: member } = await getClient()
         .from('anggota')
-        .select('id')
+        .select('id, status_keanggotaan')
         .eq('id', body.anggota_id)
         .single();
 
@@ -224,6 +224,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: 'Anggota tidak ditemukan' },
           { status: 404 }
+        );
+      }
+
+      // Anggota yang sudah berhenti / non-aktif bukan peserta aktif —
+      // tidak boleh dibuatkan pengajuan Dana Kematian baru.
+      if (member.status_keanggotaan && member.status_keanggotaan !== 'aktif') {
+        return NextResponse.json(
+          {
+            error:
+              'Anggota berstatus tidak aktif (berhenti/non-aktif) dan tidak dapat diajukan Dana Kematian baru.',
+            code: 'ANGGOTA_TIDAK_AKTIF',
+          },
+          { status: 409 }
         );
       }
     }
