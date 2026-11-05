@@ -281,6 +281,14 @@ export const MENU_SIDEBAR: MenuConfig = [
     permissions: [PERMISSIONS.ACCESS_KEANGGOTAAN],
     children: [
       {
+        // Jalur cepat pendaftaran anggota baru — memakai ulang fitur Tambah
+        // Anggota pada Pengelolaan Data (POST /api/anggota: validasi wajib,
+        // cek duplikasi NIK, serta alur approval yang sama).
+        title: 'Pendaftaran Anggota Baru',
+        path: '/keanggotaan/pendaftaran-anggota-baru',
+        permissions: [PERMISSIONS.MANAGE_KEANGGOTAAN],
+      },
+      {
         title: 'Pengelolaan Data',
         path: '/keanggotaan/pengelolaan-data',
         permissions: [PERMISSIONS.VIEW_KEANGGOTAAN],

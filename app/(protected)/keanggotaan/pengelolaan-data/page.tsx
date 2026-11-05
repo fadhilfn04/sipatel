@@ -739,13 +739,13 @@ export default function PengelolaanDataPage() {
                   <ClipboardList className="h-4 w-4 mr-2" />
                   <span>Approval</span>
                 </Button>
-                <Button
+                {/* <Button
                   onClick={() => setAddModalOpen(true)}
                   className="w-full sm:w-auto"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   <span>Tambah Anggota</span>
-                </Button>
+                </Button> */}
 
                 {/* Delete Button — appears when there is any selection (admin only:
                     penghapusan non-admin wajib melalui usulan approval per anggota) */}
