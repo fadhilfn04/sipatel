@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
         'e-ktp',
         'kartu-keluarga',
         'npwp',
+        'surat-kematian',
         'dokumen-lainnya'
       ];
       if (!validFolders.includes(folder as AnggotaFolder)) {

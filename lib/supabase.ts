@@ -467,6 +467,59 @@ export interface DanaKematianFilter {
   limit?: number;
 }
 
+// =========================================================
+// Entry Data Meninggal Dunia (anggota_kematian — migration 031)
+// =========================================================
+
+/**
+ * Fakta kematian anggota (single source of truth level anggota).
+ * Modul Dana Kematian menyimpan snapshot per pengajuan di tabel dana_kematian;
+ * entry ini TIDAK membuat baris dana_kematian.
+ */
+export interface AnggotaKematian {
+  id: string;
+  anggota_id: string;
+  tanggal_meninggal: string;
+  file_surat_kematian: string | null;
+  metadata: Record<string, any> | null;
+  dicatat_oleh: string | null;
+  dicatat_pada: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+/** anggota_kematian dengan relasi anggota (GET list/detail). */
+export interface AnggotaKematianWithAnggota extends AnggotaKematian {
+  anggota: Pick<
+    Anggota,
+    | 'id'
+    | 'nik'
+    | 'nama_anggota'
+    | 'nama_cabang'
+    | 'kode_cabang'
+    | 'kategori_anggota'
+    | 'status_anggota'
+    | 'status_mps'
+  > | null;
+}
+
+export interface CreateAnggotaKematianInput {
+  anggota_id: string;
+  tanggal_meninggal: string;
+  file_surat_kematian?: string | null;
+}
+
+export interface UpdateAnggotaKematianInput {
+  tanggal_meninggal?: string;
+  file_surat_kematian?: string | null;
+}
+
+export interface AnggotaKematianFilter {
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
 // Laporan Periode Dakem types
 export interface LaporanPeriodeDakem {
   id: string;

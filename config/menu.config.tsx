@@ -53,7 +53,7 @@ import {
   Briefcase as WorkIcon,
   Zap,
 } from 'lucide-react';
-import { PERMISSIONS } from '@/lib/rbac';
+import { PERMISSIONS, ENTRY_KEMATIAN_MANAGE_PERMISSIONS } from '@/lib/rbac';
 import { type MenuConfig } from './types';
 
 export const MENU_SIDEBAR: MenuConfig = [
@@ -290,6 +290,13 @@ export const MENU_SIDEBAR: MenuConfig = [
         title: 'Mutasi Cabang',
         path: '/mutasi-cabang',
         permissions: [PERMISSIONS.MANAGE_KEANGGOTAAN],
+      },
+      {
+        // Registrasi fakta kematian anggota (tanpa workflow approval).
+        // Akses: pengurus/admin — kelola keanggotaan atau capability Dakem PC/PP.
+        title: 'Data Meninggal Dunia',
+        path: '/keanggotaan/entry-meninggal-dunia',
+        permissions: [...ENTRY_KEMATIAN_MANAGE_PERMISSIONS],
       },
       // {
       //   title: 'History Anggota',

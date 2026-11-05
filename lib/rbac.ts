@@ -13,12 +13,18 @@ export const PERMISSIONS = {
   VIEW_KEANGGOTAAN: 'view_keanggotaan',
   HISTORY_ANGGOTA_VIEW: 'history_anggota_view',
   HISTORY_ANGGOTA_MANAGE: 'history_anggota_manage',
+  MANAGE_KEMATIAN_ANGGOTA: 'manage_kematian_anggota',
 
   // Pelayanan
   ACCESS_DANA_KEMATIAN: 'access_dana_kematian',
   MANAGE_DANA_KEMATIAN: 'manage_dana_kematian',
   ACCESS_DANA_SOCIAL: 'access_dana_social',
   MANAGE_DANA_SOCIAL: 'manage_dana_social',
+
+  // Capability Dana Kematian (slug dot-notation — sinkron dengan
+  // prisma/data/permissions.js & migration 013).
+  DAKEM_MANAGE_PC: 'dana_kematian.manage_pc',
+  DAKEM_VERIFY_PP: 'dana_kematian.verify_pp',
 
   // Keuangan
   ACCESS_KEUANGAN: 'access_keuangan',
@@ -61,6 +67,7 @@ export const PERMISSION_GROUPS = {
       PERMISSIONS.MANAGE_KEANGGOTAAN,
       PERMISSIONS.HISTORY_ANGGOTA_VIEW,
       PERMISSIONS.HISTORY_ANGGOTA_MANAGE,
+      PERMISSIONS.MANAGE_KEMATIAN_ANGGOTA,
     ],
   },
   PELAYANAN: {
@@ -234,6 +241,11 @@ export const INITIAL_PERMISSIONS = [
     name: 'Manage Keanggotaan',
     description: 'Kelola data anggota (CRUD)',
   },
+  {
+    slug: PERMISSIONS.MANAGE_KEMATIAN_ANGGOTA,
+    name: 'Manage Entry Meninggal Dunia',
+    description: 'Mencatat data karyawan/anggota meninggal dunia (tanggal meninggal & surat kematian)',
+  },
 
   // Pelayanan
   {
@@ -329,4 +341,26 @@ export const INITIAL_PERMISSIONS = [
     name: 'All Access',
     description: 'Akses penuh ke semua fitur',
   },
+];
+
+/**
+ * Akses fitur Entry Data Meninggal Dunia (keanggotaan/entry-meninggal-dunia).
+ *
+ * Fitur ini dicatat langsung (tanpa workflow approval) dan boleh diakses
+ * oleh pengurus/admin: kelola keanggotaan, kapabilitas Dakem PC (cabang) /
+ * PP (pusat), atau permission khusus manage_kematian_anggota.
+ * Administrator selalu lolos (lihat hasAnyPermission).
+ */
+export const ENTRY_KEMATIAN_MANAGE_PERMISSIONS = [
+  PERMISSIONS.MANAGE_KEANGGOTAAN,
+  PERMISSIONS.MANAGE_KEMATIAN_ANGGOTA,
+  PERMISSIONS.DAKEM_MANAGE_PC,
+  PERMISSIONS.DAKEM_VERIFY_PP,
+];
+
+/** Akses baca daftar/detail entry kematian (termasuk prefill Dakem). */
+export const ENTRY_KEMATIAN_VIEW_PERMISSIONS = [
+  ...ENTRY_KEMATIAN_MANAGE_PERMISSIONS,
+  PERMISSIONS.VIEW_KEANGGOTAAN,
+  PERMISSIONS.ACCESS_DANA_KEMATIAN,
 ];

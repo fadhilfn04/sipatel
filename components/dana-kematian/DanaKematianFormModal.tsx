@@ -45,7 +45,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { DanaKematian, CreateDanaKematianInput, Anggota } from '@/lib/supabase';
+import { DanaKematian, CreateDanaKematianInput, Anggota, AnggotaKematian } from '@/lib/supabase';
 import { MemberSearchModal } from './MemberSearchModal';
 import { calculateTariff, formatTariffLabel, getTariffDisplayLabel } from '@/lib/utils/tariff-calculator';
 import {
@@ -227,6 +227,8 @@ export function DanaKematianFormModal({
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
   const [removingField, setRemovingField] = useState<string | null>(null);
   const [duplicateMemberError, setDuplicateMemberError] = useState<string | null>(null);
+  // Data kematian yang sudah tercatat lewat menu Entry Meninggal Dunia (prefill).
+  const [kematianTercatat, setKematianTercatat] = useState<AnggotaKematian | null>(null);
   const [manualHeirInput, setManualHeirInput] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const uploadDocsSectionRef = useRef<HTMLDivElement>(null);
@@ -484,6 +486,24 @@ export function DanaKematianFormModal({
     });
 
     setManualTariffOverride(false);
+
+    // Reuse data Entry Meninggal Dunia (bila ada): prefill tanggal meninggal &
+    // surat kematian tanpa upload ulang. Data ini tetap dapat disunting.
+    fetch(`/api/anggota/${member.id}/kematian`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const record: AnggotaKematian | null = json?.data ?? null;
+        setKematianTercatat(record);
+        if (record) {
+          setFormData((prev) => ({
+            ...prev,
+            tanggal_meninggal:
+              prev.tanggal_meninggal || (record.tanggal_meninggal || '').slice(0, 10),
+            file_surat_kematian: prev.file_surat_kematian || record.file_surat_kematian || '',
+          }));
+        }
+      })
+      .catch(() => setKematianTercatat(null));
   };
 
   const handleFieldChange = (field: keyof CreateDanaKematianInput, value: any) => {
@@ -703,6 +723,7 @@ export function DanaKematianFormModal({
                                 size="sm"
                                 onClick={() => {
                                   setSelectedMember(null);
+                                  setKematianTercatat(null);
                                   setFormData({
                                     ...formData,
                                     anggota_id: undefined,
@@ -721,6 +742,22 @@ export function DanaKematianFormModal({
                               <Badge>{selectedMember.status_anggota}</Badge>
                               <Badge variant="secondary">{selectedMember.status_mps}</Badge>
                             </div>
+                            {kematianTercatat && (
+                              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/50 dark:text-emerald-300">
+                                <span className="font-medium">Data kematian tercatat.</span>{' '}
+                                Tanggal meninggal{' '}
+                                {new Date(
+                                  `${String(kematianTercatat.tanggal_meninggal).slice(0, 10)}T00:00:00`,
+                                ).toLocaleDateString('id-ID', {
+                                  day: 'numeric',
+                                  month: 'long',
+                                  year: 'numeric',
+                                })}
+                                {kematianTercatat.file_surat_kematian
+                                  ? ' & surat kematian telah terisi otomatis.'
+                                  : ' telah terisi otomatis.'}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

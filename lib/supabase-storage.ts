@@ -32,6 +32,7 @@ export type AnggotaFolder =
   | 'e-ktp'
   | 'kartu-keluarga'
   | 'npwp'
+  | 'surat-kematian'
   | 'dokumen-lainnya';
 
 // File validation config
