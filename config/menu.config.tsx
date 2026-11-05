@@ -285,6 +285,12 @@ export const MENU_SIDEBAR: MenuConfig = [
         path: '/keanggotaan/pengelolaan-data',
         permissions: [PERMISSIONS.VIEW_KEANGGOTAAN],
       },
+      {
+        // Fitur pengurus/admin: pengajuan mutasi cabang antar-cabang.
+        title: 'Mutasi Cabang',
+        path: '/mutasi-cabang',
+        permissions: [PERMISSIONS.MANAGE_KEANGGOTAAN],
+      },
       // {
       //   title: 'History Anggota',
       //   path: '/keanggotaan/history-anggota',

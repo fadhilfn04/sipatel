@@ -566,6 +566,63 @@ export interface DanaSosialFilter {
   limit?: number;
 }
 
+// Mutasi Cabang types
+export type MutasiCabangStatus =
+  | 'menunggu'
+  | 'diverifikasi_pc'
+  | 'disetujui_pp'
+  | 'ditolak'
+  | 'dibatalkan';
+
+export interface PengajuanMutasiCabang {
+  id: string;
+  anggota_id: string;
+  diajukan_oleh: string;
+  nik: string | null;
+  nama_anggota: string | null;
+  cabang_asal: string | null;
+  kode_cabang_asal: string | null;
+  cabang_tujuan: string | null;
+  kode_cabang_tujuan: string | null;
+  tanggal_mulai_mutasi: string;
+  nomor_dokumen_mutasi: string;
+  tanggal_dokumen_mutasi: string;
+  status: MutasiCabangStatus;
+  catatan_pengaju: string | null;
+  diverifikasi_oleh: string | null;
+  diverifikasi_pada: string | null;
+  catatan_verifikasi: string | null;
+  diputuskan_oleh: string | null;
+  diputuskan_pada: string | null;
+  alasan_keputusan: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Opsi cabang tujuan mutasi (dari master cabang / data anggota). */
+export interface MutasiCabangOption {
+  kode_cabang: string | null;
+  nama_cabang: string;
+}
+
+/**
+ * Input pengajuan mutasi cabang (fitur pengurus/admin).
+ * `anggota_id` dipilih dari daftar NIK; `cabang_tujuan` dipilih dari opsi cabang.
+ */
+export interface CreatePengajuanMutasiCabangInput {
+  anggota_id: string;
+  cabang_tujuan: string;
+  kode_cabang_tujuan?: string | null;
+  tanggal_mulai_mutasi: string;
+  nomor_dokumen_mutasi: string;
+  tanggal_dokumen_mutasi: string;
+}
+
+export interface UpdateMutasiCabangStatusInput {
+  status: MutasiCabangStatus;
+  catatan?: string;
+}
+
 // Contribution payment types
 export type StatusPembayaranEnum = 'pending' | 'paid' | 'failed';
 export type TipeSumbanganEnum = 'sumbangan_bulanan' | 'sumbangan_kematian' | 'sumbangan_khusus' | 'sumbangan_investasi' | 'sumbangan_lainnya';
