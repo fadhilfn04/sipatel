@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
         'npwp',
         'surat-kematian',
         'surat-pengakhiran',
+        'sk-pengangkatan',
         'dokumen-lainnya'
       ];
       if (!validFolders.includes(folder as AnggotaFolder)) {

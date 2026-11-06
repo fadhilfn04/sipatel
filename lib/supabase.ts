@@ -757,6 +757,82 @@ export interface PengakhiranKeanggotaanFilter {
   limit?: number;
 }
 
+// Kepengurusan types (anggota_kepengurusan — migration 033)
+export type KepengurusanStatus =
+  | 'menunggu'
+  | 'diverifikasi_pc'
+  | 'disetujui_pp'
+  | 'ditolak'
+  | 'dibatalkan';
+
+export type KepengurusanJenis = 'angkat' | 'pindah' | 'berhentikan';
+
+export interface AnggotaKepengurusan {
+  id: string;
+  anggota_id: string;
+  diajukan_oleh: string;
+  nik: string | null;
+  nama_anggota: string | null;
+  nama_cabang: string | null;
+  kode_cabang: string | null;
+  jenis: KepengurusanJenis;
+  jabatan: string;
+  jabatan_sebelumnya: string | null;
+  periode: string | null;
+  tanggal_mulai: string;
+  tanggal_selesai: string | null;
+  nomor_sk: string;
+  tanggal_sk: string;
+  file_sk: string | null;
+  keterangan: string | null;
+  metadata: Record<string, any> | null;
+  status: KepengurusanStatus;
+  catatan_pengaju: string | null;
+  diverifikasi_oleh: string | null;
+  diverifikasi_pada: string | null;
+  catatan_verifikasi: string | null;
+  diputuskan_oleh: string | null;
+  diputuskan_pada: string | null;
+  alasan_keputusan: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+/** anggota_kepengurusan dengan relasi anggota (GET list/detail). */
+export interface AnggotaKepengurusanWithAnggota extends AnggotaKepengurusan {
+  anggota: Pick<
+    Anggota,
+    | 'id'
+    | 'nik'
+    | 'nama_anggota'
+    | 'nama_cabang'
+    | 'kode_cabang'
+    | 'status_anggota'
+    | 'status_keanggotaan'
+    | 'posisi_kepengurusan'
+  > | null;
+}
+
+export interface CreateKepengurusanInput {
+  anggota_id: string;
+  jenis: KepengurusanJenis;
+  jabatan: string;
+  periode?: string | null;
+  tanggal_mulai: string;
+  tanggal_selesai?: string | null;
+  nomor_sk: string;
+  tanggal_sk: string;
+  file_sk?: string | null;
+  keterangan?: string | null;
+  catatan_pengaju?: string | null;
+}
+
+export interface UpdateKepengurusanStatusInput {
+  status: KepengurusanStatus;
+  catatan?: string;
+}
+
 // Contribution payment types
 export type StatusPembayaranEnum = 'pending' | 'paid' | 'failed';
 export type TipeSumbanganEnum = 'sumbangan_bulanan' | 'sumbangan_kematian' | 'sumbangan_khusus' | 'sumbangan_investasi' | 'sumbangan_lainnya';

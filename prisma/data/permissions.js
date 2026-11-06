@@ -158,6 +158,12 @@ const permissions = [
 		description:
 			'Dapat mengajukan & memverifikasi pengakhiran keanggotaan (anggota berhenti).',
 	},
+	{
+		slug: 'manage_perubahan_kepengurusan',
+		name: 'Manage Perubahan Kepengurusan',
+		description:
+			'Dapat mengajukan & memverifikasi perubahan jabatan kepengurusan anggota (angkat/pindah/berhentikan).',
+	},
 ];
 
 module.exports = permissions;

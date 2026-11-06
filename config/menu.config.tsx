@@ -53,7 +53,7 @@ import {
   Briefcase as WorkIcon,
   Zap,
 } from 'lucide-react';
-import { PERMISSIONS, ENTRY_KEMATIAN_MANAGE_PERMISSIONS, PENGAKHIRAN_MANAGE_PERMISSIONS } from '@/lib/rbac';
+import { PERMISSIONS, ENTRY_KEMATIAN_MANAGE_PERMISSIONS, PENGAKHIRAN_MANAGE_PERMISSIONS, KEPENGURUSAN_MANAGE_PERMISSIONS } from '@/lib/rbac';
 import { type MenuConfig } from './types';
 
 export const MENU_SIDEBAR: MenuConfig = [
@@ -300,6 +300,15 @@ export const MENU_SIDEBAR: MenuConfig = [
         title: 'Perubahan Data Pribadi',
         path: '/keanggotaan/perubahan-data-pribadi',
         permissions: [PERMISSIONS.MANAGE_KEANGGOTAAN],
+      },
+      {
+        // Perubahan posisi/jabatan kepengurusan anggota (angkat, pindah, berhentikan)
+        // — satu-satunya jalur terkontrol untuk mengubah posisi_kepengurusan beserta
+        // periode jabatan, SK pengangkatan, dan riwayatnya.
+        title: 'Perubahan Kepengurusan',
+        path: '/keanggotaan/perubahan-kepengurusan',
+        icon: UserCheck,
+        permissions: [...KEPENGURUSAN_MANAGE_PERMISSIONS],
       },
       {
         // Fitur pengurus/admin: pengajuan mutasi cabang antar-cabang.

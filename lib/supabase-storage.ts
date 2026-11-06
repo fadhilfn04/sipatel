@@ -34,6 +34,7 @@ export type AnggotaFolder =
   | 'npwp'
   | 'surat-kematian'
   | 'surat-pengakhiran'
+  | 'sk-pengangkatan'
   | 'dokumen-lainnya';
 
 // File validation config

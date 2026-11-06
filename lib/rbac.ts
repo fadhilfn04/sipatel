@@ -15,6 +15,7 @@ export const PERMISSIONS = {
   HISTORY_ANGGOTA_MANAGE: 'history_anggota_manage',
   MANAGE_KEMATIAN_ANGGOTA: 'manage_kematian_anggota',
   MANAGE_PENGAKHIRAN_KEANGGOTAAN: 'manage_pengakhiran_keanggotaan',
+  MANAGE_PERUBAHAN_KEPENGURUSAN: 'manage_perubahan_kepengurusan',
 
   // Pelayanan
   ACCESS_DANA_KEMATIAN: 'access_dana_kematian',
@@ -70,6 +71,7 @@ export const PERMISSION_GROUPS = {
       PERMISSIONS.HISTORY_ANGGOTA_MANAGE,
       PERMISSIONS.MANAGE_KEMATIAN_ANGGOTA,
       PERMISSIONS.MANAGE_PENGAKHIRAN_KEANGGOTAAN,
+      PERMISSIONS.MANAGE_PERUBAHAN_KEPENGURUSAN,
     ],
   },
   PELAYANAN: {
@@ -253,6 +255,12 @@ export const INITIAL_PERMISSIONS = [
     name: 'Manage Pengakhiran Keanggotaan',
     description: 'Mengajukan & memverifikasi pengakhiran keanggotaan (anggota berhenti)',
   },
+  {
+    slug: PERMISSIONS.MANAGE_PERUBAHAN_KEPENGURUSAN,
+    name: 'Manage Perubahan Kepengurusan',
+    description:
+      'Mengajukan & memverifikasi perubahan jabatan kepengurusan anggota (angkat/pindah/berhentikan)',
+  },
 
   // Pelayanan
   {
@@ -391,3 +399,24 @@ export const PENGAKHIRAN_VIEW_PERMISSIONS = [
   ...PENGAKHIRAN_MANAGE_PERMISSIONS,
   PERMISSIONS.VIEW_KEANGGOTAAN,
 ];
+
+/**
+ * Akses fitur Perubahan Kepengurusan (keanggotaan/perubahan-kepengurusan).
+ *
+ * Workflow 2 tahap: pengajuan/verifikasi PC → keputusan PP. Boleh diakses oleh
+ * pengurus/admin: kelola keanggotaan, permission khusus manage_perubahan_kepengurusan,
+ * kapabilitas Dakem PC (cabang) / PP (pusat). Administrator selalu lolos.
+ */
+export const KEPENGURUSAN_MANAGE_PERMISSIONS = [
+  PERMISSIONS.MANAGE_KEANGGOTAAN,
+  PERMISSIONS.MANAGE_PERUBAHAN_KEPENGURUSAN,
+  PERMISSIONS.DAKEM_MANAGE_PC,
+  PERMISSIONS.DAKEM_VERIFY_PP,
+];
+
+/** Akses baca daftar/detail perubahan kepengurusan. */
+export const KEPENGURUSAN_VIEW_PERMISSIONS = [
+  ...KEPENGURUSAN_MANAGE_PERMISSIONS,
+  PERMISSIONS.VIEW_KEANGGOTAAN,
+];
+
