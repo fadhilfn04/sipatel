@@ -67,7 +67,11 @@ import {
   getKepengurusanStatusProps,
   isKepengurusanCancelable,
 } from '@/lib/workflow/kepengurusan-status';
-import { getPosisiKepengurusanProps } from '@/lib/anggota-kepengurusan';
+import {
+  getPosisiKepengurusanProps,
+  ALASAN_PEMBERHENTIAN_OPTIONS,
+  getAlasanPemberhentianLabel,
+} from '@/lib/anggota-kepengurusan';
 import {
   useCreateKepengurusan,
   useKepengurusanByAnggota,
@@ -94,6 +98,8 @@ const INITIAL_FORM = {
   file_sk: '',
   catatan_pengaju: '',
   keterangan: '',
+  alasan_pemberhentian: '',
+  keterangan_alasan: '',
 };
 
 const JENIS_LABELS: Record<string, string> = {
@@ -231,6 +237,9 @@ export default function PerubahanKepengurusanPage() {
         file_sk: form.file_sk || null,
         keterangan: form.keterangan || null,
         catatan_pengaju: form.catatan_pengaju,
+        alasan_pemberhentian:
+          form.jenis === 'berhentikan' ? ((form.alasan_pemberhentian || null) as any) : null,
+        keterangan_alasan: form.jenis === 'berhentikan' ? form.keterangan_alasan || null : null,
       });
 
       const isSaved = result.status === 'tersimpan';
@@ -468,6 +477,41 @@ export default function PerubahanKepengurusanPage() {
                         </div>
                       )}
 
+                      {form.jenis === 'berhentikan' && (
+                        <>
+                          <div className="space-y-2">
+                            <Label>Alasan Pemberhentian *</Label>
+                            <Select
+                              value={form.alasan_pemberhentian}
+                              onValueChange={(v) => setField('alasan_pemberhentian', v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Pilih alasan pemberhentian" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {ALASAN_PEMBERHENTIAN_OPTIONS.map((o) => (
+                                  <SelectItem key={o.value} value={o.value}>
+                                    {o.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {form.alasan_pemberhentian === 'lainnya' && (
+                            <div className="space-y-2 md:col-span-2">
+                              <Label>Keterangan Alasan *</Label>
+                              <Textarea
+                                placeholder="Jelaskan alasan pemberhentian lainnya (minimal 10 karakter)"
+                                value={form.keterangan_alasan}
+                                onChange={(e) => setField('keterangan_alasan', e.target.value)}
+                                rows={2}
+                              />
+                            </div>
+                          )}
+                        </>
+                      )}
+
                       <div className="space-y-2">
                         <Label>Periode / Masa Jabatan</Label>
                         <Input
@@ -521,7 +565,7 @@ export default function PerubahanKepengurusanPage() {
                       value={form.file_sk}
                       onChange={(url) => setField('file_sk', url)}
                       bucket="anggota"
-                      folder="sk-pengangkatan"
+                      folder={form.jenis === 'berhentikan' ? 'sk-pemberhentian' : 'sk-pengangkatan'}
                       label="Dokumen SK (PDF / Gambar, opsional)"
                     />
 
@@ -667,6 +711,17 @@ export default function PerubahanKepengurusanPage() {
                         {form.nomor_sk} ({formatDateOnly(form.tanggal_sk)})
                       </p>
                     </div>
+                    {form.jenis === 'berhentikan' && (
+                      <div className="md:col-span-2">
+                        <Label className="text-xs text-muted-foreground">Alasan Pemberhentian</Label>
+                        <p className="font-medium">
+                          {getAlasanPemberhentianLabel(form.alasan_pemberhentian)}
+                          {form.alasan_pemberhentian === 'lainnya' && form.keterangan_alasan
+                            ? ` — ${form.keterangan_alasan}`
+                            : ''}
+                        </p>
+                      </div>
+                    )}
                     {form.file_sk && (
                       <div className="md:col-span-2">
                         <Label className="text-xs text-muted-foreground">Dokumen SK</Label>

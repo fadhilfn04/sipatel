@@ -79,3 +79,68 @@ test('Alasan/catatan wajib minimal 10 karakter', () => {
     getKepengurusanFieldError(validateKepengurusanInput({ ...baseValid, catatan_pengaju: 'pendek' }), 'catatan_pengaju'),
   );
 });
+
+// ── Pemberhentian Pengurus (jenis 'berhentikan' — migration 034) ──
+
+const baseBerhentikan: KepengurusanInput = {
+  ...baseValid,
+  jenis: 'berhentikan',
+  jabatan: '',
+  tanggal_mulai: '2021-06-01',
+  tanggal_sk: '2021-06-01',
+  nomor_sk: 'SK/PBR/001/P2TEL/2021',
+  catatan_pengaju: 'Pemberhentian karena habis masa jabatan',
+  alasan_pemberhentian: 'habis_masa_jabatan',
+};
+
+test('Pemberhentian: input lengkap valid → tidak ada error', () => {
+  const errors = validateKepengurusanInput(baseBerhentikan);
+  assert.equal(errors.length, 0);
+});
+
+test('Pemberhentian: alasan wajib untuk jenis berhentikan', () => {
+  const errors = validateKepengurusanInput({ ...baseBerhentikan, alasan_pemberhentian: '' });
+  assert.ok(getKepengurusanFieldError(errors, 'alasan_pemberhentian'));
+});
+
+test('Pemberhentian: alasan tidak dikenal ditolak', () => {
+  const errors = validateKepengurusanInput({ ...baseBerhentikan, alasan_pemberhentian: 'malas' });
+  assert.ok(getKepengurusanFieldError(errors, 'alasan_pemberhentian'));
+});
+
+test('Pemberhentian: keterangan wajib bila alasan lainnya', () => {
+  const errors = validateKepengurusanInput({
+    ...baseBerhentikan,
+    alasan_pemberhentian: 'lainnya',
+    keterangan_alasan: '',
+  });
+  assert.ok(getKepengurusanFieldError(errors, 'keterangan_alasan'));
+
+  const ok = validateKepengurusanInput({
+    ...baseBerhentikan,
+    alasan_pemberhentian: 'lainnya',
+    keterangan_alasan: 'Tuntutan tugas baru di kantor pusat',
+  });
+  assert.equal(getKepengurusanFieldError(ok, 'keterangan_alasan'), undefined);
+});
+
+test('Pemberhentian: dokumen SK wajib bila alasan diberhentikan', () => {
+  const errors = validateKepengurusanInput({
+    ...baseBerhentikan,
+    alasan_pemberhentian: 'diberhentikan',
+    file_sk: '',
+  });
+  assert.ok(getKepengurusanFieldError(errors, 'file_sk'));
+
+  const ok = validateKepengurusanInput({
+    ...baseBerhentikan,
+    alasan_pemberhentian: 'diberhentikan',
+    file_sk: 'https://contoh.supabase.co/storage/sk.pdf',
+  });
+  assert.equal(getKepengurusanFieldError(ok, 'file_sk'), undefined);
+});
+
+test('Alasan pemberhentian tidak wajib untuk jenis angkat', () => {
+  const errors = validateKepengurusanInput(baseValid);
+  assert.equal(getKepengurusanFieldError(errors, 'alasan_pemberhentian'), undefined);
+});

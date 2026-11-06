@@ -10,6 +10,31 @@ interface KepengurusanListResponse {
   pagination: { total: number; page: number; limit: number; totalPages: number };
 }
 
+/** Pengurus aktif (anggota ber-jabatan + detail histori) — menu Pemberhentian Pengurus. */
+export interface PengurusAktifItem {
+  id: string;
+  nik: string | null;
+  nama_anggota: string | null;
+  nama_cabang: string | null;
+  kode_cabang: string | null;
+  posisi_kepengurusan: string;
+  status_anggota: string;
+  status_keanggotaan: string | null;
+  jabatan_aktif: {
+    id: string;
+    jabatan: string;
+    periode: string | null;
+    tanggal_mulai: string;
+    nomor_sk: string;
+  } | null;
+  pengajuan_aktif: boolean;
+}
+
+interface PengurusAktifListResponse {
+  data: PengurusAktifItem[];
+  pagination: { total: number; page: number; limit: number; totalPages: number };
+}
+
 interface KepengurusanResponse {
   data: AnggotaKepengurusanWithAnggota | AnggotaKepengurusanWithAnggota[] | null;
   message?: string;
@@ -23,15 +48,18 @@ interface ApiError {
 }
 
 // Daftar pengajuan/riwayat perubahan kepengurusan (filter/search server-side).
+// `jenis` opsional — mis. 'berhentikan' untuk menu Pemberhentian Pengurus.
 export function useKepengurusanList(params: {
   status?: string;
   search?: string;
   page?: number;
   limit?: number;
+  jenis?: string;
 }) {
   const queryParams = new URLSearchParams();
   if (params.status && params.status !== 'all') queryParams.set('status', params.status);
   if (params.search?.trim()) queryParams.set('search', params.search.trim());
+  if (params.jenis?.trim()) queryParams.set('jenis', params.jenis.trim());
   queryParams.set('page', String(params.page || 1));
   queryParams.set('limit', String(params.limit || 20));
 
@@ -44,6 +72,31 @@ export function useKepengurusanList(params: {
         throw new Error(error.error || 'Gagal memuat data perubahan kepengurusan');
       }
       return response.json() as Promise<KepengurusanListResponse>;
+    },
+    staleTime: 1000 * 30,
+  });
+}
+
+// Daftar pengurus aktif (langkah "Pilih Pengurus" — menu Pemberhentian Pengurus).
+export function usePengurusAktifList(params: {
+  search?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const queryParams = new URLSearchParams();
+  if (params.search?.trim()) queryParams.set('search', params.search.trim());
+  queryParams.set('page', String(params.page || 1));
+  queryParams.set('limit', String(params.limit || 20));
+
+  return useQuery({
+    queryKey: ['anggota-kepengurusan', 'aktif', params],
+    queryFn: async () => {
+      const response = await fetch(`/api/anggota-kepengurusan/aktif?${queryParams.toString()}`);
+      if (!response.ok) {
+        const error: ApiError = await response.json();
+        throw new Error(error.error || 'Gagal memuat daftar pengurus aktif');
+      }
+      return response.json() as Promise<PengurusAktifListResponse>;
     },
     staleTime: 1000 * 30,
   });

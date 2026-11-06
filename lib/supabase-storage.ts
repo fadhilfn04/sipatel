@@ -35,6 +35,7 @@ export type AnggotaFolder =
   | 'surat-kematian'
   | 'surat-pengakhiran'
   | 'sk-pengangkatan'
+  | 'sk-pemberhentian'
   | 'dokumen-lainnya';
 
 // File validation config

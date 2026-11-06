@@ -61,6 +61,155 @@ export async function getActiveJabatan(anggotaId: string): Promise<{
   return (data as { id: string; jabatan: string; tanggal_mulai: string } | null) ?? null;
 }
 
+/** Baris pengurus aktif (anggota + detail jabatan aktif dari histori). */
+export interface PengurusAktifRow {
+  id: string;
+  nik: string | null;
+  nama_anggota: string | null;
+  nama_cabang: string | null;
+  kode_cabang: string | null;
+  posisi_kepengurusan: string;
+  status_anggota: string;
+  status_keanggotaan: string | null;
+  jabatan_aktif: {
+    id: string;
+    jabatan: string;
+    periode: string | null;
+    tanggal_mulai: string;
+    nomor_sk: string;
+  } | null;
+  pengajuan_aktif: boolean;
+}
+
+/**
+ * Daftar pengurus aktif untuk menu Pemberhentian Pengurus.
+ *
+ * Sumber utama: `anggota.posisi_kepengurusan <> 'Anggota'` (tahan data legacy
+ * yang belum punya baris histori — lihat docs/pemberhentian-pengurus-audit.md §3.5),
+ * diperkaya dengan baris aktif `anggota_kepengurusan` (periode/SK) bila ada.
+ */
+export async function listPengurusAktif(params: {
+  search?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ data: PengurusAktifRow[]; total: number }> {
+  if (!supabaseAdmin) return { data: [], total: 0 };
+
+  const page = Math.max(params.page || 1, 1);
+  const limit = Math.min(Math.max(params.limit || 20, 1), 100);
+  const offset = (page - 1) * limit;
+
+  let query = supabaseAdmin
+    .from('anggota')
+    .select(
+      'id, nik, nama_anggota, nama_cabang, kode_cabang, posisi_kepengurusan, status_anggota, status_keanggotaan',
+      { count: 'exact' },
+    )
+    .is('deleted_at', null)
+    .neq('posisi_kepengurusan', 'Anggota')
+    .neq('posisi_kepengurusan', 'anggota')
+    .order('nama_anggota', { ascending: true })
+    .range(offset, offset + limit - 1);
+
+  const search = (params.search || '').trim();
+  if (search) {
+    query = query.or(`nik.ilike.%${search}%,nama_anggota.ilike.%${search}%`);
+  }
+
+  const { data, error, count } = await query;
+  if (error) {
+    console.error('Gagal memuat daftar pengurus aktif:', error.message);
+    throw new Error(error.message);
+  }
+
+  const rows = (data || []) as Array<
+    Omit<PengurusAktifRow, 'jabatan_aktif' | 'pengajuan_aktif'>
+  >;
+  const ids = rows.map((r) => r.id);
+
+  const jabatanMap = new Map<string, PengurusAktifRow['jabatan_aktif']>();
+  const pengajuanSet = new Set<string>();
+
+  if (ids.length > 0) {
+    const [jabatanRes, pengajuanRes] = await Promise.all([
+      supabaseAdmin
+        .from('anggota_kepengurusan')
+        .select('id, anggota_id, jabatan, periode, tanggal_mulai, nomor_sk')
+        .in('anggota_id', ids)
+        .eq('status', 'disetujui_pp')
+        .is('tanggal_selesai', null)
+        .neq('jabatan', 'Anggota')
+        .is('deleted_at', null),
+      supabaseAdmin
+        .from('anggota_kepengurusan')
+        .select('anggota_id')
+        .in('anggota_id', ids)
+        .in('status', ['menunggu', 'diverifikasi_pc'])
+        .is('deleted_at', null),
+    ]);
+
+    if (jabatanRes.error) {
+      console.error('Gagal memuat jabatan aktif pengurus:', jabatanRes.error.message);
+    } else {
+      for (const row of (jabatanRes.data || []) as Array<{
+        id: string;
+        anggota_id: string;
+        jabatan: string;
+        periode: string | null;
+        tanggal_mulai: string;
+        nomor_sk: string;
+      }>) {
+        jabatanMap.set(row.anggota_id, {
+          id: row.id,
+          jabatan: row.jabatan,
+          periode: row.periode,
+          tanggal_mulai: row.tanggal_mulai,
+          nomor_sk: row.nomor_sk,
+        });
+      }
+    }
+
+    if (pengajuanRes.error) {
+      console.error('Gagal memeriksa pengajuan aktif pengurus:', pengajuanRes.error.message);
+    } else {
+      for (const row of (pengajuanRes.data || []) as Array<{ anggota_id: string }>) {
+        pengajuanSet.add(row.anggota_id);
+      }
+    }
+  }
+
+  return {
+    data: rows.map((r) => ({
+      ...r,
+      jabatan_aktif: jabatanMap.get(r.id) || null,
+      pengajuan_aktif: pengajuanSet.has(r.id),
+    })),
+    total: count || 0,
+  };
+}
+
+/**
+ * Apakah anggota memiliki pengajuan Pengakhiran Keanggotaan yang masih berjalan
+ * (menunggu/diverifikasi_pc)? Dipakai guard menyilang "satu lifecycle per anggota".
+ */
+export async function hasActivePengakhiranPengajuan(anggotaId: string): Promise<boolean> {
+  if (!supabaseAdmin || !anggotaId) return false;
+
+  const { data, error } = await supabaseAdmin
+    .from('pengakhiran_keanggotaan')
+    .select('id')
+    .eq('anggota_id', anggotaId)
+    .in('status', ['menunggu', 'diverifikasi_pc'])
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Gagal memeriksa pengajuan pengakhiran keanggotaan:', error.message);
+    return true; // fail-safe: anggap ada agar tidak membuat proses paralel
+  }
+  return !!data;
+}
+
 /**
  * Apakah anggota sudah memiliki pengajuan yang masih berjalan
  * (menunggu / diverifikasi_pc)? `excludeId` untuk record sendiri saat update.

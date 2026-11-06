@@ -767,6 +767,13 @@ export type KepengurusanStatus =
 
 export type KepengurusanJenis = 'angkat' | 'pindah' | 'berhentikan';
 
+/** Alasan pemberhentian pengurus (migration 034) — relevan untuk jenis 'berhentikan'. */
+export type AlasanPemberhentianEnum =
+  | 'habis_masa_jabatan'
+  | 'mengundurkan_diri'
+  | 'diberhentikan'
+  | 'lainnya';
+
 export interface AnggotaKepengurusan {
   id: string;
   anggota_id: string;
@@ -785,6 +792,8 @@ export interface AnggotaKepengurusan {
   tanggal_sk: string;
   file_sk: string | null;
   keterangan: string | null;
+  alasan_pemberhentian: AlasanPemberhentianEnum | null;
+  keterangan_alasan: string | null;
   metadata: Record<string, any> | null;
   status: KepengurusanStatus;
   catatan_pengaju: string | null;
@@ -826,6 +835,8 @@ export interface CreateKepengurusanInput {
   file_sk?: string | null;
   keterangan?: string | null;
   catatan_pengaju?: string | null;
+  alasan_pemberhentian?: AlasanPemberhentianEnum | null;
+  keterangan_alasan?: string | null;
 }
 
 export interface UpdateKepengurusanStatusInput {

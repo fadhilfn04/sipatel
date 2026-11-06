@@ -49,6 +49,7 @@ import {
   TrendingUp,
   UserCheck,
   UserCircle,
+  UserMinus,
   Users,
   Briefcase as WorkIcon,
   Zap,
@@ -308,6 +309,15 @@ export const MENU_SIDEBAR: MenuConfig = [
         title: 'Perubahan Kepengurusan',
         path: '/keanggotaan/perubahan-kepengurusan',
         icon: UserCheck,
+        permissions: [...KEPENGURUSAN_MANAGE_PERMISSIONS],
+      },
+      {
+        // Pemberhentian pengurus — entry point khusus jenis 'berhentikan' di atas
+        // mekanisme Perubahan Kepengurusan (anggota_kepengurusan, migration 033+034).
+        // Status keanggotaan TIDAK berubah; pengakhiran keanggotaan punya menu sendiri.
+        title: 'Pemberhentian Pengurus',
+        path: '/keanggotaan/pemberhentian-pengurus',
+        icon: UserMinus,
         permissions: [...KEPENGURUSAN_MANAGE_PERMISSIONS],
       },
       {

@@ -13,7 +13,9 @@ import { isAdminActor } from '@/lib/server/anggota-service';
 import {
   KEPENGURUSAN_WITH_ANGGOTA_SELECT,
   applyKepengurusanApproval,
+  getActiveJabatan,
   hasActiveKepengurusanPengajuan,
+  hasActivePengakhiranPengajuan,
   isNomorSkUsed,
 } from '@/lib/server/kepengurusan-service';
 import {
@@ -46,6 +48,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || 'all';
     const search = (searchParams.get('search') || '').trim();
     const anggotaId = (searchParams.get('anggota_id') || '').trim();
+    const jenisParam = (searchParams.get('jenis') || '').trim();
     const page = Math.max(parseInt(searchParams.get('page') || '1'), 1);
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20'), 1), 100);
     const offset = (page - 1) * limit;
@@ -61,6 +64,7 @@ export async function GET(request: NextRequest) {
 
     if (status !== 'all') query = query.eq('status', status);
     if (anggotaId) query = query.eq('anggota_id', anggotaId);
+    if (jenisParam) query = query.eq('jenis', jenisParam);
 
     if (search) {
       // Cari berdasarkan NIK/Nama anggota (relasi) — cari id anggota yang cocok.
@@ -154,7 +158,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (anggota.status_keanggotaan === 'berhenti') {
+    // Jenis ditentukan lebih awal karena memengaruhi guard berikutnya.
+    const jenis = String(body.jenis).trim();
+
+    // Keanggotaan berakhir → pengangkatan/pindah ditolak. Pemberhentian jabatan
+    // tetap diizinkan sebagai penutupan administratif (audit §13-Q8).
+    if (anggota.status_keanggotaan === 'berhenti' && jenis !== 'berhentikan') {
       return NextResponse.json(
         {
           error: 'Keanggotaan anggota sudah berakhir — tidak dapat diubah kepengurusannya.',
@@ -164,8 +173,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Satu lifecycle per anggota: blokir bila pengakhiran keanggotaan berjalan.
+    if (await hasActivePengakhiranPengajuan(anggota.id)) {
+      return NextResponse.json(
+        {
+          error:
+            'Anggota sedang memiliki pengajuan Pengakhiran Keanggotaan yang berjalan. Selesaikan atau batalkan pengajuan tersebut terlebih dahulu.',
+          code: 'ACTIVE_PENGAKHIRAN',
+        },
+        { status: 409 },
+      );
+    }
+
     // Tentukan jabatan tujuan: 'berhentikan' selalu kembali ke posisi netral.
-    const jenis = String(body.jenis).trim();
     const jabatan = jenis === 'berhentikan' ? POSISI_NETRAL : String(body.jabatan).trim();
     const posisiSaatIni = (anggota.posisi_kepengurusan || POSISI_NETRAL).trim();
 
@@ -195,6 +215,23 @@ export async function POST(request: NextRequest) {
     }
 
     const nomorSk = String(body.nomor_sk).trim();
+
+    // Tanggal efektif pemberhentian tidak boleh mendahului mulai jabatan aktif.
+    if (jenis === 'berhentikan') {
+      const aktif = await getActiveJabatan(anggota.id);
+      const tanggalEfektif = String(body.tanggal_mulai).trim().slice(0, 10);
+      const mulaiAktif = aktif?.tanggal_mulai ? String(aktif.tanggal_mulai).slice(0, 10) : null;
+
+      if (mulaiAktif && tanggalEfektif < mulaiAktif) {
+        return NextResponse.json(
+          {
+            error: `Tanggal efektif pemberhentian tidak boleh lebih awal dari tanggal mulai jabatan aktif (${mulaiAktif}).`,
+            code: 'INVALID_TANGGAL_EFEKTIF',
+          },
+          { status: 400 },
+        );
+      }
+    }
 
     // Nomor SK tidak boleh dipakai pengajuan lain yang belum ditolak/dibatalkan.
     if (await isNomorSkUsed(nomorSk)) {
@@ -229,6 +266,15 @@ export async function POST(request: NextRequest) {
       file_sk: body.file_sk ? String(body.file_sk).trim() : null,
       keterangan: body.keterangan ? String(body.keterangan).trim() : null,
       catatan_pengaju: body.catatan_pengaju ? String(body.catatan_pengaju).trim() : null,
+      // Alasan terstruktur — hanya bermakna/disimpan untuk jenis 'berhentikan' (migration 034).
+      alasan_pemberhentian:
+        jenis === 'berhentikan' && body.alasan_pemberhentian
+          ? String(body.alasan_pemberhentian).trim()
+          : null,
+      keterangan_alasan:
+        jenis === 'berhentikan' && body.keterangan_alasan
+          ? String(body.keterangan_alasan).trim()
+          : null,
       status: 'menunggu',
     };
 

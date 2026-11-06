@@ -46,6 +46,56 @@ export const POSISI_KEPENGURUSAN_VALUES: readonly string[] =
 /** Nilai netral — dipakai saat pemberhentian jabatan. */
 export const POSISI_NETRAL = 'Anggota';
 
+/**
+ * Alasan pemberhentian pengurus — nilai kanonik (migration 034).
+ *
+ * Disimpan di `anggota_kepengurusan.alasan_pemberhentian` dan hanya relevan
+ * untuk baris dengan `jenis='berhentikan'`. Dipakai form Pemberhentian Pengurus,
+ * form Perubahan Kepengurusan (mode berhentikan), validasi API, dan tampilan riwayat.
+ */
+export type AlasanPemberhentianValue =
+  | 'habis_masa_jabatan'
+  | 'mengundurkan_diri'
+  | 'diberhentikan'
+  | 'lainnya';
+
+export interface AlasanPemberhentianOption {
+  value: AlasanPemberhentianValue;
+  label: string;
+}
+
+export const ALASAN_PEMBERHENTIAN_OPTIONS: AlasanPemberhentianOption[] = [
+  { value: 'habis_masa_jabatan', label: 'Habis Masa Jabatan / Periode' },
+  { value: 'mengundurkan_diri', label: 'Mengundurkan Diri dari Jabatan' },
+  { value: 'diberhentikan', label: 'Diberhentikan oleh Organisasi' },
+  { value: 'lainnya', label: 'Lainnya' },
+];
+
+/** Seluruh nilai kanonik alasan (untuk validasi). */
+export const ALASAN_PEMBERHENTIAN_VALUES: readonly string[] =
+  ALASAN_PEMBERHENTIAN_OPTIONS.map((o) => o.value);
+
+/** Alasan yang mewajibkan keterangan penjelasan. */
+export const ALASAN_PEMBERHENTIAN_LAINNYA = 'lainnya';
+
+/** Alasan yang mewajibkan dokumen SK pemberhentian. */
+export const ALASAN_PEMBERHENTIAN_DOKUMEN = 'diberhentikan';
+
+/** Apakah nilai termasuk daftar alasan kanonik? */
+export function isAlasanPemberhentianValid(
+  alasan: string | null | undefined,
+): boolean {
+  if (!alasan) return false;
+  return ALASAN_PEMBERHENTIAN_VALUES.includes(alasan);
+}
+
+/** Label tampilan untuk sebuah alasan (fallback: nilai mentah / '-'). */
+export function getAlasanPemberhentianLabel(alasan: string | null | undefined): string {
+  if (!alasan) return '-';
+  const found = ALASAN_PEMBERHENTIAN_OPTIONS.find((o) => o.value === alasan);
+  return found ? found.label : alasan;
+}
+
 /** Opsi jabatan struktural untuk form angkat/pindah (tanpa 'Anggota'). */
 export const JABATAN_STRUKTURAL_OPTIONS: PosisiKepengurusanOption[] =
   POSISI_KEPENGURUSAN_OPTIONS.filter((o) => o.value !== POSISI_NETRAL);

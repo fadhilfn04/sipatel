@@ -6,8 +6,12 @@
  * wajib (min. 3 karakter) & tanggal SK tidak boleh melewati tanggal mulai,
  * serta alasan/catatan pengajuan wajib (min. 10 karakter).
  *
+ * Khusus jenis 'berhentikan' (menu Pemberhentian Pengurus — migration 034):
+ * alasan pemberhentian wajib (enum kanonik), keterangan wajib bila alasan
+ * 'lainnya', dan dokumen SK wajib bila alasan 'diberhentikan'.
+ *
  * Dipakai bersama oleh frontend (UX) dan backend (source of truth).
- * Tabel tujuan: anggota_kepengurusan (migration 033).
+ * Tabel tujuan: anggota_kepengurusan (migration 033 + 034).
  */
 
 import type { KepengurusanJenis } from '@/lib/supabase';
@@ -15,6 +19,9 @@ import {
   isPosisiKepengurusanValid,
   POSISI_NETRAL,
   JABATAN_STRUKTURAL_OPTIONS,
+  isAlasanPemberhentianValid,
+  ALASAN_PEMBERHENTIAN_LAINNYA,
+  ALASAN_PEMBERHENTIAN_DOKUMEN,
 } from '@/lib/anggota-kepengurusan';
 
 export type KepengurusanFormField =
@@ -26,8 +33,11 @@ export type KepengurusanFormField =
   | 'tanggal_selesai'
   | 'nomor_sk'
   | 'tanggal_sk'
+  | 'file_sk'
   | 'catatan_pengaju'
-  | 'keterangan';
+  | 'keterangan'
+  | 'alasan_pemberhentian'
+  | 'keterangan_alasan';
 
 export interface KepengurusanInput {
   anggota_id?: string | null;
@@ -38,8 +48,11 @@ export interface KepengurusanInput {
   tanggal_selesai?: string | null;
   nomor_sk?: string | null;
   tanggal_sk?: string | null;
+  file_sk?: string | null;
   catatan_pengaju?: string | null;
   keterangan?: string | null;
+  alasan_pemberhentian?: string | null;
+  keterangan_alasan?: string | null;
 }
 
 export interface KepengurusanValidationError {
@@ -56,8 +69,11 @@ export const KEPENGURUSAN_FIELD_LABELS: Record<KepengurusanFormField, string> = 
   tanggal_selesai: 'Tanggal Selesai Jabatan',
   nomor_sk: 'Nomor SK',
   tanggal_sk: 'Tanggal SK',
+  file_sk: 'Dokumen SK',
   catatan_pengaju: 'Alasan / Catatan Pengajuan',
   keterangan: 'Keterangan Tambahan',
+  alasan_pemberhentian: 'Alasan Pemberhentian',
+  keterangan_alasan: 'Keterangan Alasan',
 };
 
 export const JENIS_KEPENGURUSAN_OPTIONS: { value: KepengurusanJenis; label: string }[] = [
@@ -74,6 +90,10 @@ export const NOMOR_SK_MIN_LENGTH = 3;
 /** Alasan/catatan pengajuan min. 10 karakter. */
 export const CATATAN_PENGAJU_MIN_LENGTH = 10;
 export const CATATAN_PENGAJU_MAX_LENGTH = 1000;
+
+/** Keterangan alasan pemberhentian 'lainnya' — 10–500 karakter. */
+export const KETERANGAN_ALASAN_MIN_LENGTH = 10;
+export const KETERANGAN_ALASAN_MAX_LENGTH = 500;
 
 /** Opsi jabatan struktur (tanpa 'Anggota') untuk form. */
 export const JABATAN_FORM_OPTIONS = JABATAN_STRUKTURAL_OPTIONS.map((o) => ({
@@ -121,6 +141,9 @@ export function validateKepengurusanInput(input: KepengurusanInput): Kepengurusa
   const periode = (input.periode || '').trim();
   const catatan = (input.catatan_pengaju || '').trim();
   const keterangan = (input.keterangan || '').trim();
+  const fileSk = (input.file_sk || '').trim();
+  const alasanPemberhentian = (input.alasan_pemberhentian || '').trim();
+  const keteranganAlasan = (input.keterangan_alasan || '').trim();
 
   // Anggota — wajib
   if (!input.anggota_id || !String(input.anggota_id).trim()) {
@@ -208,6 +231,55 @@ export function validateKepengurusanInput(input: KepengurusanInput): Kepengurusa
   // Keterangan — opsional, max 500
   if (keterangan.length > 500) {
     errors.push({ field: 'keterangan', message: `${KEPENGURUSAN_FIELD_LABELS.keterangan} maksimal 500 karakter.` });
+  }
+
+  // Alasan pemberhentian — wajib & valid khusus jenis 'berhentikan'.
+  if (jenis === 'berhentikan') {
+    if (!alasanPemberhentian) {
+      errors.push({
+        field: 'alasan_pemberhentian',
+        message: `${KEPENGURUSAN_FIELD_LABELS.alasan_pemberhentian} wajib dipilih.`,
+      });
+    } else if (!isAlasanPemberhentianValid(alasanPemberhentian)) {
+      errors.push({
+        field: 'alasan_pemberhentian',
+        message: `${KEPENGURUSAN_FIELD_LABELS.alasan_pemberhentian} tidak valid.`,
+      });
+    }
+
+    // Alasan 'lainnya' → wajib penjelasan.
+    if (alasanPemberhentian === ALASAN_PEMBERHENTIAN_LAINNYA) {
+      if (!keteranganAlasan) {
+        errors.push({
+          field: 'keterangan_alasan',
+          message: `${KEPENGURUSAN_FIELD_LABELS.keterangan_alasan} wajib diisi untuk alasan "Lainnya".`,
+        });
+      } else if (keteranganAlasan.length < KETERANGAN_ALASAN_MIN_LENGTH) {
+        errors.push({
+          field: 'keterangan_alasan',
+          message: `${KEPENGURUSAN_FIELD_LABELS.keterangan_alasan} minimal ${KETERANGAN_ALASAN_MIN_LENGTH} karakter.`,
+        });
+      } else if (keteranganAlasan.length > KETERANGAN_ALASAN_MAX_LENGTH) {
+        errors.push({
+          field: 'keterangan_alasan',
+          message: `${KEPENGURUSAN_FIELD_LABELS.keterangan_alasan} maksimal ${KETERANGAN_ALASAN_MAX_LENGTH} karakter.`,
+        });
+      }
+    }
+
+    // Alasan 'diberhentikan' → wajib dokumen SK pemberhentian.
+    if (alasanPemberhentian === ALASAN_PEMBERHENTIAN_DOKUMEN && !fileSk) {
+      errors.push({
+        field: 'file_sk',
+        message: `${KEPENGURUSAN_FIELD_LABELS.file_sk} wajib diunggah untuk alasan "Diberhentikan oleh Organisasi".`,
+      });
+    }
+  } else if (alasanPemberhentian && !isAlasanPemberhentianValid(alasanPemberhentian)) {
+    // Nilai alasan hanya bermakna untuk pemberhentian — tolak nilai tak dikenal.
+    errors.push({
+      field: 'alasan_pemberhentian',
+      message: `${KEPENGURUSAN_FIELD_LABELS.alasan_pemberhentian} tidak valid.`,
+    });
   }
 
   return errors;
