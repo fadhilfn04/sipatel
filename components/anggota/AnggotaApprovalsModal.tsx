@@ -1,6 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Check, ClipboardList, Loader2, X } from 'lucide-react';
+import { computeFieldDiff, formatFieldValue } from '@/lib/anggota-perubahan';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -8,9 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, Check, X, ClipboardList } from 'lucide-react';
 
 interface AnggotaApprovalsModalProps {
   open: boolean;
@@ -30,13 +31,21 @@ interface ApprovalRow {
   diajukan_oleh: string;
   diajukan_pada: string;
   alasan_keputusan: string | null;
-  anggota?: { id: string; nik: string | null; nama_anggota: string | null; nama_cabang: string | null } | null;
+  anggota?: {
+    id: string;
+    nik: string | null;
+    nama_anggota: string | null;
+    nama_cabang: string | null;
+  } | null;
 }
 
 const JENIS_LABEL = { create: 'Tambah', edit: 'Edit', hapus: 'Hapus' } as const;
 
 /** Variant badge per jenis usulan */
-const JENIS_VARIANT: Record<keyof typeof JENIS_LABEL, 'success' | 'secondary' | 'destructive'> = {
+const JENIS_VARIANT: Record<
+  keyof typeof JENIS_LABEL,
+  'success' | 'secondary' | 'destructive'
+> = {
   create: 'success',
   edit: 'secondary',
   hapus: 'destructive',
@@ -51,7 +60,9 @@ export function AnggotaApprovalsModal({
   isAdmin,
   onDecided,
 }: AnggotaApprovalsModalProps) {
-  const [statusFilter, setStatusFilter] = useState<'menunggu' | 'semua'>('menunggu');
+  const [statusFilter, setStatusFilter] = useState<'menunggu' | 'semua'>(
+    'menunggu',
+  );
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<ApprovalRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +87,11 @@ export function AnggotaApprovalsModal({
     if (open) load();
   }, [open, load]);
 
-  const decide = async (id: string, keputusan: 'setujui' | 'tolak', alasan?: string) => {
+  const decide = async (
+    id: string,
+    keputusan: 'setujui' | 'tolak',
+    alasan?: string,
+  ) => {
     setProcessingId(id);
     setError(null);
     try {
@@ -151,17 +166,25 @@ export function AnggotaApprovalsModal({
         ) : (
           <div className="space-y-2">
             {rows.map((row) => (
-              <div key={row.id} className="rounded-lg border p-3 text-sm space-y-2">
+              <div
+                key={row.id}
+                className="rounded-lg border p-3 text-sm space-y-2"
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-medium">
-                      {row.anggota?.nama_anggota || row.data_usulan?.nama_anggota || '(anggota)'}{' '}
+                      {row.anggota?.nama_anggota ||
+                        row.data_usulan?.nama_anggota ||
+                        '(anggota)'}{' '}
                       <span className="text-muted-foreground font-mono text-xs">
                         {row.anggota?.nik || row.data_usulan?.nik || ''}
                       </span>
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {row.anggota?.nama_cabang || row.data_usulan?.nama_cabang || '—'} · diajukan{' '}
+                      {row.anggota?.nama_cabang ||
+                        row.data_usulan?.nama_cabang ||
+                        '—'}{' '}
+                      · diajukan{' '}
                       {new Date(row.diajukan_pada).toLocaleString('id-ID')}
                     </p>
                   </div>
@@ -174,8 +197,8 @@ export function AnggotaApprovalsModal({
                         row.status === 'disetujui'
                           ? 'success'
                           : row.status === 'ditolak'
-                          ? 'destructive'
-                          : 'warning'
+                            ? 'destructive'
+                            : 'warning'
                       }
                     >
                       {row.status}
@@ -184,8 +207,61 @@ export function AnggotaApprovalsModal({
                 </div>
 
                 {row.alasan && (
-                  <p className="text-xs text-muted-foreground">Alasan: {row.alasan}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Alasan: {row.alasan}
+                  </p>
                 )}
+
+                {/* Rincian perubahan (diff data lama → baru) agar keputusan tidak buta. */}
+                {(() => {
+                  const diffKeys = Object.keys(row.data_usulan || {}).filter(
+                    (k) => !k.startsWith('__'),
+                  );
+                  const diff = computeFieldDiff(
+                    row.data_sebelum,
+                    row.data_usulan,
+                    diffKeys,
+                  );
+                  if (diff.length === 0) return null;
+
+                  return (
+                    <div className="rounded-md border bg-muted/30 px-2.5 py-2">
+                      <p className="mb-1 text-xs font-medium text-muted-foreground">
+                        {row.jenis === 'create'
+                          ? `Data yang diajukan (${diff.length})`
+                          : `Perubahan (${diff.length})`}
+                      </p>
+                      <ul className="space-y-1">
+                        {diff.slice(0, 5).map((change) => (
+                          <li key={change.field} className="text-xs">
+                            <span className="font-medium">{change.label}:</span>{' '}
+                            {row.jenis === 'create' ? (
+                              <span className="font-medium">
+                                {formatFieldValue(change.after)}
+                              </span>
+                            ) : (
+                              <>
+                                <span className="text-muted-foreground line-through">
+                                  {formatFieldValue(change.before)}
+                                </span>
+                                {' → '}
+                                <span className="font-medium">
+                                  {formatFieldValue(change.after)}
+                                </span>
+                              </>
+                            )}
+                          </li>
+                        ))}
+                        {diff.length > 5 && (
+                          <li className="text-xs text-muted-foreground">
+                            +{diff.length - 5} field lainnya
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  );
+                })()}
+
                 {row.alasan_keputusan && (
                   <p className="text-xs text-muted-foreground">
                     Alasan keputusan: {row.alasan_keputusan}
@@ -225,4 +301,3 @@ export function AnggotaApprovalsModal({
     </Dialog>
   );
 }
-

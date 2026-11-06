@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { requirePermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
+import { buildAnggotaPartialUpdatePayload } from '@/lib/anggota-perubahan';
 import { PERMISSIONS } from '@/lib/rbac';
 import {
-  buildAnggotaUpdatePayload,
+  notAuthenticatedResponse,
+  requirePermission,
+  unauthorizedResponse,
+} from '@/lib/rbac-server';
+import {
   buildAnggotaCreatePayload,
+  hasActiveDakemTransactions,
   isAdminActor,
   isNikExists,
   recordMutasiIfCabangChanged,
-  hasActiveDakemTransactions,
 } from '@/lib/server/anggota-service';
+import { supabase } from '@/lib/supabase';
 
 /**
  * POST /api/anggota/approvals/[id] — keputusan usulan perubahan anggota.
@@ -21,22 +25,35 @@ import {
  */
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
     if (!isAdminActor(user)) {
-      return unauthorizedResponse('Hanya admin yang dapat memutuskan usulan perubahan anggota');
+      return unauthorizedResponse(
+        'Hanya admin yang dapat memutuskan usulan perubahan anggota',
+      );
     }
 
     const { id } = await context.params;
     const body = await request.json();
-    const keputusan = body?.keputusan === 'tolak' ? 'tolak' : body?.keputusan === 'setujui' ? 'setujui' : null;
+    const keputusan =
+      body?.keputusan === 'tolak'
+        ? 'tolak'
+        : body?.keputusan === 'setujui'
+          ? 'setujui'
+          : null;
     if (!keputusan) {
-      return NextResponse.json({ error: 'keputusan wajib diisi (setujui|tolak).' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'keputusan wajib diisi (setujui|tolak).' },
+        { status: 400 },
+      );
     }
     if (keputusan === 'tolak' && !(body?.alasan || '').trim()) {
-      return NextResponse.json({ error: 'Alasan wajib diisi saat menolak usulan.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Alasan wajib diisi saat menolak usulan.' },
+        { status: 400 },
+      );
     }
 
     const { data: proposal, error: proposalError } = await supabase
@@ -46,12 +63,15 @@ export async function POST(
       .single();
 
     if (proposalError || !proposal) {
-      return NextResponse.json({ error: 'Usulan tidak ditemukan' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Usulan tidak ditemukan' },
+        { status: 404 },
+      );
     }
     if (proposal.status !== 'menunggu') {
       return NextResponse.json(
         { error: `Usulan sudah diputuskan (status: ${proposal.status}).` },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -74,9 +94,15 @@ export async function POST(
 
       if (error) {
         console.error('Error rejecting approval:', error);
-        return NextResponse.json({ error: 'Gagal memutuskan usulan', details: error.message }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Gagal memutuskan usulan', details: error.message },
+          { status: 500 },
+        );
       }
-      return NextResponse.json({ data: updated, message: 'Usulan ditolak — data utama tidak berubah.' });
+      return NextResponse.json({
+        data: updated,
+        message: 'Usulan ditolak — data utama tidak berubah.',
+      });
     }
 
     // ── SETUJUI ──
@@ -96,7 +122,10 @@ export async function POST(
 
     if (approveError) {
       console.error('Error approving proposal:', approveError);
-      return NextResponse.json({ error: 'Gagal menyetujui usulan', details: approveError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Gagal menyetujui usulan', details: approveError.message },
+        { status: 500 },
+      );
     }
 
     const anggotaId = proposal.anggota_id;
@@ -106,14 +135,22 @@ export async function POST(
     const revertToPending = async () => {
       await supabase
         .from('anggota_perubahan')
-        .update({ status: 'menunggu', diputuskan_oleh: null, diputuskan_pada: null, alasan_keputusan: null })
+        .update({
+          status: 'menunggu',
+          diputuskan_oleh: null,
+          diputuskan_pada: null,
+          alasan_keputusan: null,
+        })
         .eq('id', id);
     };
 
     // Usulan edit/hapus wajib terhubung ke anggota yang ada.
     if (proposal.jenis !== 'create' && !anggotaId) {
       await revertToPending();
-      return NextResponse.json({ error: 'Usulan tidak terhubung ke anggota yang valid.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Usulan tidak terhubung ke anggota yang valid.' },
+        { status: 400 },
+      );
     }
 
     // ── CREATE: usulan anggota baru ──
@@ -121,12 +158,21 @@ export async function POST(
       const payload = proposal.data_usulan || {};
       if (!payload.nik || !payload.nama_anggota || !payload.nama_cabang) {
         await revertToPending();
-        return NextResponse.json({ error: 'Usulan anggota tidak lengkap (nik/nama_anggota/nama_cabang wajib).' }, { status: 400 });
+        return NextResponse.json(
+          {
+            error:
+              'Usulan anggota tidak lengkap (nik/nama_anggota/nama_cabang wajib).',
+          },
+          { status: 400 },
+        );
       }
 
       if (await isNikExists(payload.nik)) {
         await revertToPending();
-        return NextResponse.json({ error: 'NIK sudah terdaftar — usulan tidak dapat disetujui.' }, { status: 409 });
+        return NextResponse.json(
+          { error: 'NIK sudah terdaftar — usulan tidak dapat disetujui.' },
+          { status: 409 },
+        );
       }
 
       const { data: createdAnggota, error } = await supabase
@@ -138,10 +184,22 @@ export async function POST(
       if (error) {
         console.error('Error applying approved create:', error);
         await revertToPending();
-        return NextResponse.json({ error: 'Usulan disetujui tetapi gagal dibuat', details: error.message }, { status: 500 });
+        return NextResponse.json(
+          {
+            error: 'Usulan disetujui tetapi gagal dibuat',
+            details: error.message,
+          },
+          { status: 500 },
+        );
       }
 
-      return NextResponse.json({ data: createdAnggota, message: 'Usulan penambahan anggota disetujui dan dibuat.' }, { status: 201 });
+      return NextResponse.json(
+        {
+          data: createdAnggota,
+          message: 'Usulan penambahan anggota disetujui dan dibuat.',
+        },
+        { status: 201 },
+      );
     }
 
     // ── EDIT ──
@@ -152,11 +210,17 @@ export async function POST(
       if (payload.nik && payload.nik !== proposal.data_sebelum?.nik) {
         if (await isNikExists(payload.nik, anggotaId)) {
           await revertToPending();
-          return NextResponse.json({ error: 'NIK sudah terdaftar pada anggota lain.' }, { status: 409 });
+          return NextResponse.json(
+            { error: 'NIK sudah terdaftar pada anggota lain.' },
+            { status: 409 },
+          );
         }
       }
 
-      const updatePayload = buildAnggotaUpdatePayload(payload);
+      // Partial-safe: usulan Perubahan Data Pribadi hanya berisi field yang
+      // berubah — builder ini tidak men-null-kan kolom yang tidak disertakan.
+      // Untuk usulan Edit lama (payload lengkap) hasilnya ekuivalen.
+      const updatePayload = buildAnggotaPartialUpdatePayload(payload);
       const { data: updatedAnggota, error } = await supabase
         .from('anggota')
         .update(updatePayload)
@@ -168,7 +232,13 @@ export async function POST(
       if (error) {
         console.error('Error applying approved edit:', error);
         await revertToPending();
-        return NextResponse.json({ error: 'Usulan disetujui tetapi gagal diterapkan', details: error.message }, { status: 500 });
+        return NextResponse.json(
+          {
+            error: 'Usulan disetujui tetapi gagal diterapkan',
+            details: error.message,
+          },
+          { status: 500 },
+        );
       }
 
       await recordMutasiIfCabangChanged({
@@ -179,7 +249,10 @@ export async function POST(
         alasan: proposal.alasan,
       });
 
-      return NextResponse.json({ data: updatedAnggota, message: 'Usulan edit disetujui dan diterapkan.' });
+      return NextResponse.json({
+        data: updatedAnggota,
+        message: 'Usulan edit disetujui dan diterapkan.',
+      });
     }
 
     // jenis 'hapus'
@@ -191,7 +264,7 @@ export async function POST(
             'Anggota masih memiliki pengajuan Dana Kematian aktif dan tidak dapat dihapus. ' +
             'Selesaikan atau batalkan pengajuan terkait terlebih dahulu.',
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -203,14 +276,28 @@ export async function POST(
 
     if (deleteError) {
       console.error('Error applying approved delete:', deleteError);
-      return NextResponse.json({ error: 'Usulan disetujui tetapi gagal menghapus', details: deleteError.message }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: 'Usulan disetujui tetapi gagal menghapus',
+          details: deleteError.message,
+        },
+        { status: 500 },
+      );
     }
 
-    return NextResponse.json({ message: 'Usulan hapus disetujui dan anggota dinonaktifkan.' });
+    return NextResponse.json({
+      message: 'Usulan hapus disetujui dan anggota dinonaktifkan.',
+    });
   } catch (error: any) {
     if (error.message === 'UNAUTHORIZED') return notAuthenticatedResponse();
-    if (error.message === 'FORBIDDEN') return unauthorizedResponse('Anda tidak memiliki akses ke approval keanggotaan');
+    if (error.message === 'FORBIDDEN')
+      return unauthorizedResponse(
+        'Anda tidak memiliki akses ke approval keanggotaan',
+      );
     console.error('Error in POST /api/anggota/approvals/[id]:', error);
-    return NextResponse.json({ error: 'Terjadi kesalahan pada server' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Terjadi kesalahan pada server' },
+      { status: 500 },
+    );
   }
 }

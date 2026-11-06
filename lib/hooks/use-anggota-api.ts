@@ -1,5 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase, Anggota, CreateAnggotaInput, UpdateAnggotaInput } from '@/lib/supabase';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Anggota,
+  CreateAnggotaInput,
+  supabase,
+  UpdateAnggotaInput,
+} from '@/lib/supabase';
 
 // API response types
 interface AnggotaMeResponse {
@@ -248,7 +253,7 @@ export function useCurrentUserAnggota() {
     queryFn: async () => {
       const response = await fetch('/api/anggota/me');
       if (!response.ok) throw new Error('Failed to fetch current user anggota');
-      const json = await response.json() as AnggotaMeResponse;
+      const json = (await response.json()) as AnggotaMeResponse;
       return json.data;
     },
     staleTime: 5 * 60 * 1000,
@@ -307,7 +312,10 @@ export function useBulkDeleteAnggota() {
         throw new Error(error.error || 'Failed to bulk delete anggota');
       }
 
-      return response.json() as Promise<{ message: string; deletedCount: number }>;
+      return response.json() as Promise<{
+        message: string;
+        deletedCount: number;
+      }>;
     },
     onSuccess: () => {
       // Invalidate and refetch anggota list
@@ -348,7 +356,9 @@ export function useBatchImportAnggota() {
 
         if (!response.ok) {
           // Network/server error on this batch — stop immediately
-          const errorBody = await response.json().catch(() => ({ error: 'Unknown error' }));
+          const errorBody = await response
+            .json()
+            .catch(() => ({ error: 'Unknown error' }));
           allErrors.push({
             row: i + 1,
             error: errorBody.error || 'Gagal mengirim batch',
@@ -402,6 +412,64 @@ export function useBatchImportAnggota() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['anggota'] });
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Perubahan Data Pribadi (Keanggotaan → Perubahan Data Pribadi)
+// ─────────────────────────────────────────────────────────────
+
+export interface PerubahanDataPribadiResponse {
+  status: 'tersimpan' | 'menunggu';
+  message: string;
+  data?: Anggota;
+  perubahan?: {
+    field: string;
+    label: string;
+    before: unknown;
+    after: unknown;
+  }[];
+}
+
+/**
+ * Simpan perubahan data pribadi anggota.
+ *
+ * - Admin → tersimpan langsung (`status: 'tersimpan'`).
+ * - Non-admin → usulan menunggu persetujuan admin (`status: 'menunggu'`, HTTP 202).
+ *
+ * Validasi allowlist & alasan dilakukan di server (lihat
+ * `app/api/anggota/[id]/perubahan-data/route.ts`).
+ */
+export function usePerubahanDataPribadi(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      perubahan: UpdateAnggotaInput;
+      alasan: string;
+    }) => {
+      const response = await fetch(`/api/anggota/${id}/perubahan-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      const json: any = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const message =
+          Array.isArray(json?.errors) && json.errors.length
+            ? json.errors.join('; ')
+            : json?.error || 'Gagal menyimpan perubahan data pribadi';
+        throw new Error(message);
+      }
+
+      return json as PerubahanDataPribadiResponse;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['anggota'] });
+      queryClient.invalidateQueries({ queryKey: ['anggota', id] });
     },
   });
 }

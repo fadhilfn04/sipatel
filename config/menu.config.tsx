@@ -294,6 +294,14 @@ export const MENU_SIDEBAR: MenuConfig = [
         permissions: [PERMISSIONS.VIEW_KEANGGOTAAN],
       },
       {
+        // Perubahan data pribadi anggota (alamat, kontak, dokumen, bank, dll).
+        // Field milik modul lain (cabang, status kematian/keanggotaan, NIK) dikunci
+        // — gunakan menu Mutasi Cabang / Data Meninggal Dunia / Pengakhiran Keanggotaan.
+        title: 'Perubahan Data Pribadi',
+        path: '/keanggotaan/perubahan-data-pribadi',
+        permissions: [PERMISSIONS.MANAGE_KEANGGOTAAN],
+      },
+      {
         // Fitur pengurus/admin: pengajuan mutasi cabang antar-cabang.
         title: 'Mutasi Cabang',
         path: '/mutasi-cabang',

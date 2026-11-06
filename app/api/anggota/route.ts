@@ -11,9 +11,10 @@ import {
 
 // GET /api/anggota - Get all members with filtering and pagination
 export async function GET(request: NextRequest) {
-    // Check permission - allow access for Keanggotaan, Dana Kematian, or Dana Sosial access
+    // Check permission - allow access for Keanggotaan (view & manage), Dana Kematian, or Dana Sosial access
     const user = await requireAnyPermission([
       PERMISSIONS.VIEW_KEANGGOTAAN,
+      PERMISSIONS.MANAGE_KEANGGOTAAN,
       PERMISSIONS.ACCESS_DANA_KEMATIAN,
       PERMISSIONS.ACCESS_DANA_SOCIAL,
     ]);

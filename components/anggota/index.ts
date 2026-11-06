@@ -4,3 +4,6 @@ export { DetailModal } from './DetailModal';
 export { DeleteConfirmDialog } from './DeleteConfirmDialog';
 export { ImportExcelModal } from './ImportExcelModal';
 export { ToastNotification } from './ToastNotification';
+export { MemberSearchModal } from './MemberSearchModal';
+export { PerubahanDataPribadiForm } from './PerubahanDataPribadiForm';
+export { FieldDiffTable } from './FieldDiffTable';
