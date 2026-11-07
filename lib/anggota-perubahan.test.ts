@@ -106,6 +106,31 @@ test('computeFieldDiff: label & format nilai boolean', () => {
   assert.equal(formatFieldValue(diff[0].after), 'Ya');
 });
 
+test('allowlist tidak memuat field rekening (milik menu Penggantian Rekening)', () => {
+  for (const field of ['nama_bank', 'norek_bank', 'nama_pemilik_rekening']) {
+    assert.equal(
+      PERSONAL_DATA_EDITABLE_FIELDS.includes(field as never),
+      false,
+      `Field '${field}' tidak boleh diubah lewat Perubahan Data Pribadi`,
+    );
+    assert.equal(
+      (PROTECTED_FIELDS as readonly string[]).includes(field),
+      true,
+      `Field '${field}' harus terdaftar di PROTECTED_FIELDS`,
+    );
+  }
+});
+
+test('safeParse: perubahan nama_bank ditolak (gunakan menu Penggantian Rekening)', () => {
+  const result = safeParsePerubahanDataPribadi({
+    perubahan: { nama_bank: 'BCA' },
+    alasan: 'ganti rekening lama ke rekening baru',
+  });
+
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((e) => e.includes("'nama_bank'")));
+});
+
 test('buildAnggotaPartialUpdatePayload: hanya key terkirim + normalisasi + updated_at', () => {
   const payload = buildAnggotaPartialUpdatePayload({
     alamat: 'Jl. Merdeka No. 1',

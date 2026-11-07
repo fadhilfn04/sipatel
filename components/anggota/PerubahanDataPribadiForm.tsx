@@ -7,7 +7,6 @@ import {
   MapPin,
   Phone,
   User,
-  Wallet,
 } from 'lucide-react';
 import type { Anggota, UpdateAnggotaInput } from '@/lib/supabase';
 import { useWilayah } from '@/hooks/use-wilayah';
@@ -527,25 +526,16 @@ export function PerubahanDataPribadiForm({
         </div>
       </div>
 
-      {/* Bank & BPJS */}
+      {/* BPJS — rekening bank dikelola menu Penggantian Rekening */}
       <div>
-        <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-          <Wallet className="h-5 w-5" />
-          Bank & BPJS
+        <h3 className="mb-1 flex items-center gap-2 text-lg font-semibold">
+          BPJS
         </h3>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Perubahan rekening bank (bank, nomor rekening, pemilik) dilakukan
+          melalui menu <strong>Penggantian Rekening</strong>.
+        </p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <TextField
-            label="Nama Bank"
-            field="nama_bank"
-            placeholder="Nama bank"
-            {...controlProps}
-          />
-          <TextField
-            label="Nomor Rekening"
-            field="norek_bank"
-            placeholder="Nomor rekening"
-            {...controlProps}
-          />
           <Field label="Status BPJS">
             <Select
               value={boolSelectValue('status_bpjs')}

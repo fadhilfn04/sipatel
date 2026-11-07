@@ -17,6 +17,7 @@
  *  - Perpindahan cabang → menu Mutasi Cabang (pengajuan_mutasi_cabang)
  *  - Kematian → menu Data Meninggal Dunia (anggota_kematian)
  *  - Berhenti → menu Pengakhiran Keanggotaan (pengakhiran_keanggotaan)
+ *  - Rekening bank → menu Penggantian Rekening (anggota_rekening) — lib/anggota-rekening.ts
  *  - NIK → Pewarisan NIK (nik_master/nik_kepemilikan) — lihat docs/perubahan-data-pribadi-audit.md
  */
 
@@ -56,9 +57,7 @@ export const PERSONAL_DATA_EDITABLE_FIELDS = [
   'npwp',
   'sk_pensiun',
   'nomor_sk_pensiun',
-  // Bank & BPJS
-  'nama_bank',
-  'norek_bank',
+  // BPJS (rekening bank dipindah ke menu Penggantian Rekening — lihat PROTECTED_FIELDS)
   'status_bpjs',
   'bpjs_kelas',
   'bpjs_insentif',
@@ -111,6 +110,11 @@ export const PROTECTED_FIELDS = [
   'pusat_pengesahan_mutasi',
   'foto_anggota',
   'urutan_keluarga',
+  // Rekening — milik menu Penggantian Rekening (jalur khusus dengan dokumen
+  // pendukung, tanggal efektif, dan histori anggota_rekening). Lihat lib/anggota-rekening.ts.
+  'nama_bank',
+  'norek_bank',
+  'nama_pemilik_rekening',
 ] as const;
 
 // ─────────────────────────────────────────────────────────────
@@ -160,6 +164,7 @@ export const FIELD_LABELS: Record<string, string> = {
   form_kesediaan_iuran: 'Form Kesediaan Iuran',
   nama_bank: 'Nama Bank',
   norek_bank: 'Nomor Rekening',
+  nama_pemilik_rekening: 'Nama Pemilik Rekening',
   kategori_bantuan: 'Kategori Bantuan',
   tanggal_terima_bantuan: 'Tanggal Terima Bantuan',
   gambar_kondisi_tempat_tinggal: 'Gambar Kondisi Tempat Tinggal',
@@ -298,14 +303,6 @@ const personalDataShape = {
   ),
   sk_pensiun: nullableEnum(['ada', 'tidak_ada'] as const),
   nomor_sk_pensiun: nullableText(120),
-  nama_bank: nullableText(100),
-  norek_bank: z.preprocess(
-    (v) => (v === '' || v === null || v === undefined ? null : v),
-    z
-      .string()
-      .regex(/^\d{8,16}$/, 'Nomor rekening harus 8-16 digit angka')
-      .nullable(),
-  ),
   status_bpjs: z.boolean().nullable().optional(),
   bpjs_kelas: nullableText(10),
   bpjs_insentif: z.boolean().nullable().optional(),

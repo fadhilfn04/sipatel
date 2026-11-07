@@ -6,4 +6,5 @@ export { ImportExcelModal } from './ImportExcelModal';
 export { ToastNotification } from './ToastNotification';
 export { MemberSearchModal } from './MemberSearchModal';
 export { PerubahanDataPribadiForm } from './PerubahanDataPribadiForm';
+export { PenggantianRekeningForm } from './PenggantianRekeningForm';
 export { FieldDiffTable } from './FieldDiffTable';

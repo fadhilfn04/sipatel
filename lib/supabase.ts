@@ -98,6 +98,7 @@ export interface Anggota {
   form_kesediaan_iuran: boolean | null;
   nama_bank: string | null;
   norek_bank: string | null;
+  nama_pemilik_rekening?: string | null;
   kategori_bantuan: string | null;
   tanggal_terima_bantuan: string | null;
   gambar_kondisi_tempat_tinggal: string | null;
@@ -157,6 +158,7 @@ export interface CreateAnggotaInput {
   form_kesediaan_iuran?: boolean;
   nama_bank?: string;
   norek_bank?: string;
+  nama_pemilik_rekening?: string;
   kategori_bantuan?: string;
   tanggal_terima_bantuan?: string;
   gambar_kondisi_tempat_tinggal?: string;

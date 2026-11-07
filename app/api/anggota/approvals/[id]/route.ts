@@ -6,6 +6,7 @@ import {
   requirePermission,
   unauthorizedResponse,
 } from '@/lib/rbac-server';
+import { applyPenggantianRekening } from '@/lib/server/anggota-rekening-service';
 import {
   buildAnggotaCreatePayload,
   hasActiveDakemTransactions,
@@ -252,6 +253,53 @@ export async function POST(
       return NextResponse.json({
         data: updatedAnggota,
         message: 'Usulan edit disetujui dan diterapkan.',
+      });
+    }
+
+    // ── REKENING ── usulan penggantian rekening anggota.
+    if (proposal.jenis === 'rekening') {
+      const payload = proposal.data_usulan || {};
+
+      // Rekening aktif saat ini (bisa berubah sejak usulan diajukan).
+      const { data: currentAnggota, error: currentError } = await supabase
+        .from('anggota')
+        .select('id, nama_bank, norek_bank, nama_pemilik_rekening, deleted_at')
+        .eq('id', anggotaId)
+        .is('deleted_at', null)
+        .single();
+
+      if (currentError || !currentAnggota) {
+        await revertToPending();
+        return NextResponse.json(
+          { error: 'Anggota tidak ditemukan — usulan tidak dapat diterapkan.' },
+          { status: 404 },
+        );
+      }
+
+      const applied = await applyPenggantianRekening({
+        anggotaId,
+        before: currentAnggota,
+        usulan: { ...payload, alasan: payload.alasan ?? proposal.alasan },
+        diajukanOleh: proposal.diajukan_oleh,
+        disetujuiOleh: user.id,
+        diputuskanPada: nowIso,
+      });
+
+      if (applied.error) {
+        console.error('Error applying approved rekening change:', applied.error);
+        await revertToPending();
+        return NextResponse.json(
+          {
+            error: 'Usulan disetujui tetapi gagal diterapkan',
+            details: applied.error,
+          },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({
+        data: applied.data,
+        message: 'Usulan penggantian rekening disetujui dan diterapkan.',
       });
     }
 

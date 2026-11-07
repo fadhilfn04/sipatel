@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
         'surat-pengakhiran',
         'sk-pengangkatan',
         'sk-pemberhentian',
+        'dokumen-rekening',
         'dokumen-lainnya'
       ];
       if (!validFolders.includes(folder as AnggotaFolder)) {

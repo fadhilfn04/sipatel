@@ -422,6 +422,10 @@ export function DetailModal({ open, onClose, member, onWariskanNik }: DetailModa
                 <label className="text-sm text-muted-foreground">Nomor Rekening</label>
                 <div className="text-sm">{member.norek_bank || '-'}</div>
               </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Pemilik Rekening</label>
+                <div className="text-sm">{member.nama_pemilik_rekening || '-'}</div>
+              </div>
             </div>
           </div>
 

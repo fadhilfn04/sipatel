@@ -51,6 +51,7 @@ import {
   UserCircle,
   UserMinus,
   Users,
+  Wallet,
   Briefcase as WorkIcon,
   Zap,
 } from 'lucide-react';
@@ -295,11 +296,22 @@ export const MENU_SIDEBAR: MenuConfig = [
         permissions: [PERMISSIONS.VIEW_KEANGGOTAAN],
       },
       {
-        // Perubahan data pribadi anggota (alamat, kontak, dokumen, bank, dll).
-        // Field milik modul lain (cabang, status kematian/keanggotaan, NIK) dikunci
-        // — gunakan menu Mutasi Cabang / Data Meninggal Dunia / Pengakhiran Keanggotaan.
+        // Perubahan data pribadi anggota (alamat, kontak, dokumen, dll).
+        // Field milik modul lain (cabang, status kematian/keanggotaan, NIK,
+        // rekening bank) dikunci — gunakan menu Mutasi Cabang / Data Meninggal
+        // Dunia / Pengakhiran Keanggotaan / Penggantian Rekening.
         title: 'Perubahan Data Pribadi',
         path: '/keanggotaan/perubahan-data-pribadi',
+        permissions: [PERMISSIONS.MANAGE_KEANGGOTAAN],
+      },
+      {
+        // Penggantian nomor rekening anggota — satu-satunya jalur terkontrol
+        // untuk mengubah nama_bank/norek_bank/nama_pemilik_rekening (dengan
+        // dokumen pendukung, tanggal efektif, approval, dan histori
+        // anggota_rekening — migration 035).
+        title: 'Penggantian Rekening',
+        path: '/keanggotaan/penggantian-rekening',
+        icon: Wallet,
         permissions: [PERMISSIONS.MANAGE_KEANGGOTAAN],
       },
       {

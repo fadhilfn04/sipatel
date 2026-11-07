@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
-import { requirePermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
+import { requirePermission, notAuthenticatedResponse, unauthorizedResponse, requireAnyPermission } from '@/lib/rbac-server';
 import { PERMISSIONS } from '@/lib/rbac';
 
 function getClient() {
@@ -11,7 +11,12 @@ function getClient() {
 // GET /api/master-bank - Fetch all banks (for dropdown/reference)
 export async function GET(request: NextRequest) {
   try {
-    await requirePermission(PERMISSIONS.VIEW_KEANGGOTAAN);
+    // Dropdown bank dipakai menu Keanggotaan (mis. Penggantian Rekening) yang
+    // diguard MANAGE_KEANGGOTAAN — izinkan salah satu dari keduanya.
+    await requireAnyPermission([
+      PERMISSIONS.VIEW_KEANGGOTAAN,
+      PERMISSIONS.MANAGE_KEANGGOTAAN,
+    ]);
 
     const { searchParams } = new URL(request.url);
     const includeInactive = searchParams.get('includeInactive') === 'true';

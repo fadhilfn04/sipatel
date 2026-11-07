@@ -23,7 +23,7 @@ interface AnggotaApprovalsModalProps {
 interface ApprovalRow {
   id: string;
   anggota_id: string | null;
-  jenis: 'create' | 'edit' | 'hapus';
+  jenis: 'create' | 'edit' | 'hapus' | 'rekening';
   status: 'menunggu' | 'disetujui' | 'ditolak';
   data_sebelum: Record<string, any> | null;
   data_usulan: Record<string, any> | null;
@@ -39,7 +39,12 @@ interface ApprovalRow {
   } | null;
 }
 
-const JENIS_LABEL = { create: 'Tambah', edit: 'Edit', hapus: 'Hapus' } as const;
+const JENIS_LABEL = {
+  create: 'Tambah',
+  edit: 'Edit',
+  hapus: 'Hapus',
+  rekening: 'Ganti Rekening',
+} as const;
 
 /** Variant badge per jenis usulan */
 const JENIS_VARIANT: Record<
@@ -49,6 +54,7 @@ const JENIS_VARIANT: Record<
   create: 'success',
   edit: 'secondary',
   hapus: 'destructive',
+  rekening: 'secondary',
 };
 
 /**
@@ -215,7 +221,9 @@ export function AnggotaApprovalsModal({
                 {/* Rincian perubahan (diff data lama → baru) agar keputusan tidak buta. */}
                 {(() => {
                   const diffKeys = Object.keys(row.data_usulan || {}).filter(
-                    (k) => !k.startsWith('__'),
+                    (k) =>
+                      !k.startsWith('__') &&
+                      !(row.jenis === 'rekening' && k === 'alasan'),
                   );
                   const diff = computeFieldDiff(
                     row.data_sebelum,

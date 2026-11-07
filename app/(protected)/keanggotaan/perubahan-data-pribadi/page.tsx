@@ -72,8 +72,6 @@ function initialValues(member: Anggota): UpdateAnggotaInput {
     npwp: member.npwp ?? '',
     sk_pensiun: member.sk_pensiun ?? '',
     nomor_sk_pensiun: member.nomor_sk_pensiun ?? '',
-    nama_bank: member.nama_bank ?? '',
-    norek_bank: member.norek_bank ?? '',
     status_bpjs: member.status_bpjs ?? null,
     bpjs_kelas: member.bpjs_kelas ?? '',
     bpjs_insentif: member.bpjs_insentif ?? null,
@@ -311,10 +309,11 @@ function PerubahanDataPribadiContent() {
                   <AlertTitle>Yang dapat diubah di menu ini</AlertTitle>
                   <AlertDescription>
                     Data pribadi: tempat/tanggal lahir, jenis kelamin, agama,
-                    alamat, kontak, nomor dokumen (E-KTP, KK, NPWP), bank, BPJS,
-                    dan bantuan sosial. Data cabang, status keanggotaan,
-                    kematian, dan NIK <strong>tidak</strong> dapat diubah di
-                    sini — gunakan menu masing-masing.
+                    alamat, kontak, nomor dokumen (E-KTP, KK, NPWP), BPJS, dan
+                    bantuan sosial. Perubahan rekening bank dilakukan lewat menu{' '}
+                    <strong>Penggantian Rekening</strong>. Data cabang, status
+                    keanggotaan, kematian, dan NIK <strong>tidak</strong> dapat
+                    diubah di sini — gunakan menu masing-masing.
                   </AlertDescription>
                 </Alert>
               </CardContent>

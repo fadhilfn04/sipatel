@@ -1,4 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type {
+  AnggotaRekeningHistory,
+  PenggantianRekeningRequest,
+} from '@/lib/anggota-rekening';
 import {
   Anggota,
   CreateAnggotaInput,
@@ -473,3 +477,91 @@ export function usePerubahanDataPribadi(id: string) {
     },
   });
 }
+
+// ─────────────────────────────────────────────────────────────
+// Penggantian Rekening (Keanggotaan → Penggantian Rekening)
+// ─────────────────────────────────────────────────────────────
+
+export interface PenggantianRekeningResponse {
+  status: 'tersimpan' | 'menunggu';
+  message: string;
+  data?: Anggota;
+  perubahan?: {
+    field: string;
+    label: string;
+    before: unknown;
+    after: unknown;
+  }[];
+  peringatan_dakem?: boolean;
+}
+
+export interface RekeningInfo {
+  anggota: {
+    id: string;
+    nik: string;
+    nama_anggota: string;
+    nama_cabang: string;
+    nama_bank: string | null;
+    norek_bank: string | null;
+    nama_pemilik_rekening: string | null;
+  };
+  riwayat: AnggotaRekeningHistory[];
+  has_active_dakem: boolean;
+}
+
+/** Rekening aktif + riwayat penggantian + indikasi dakem aktif (GET). */
+export function useRekeningInfo(id: string | null) {
+  return useQuery<RekeningInfo, Error>({
+    queryKey: ['anggota', id, 'rekening'],
+    enabled: !!id,
+    queryFn: async () => {
+      const response = await fetch(`/api/anggota/${id}/penggantian-rekening`);
+      const json: any = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(json?.error || 'Gagal memuat informasi rekening');
+      }
+      return json.data as RekeningInfo;
+    },
+  });
+}
+
+/**
+ * Simpan penggantian rekening anggota.
+ *
+ * - Admin → tersimpan langsung (`status: 'tersimpan'`).
+ * - Non-admin → usulan menunggu persetujuan admin (`status: 'menunggu'`, HTTP 202).
+ *
+ * Validasi allowlist, dokumen, tanggal efektif & alasan dilakukan di server
+ * (lihat `app/api/anggota/[id]/penggantian-rekening/route.ts`).
+ */
+export function usePenggantianRekening(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: PenggantianRekeningRequest) => {
+      const response = await fetch(`/api/anggota/${id}/penggantian-rekening`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      const json: any = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const message =
+          Array.isArray(json?.errors) && json.errors.length
+            ? json.errors.join('; ')
+            : json?.error || 'Gagal menyimpan penggantian rekening';
+        throw new Error(message);
+      }
+
+      return json as PenggantianRekeningResponse;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['anggota'] });
+      queryClient.invalidateQueries({ queryKey: ['anggota', id] });
+      queryClient.invalidateQueries({ queryKey: ['anggota', id, 'rekening'] });
+    },
+  });
+}
+
