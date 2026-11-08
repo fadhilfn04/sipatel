@@ -16,6 +16,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** Kolom relasi anggota yang disertakan pada query anggota_kepengurusan. */
 export const KEPENGURUSAN_ANGGOTA_SELECT =
@@ -270,8 +271,9 @@ export async function closeActiveJabatan(
   anggotaId: string,
   tanggalSelesai: string,
   excludeId?: string,
+  inputClient?: SupabaseClient,
 ): Promise<{ closedIds: string[]; error?: string }> {
-  const client = getClient();
+  const client = inputClient ?? getClient();
 
   let query = client
     .from('anggota_kepengurusan')
@@ -308,9 +310,10 @@ export async function closeActiveJabatan(
 }
 
 /** Rollback: buka kembali jabatan yang tadinya ditutup (tanggal_selesai = NULL). */
-export async function reopenJabatan(ids: string[]): Promise<void> {
-  if (!supabaseAdmin || ids.length === 0) return;
-  const { error } = await supabaseAdmin
+export async function reopenJabatan(ids: string[], inputClient?: SupabaseClient): Promise<void> {
+  const client = inputClient ?? supabaseAdmin;
+  if (!client || ids.length === 0) return;
+  const { error } = await client
     .from('anggota_kepengurusan')
     .update({ tanggal_selesai: null, updated_at: new Date().toISOString() })
     .in('id', ids);
@@ -326,8 +329,9 @@ export async function reopenJabatan(ids: string[]): Promise<void> {
 export async function syncAnggotaPosisi(
   anggotaId: string,
   jabatan: string,
+  inputClient?: SupabaseClient,
 ): Promise<{ updated: boolean; error?: string }> {
-  const client = getClient();
+  const client = inputClient ?? getClient();
 
   const { error } = await client
     .from('anggota')
@@ -373,8 +377,8 @@ export async function applyKepengurusanApproval(params: {
   tanggalMulai: string;
   decidedBy: string;
   catatanKeputusan?: string | null;
-}): Promise<{ ok: boolean; error?: string; code?: string }> {
-  const client = getClient();
+}, inputClient?: SupabaseClient): Promise<{ ok: boolean; error?: string; code?: string }> {
+  const client = inputClient ?? getClient();
   const now = new Date().toISOString();
 
   // 1. Baca & tutup jabatan aktif lama.
@@ -400,7 +404,7 @@ export async function applyKepengurusanApproval(params: {
       .update({ tanggal_selesai: selesai, updated_at: now })
       .eq('id', row.id);
     if (error) {
-      await reopenJabatan(closedIds);
+      await reopenJabatan(closedIds, client);
       return { ok: false, error: error.message };
     }
     closedIds.push(row.id);
@@ -419,19 +423,19 @@ export async function applyKepengurusanApproval(params: {
     .eq('id', params.id);
 
   if (approveError) {
-    await reopenJabatan(closedIds);
+    await reopenJabatan(closedIds, client);
     return { ok: false, error: approveError.message, code: approveError.code };
   }
 
   // 3. Sinkronkan posisi anggota.
-  const sync = await syncAnggotaPosisi(params.anggotaId, params.jabatan);
+  const sync = await syncAnggotaPosisi(params.anggotaId, params.jabatan, client);
   if (!sync.updated && sync.error) {
     // Rollback: kembalikan status pengajuan & buka kembali jabatan lama.
     await client
       .from('anggota_kepengurusan')
       .update({ status: 'diverifikasi_pc', updated_at: now })
       .eq('id', params.id);
-    await reopenJabatan(closedIds);
+    await reopenJabatan(closedIds, client);
     return { ok: false, error: sync.error, code: 'STATUS_SYNC_FAILED' };
   }
 

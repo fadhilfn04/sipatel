@@ -5,6 +5,7 @@ import { JWT } from 'next-auth/jwt';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import prisma from '@/lib/prisma';
+import { resolveActor, writeAudit } from '@/lib/server/audit-service';
 
 const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -31,6 +32,15 @@ const authOptions: NextAuthOptions = {
         });
 
         if (!user) {
+          // Audit: percobaan login gagal (email tidak terdaftar).
+          void writeAudit({
+            module: 'user_management',
+            tableName: 'User',
+            action: 'LOGIN_FAILED',
+            newValues: { email: credentials.email },
+            reason: 'Email tidak terdaftar',
+            source: 'api',
+          });
           throw new Error(
             JSON.stringify({
               code: 404,
@@ -45,6 +55,17 @@ const authOptions: NextAuthOptions = {
         );
 
         if (!isPasswordValid) {
+          // Audit: percobaan login gagal (password salah).
+          void writeAudit({
+            module: 'user_management',
+            tableName: 'User',
+            entityId: user.id,
+            actorUserId: user.id,
+            action: 'LOGIN_FAILED',
+            newValues: { email: credentials.email },
+            reason: 'Password salah',
+            source: 'api',
+          });
           throw new Error(
             JSON.stringify({
               code: 401,
@@ -54,6 +75,17 @@ const authOptions: NextAuthOptions = {
         }
 
         if (user.status !== 'ACTIVE') {
+          // Audit: percobaan login gagal (akun belum aktif).
+          void writeAudit({
+            module: 'user_management',
+            tableName: 'User',
+            entityId: user.id,
+            actorUserId: user.id,
+            action: 'LOGIN_FAILED',
+            newValues: { email: credentials.email },
+            reason: 'Akun belum aktif',
+            source: 'api',
+          });
           throw new Error(
             JSON.stringify({
               code: 403,
@@ -155,6 +187,56 @@ const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
     maxAge: 24 * 60 * 60,
+  },
+  /**
+   * Audit trail — catat aktivitas autentikasi ke `audit_log`
+   * (migration 036). Best-effort: kegagalan audit tidak menggagalkan login.
+   */
+  events: {
+    async signIn({ user, account }) {
+      try {
+        const userId = user?.id ? String(user.id) : null;
+        if (!userId) return;
+
+        const actor = await resolveActor(userId);
+        await writeAudit({
+          module: 'user_management',
+          tableName: 'User',
+          entityId: userId,
+          action: 'LOGIN',
+          actorUserId: userId,
+          actorName: actor.name ?? user.name ?? user.email ?? null,
+          actorRoleSlug: actor.roleSlug,
+          reason: account?.provider ? `Login via ${account.provider}` : 'Login',
+          source: 'api',
+        });
+      } catch (error) {
+        console.error('[AUDIT] Gagal mencatat LOGIN:', error);
+      }
+    },
+    async signOut(message) {
+      try {
+        // Strategy JWT → pesan berisi token (bukan session).
+        const token = (message as { token?: JWT }).token;
+        const userId = (token?.id as string | undefined) ?? token?.sub ?? null;
+        if (!userId) return;
+
+        const actor = await resolveActor(userId);
+        await writeAudit({
+          module: 'user_management',
+          tableName: 'User',
+          entityId: userId,
+          action: 'LOGOUT',
+          actorUserId: userId,
+          actorName: actor.name ?? (token?.name as string | undefined) ?? null,
+          actorRoleSlug: actor.roleSlug,
+          reason: 'Logout',
+          source: 'api',
+        });
+      } catch (error) {
+        console.error('[AUDIT] Gagal mencatat LOGOUT:', error);
+      }
+    },
   },
   callbacks: {
     async jwt({

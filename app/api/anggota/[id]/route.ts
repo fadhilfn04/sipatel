@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 import { UpdateAnggotaInput } from '@/lib/supabase';
 import { requirePermission, requireAnyPermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS } from '@/lib/rbac';
@@ -65,6 +66,11 @@ export async function PUT(
   try {
     // Check permission - require manage permission
     const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    // Client dengan header aktor — audit_log otomatis mencatat pelaku perubahan.
+    const supabase = await getActorClient({
+      request,
+      reason: request.nextUrl.searchParams.get('alasan'),
+    });
 
     const { id } = await context.params;
     const body: UpdateAnggotaInput = await request.json();
@@ -156,7 +162,7 @@ export async function PUT(
       diajukanOleh: user.id,
       disetujuiOleh: user.id,
       alasan: (body as any).alasan_perubahan || null,
-    });
+    }, supabase);
 
     return NextResponse.json({
       data: updatedAnggota,
@@ -189,6 +195,11 @@ export async function DELETE(
   try {
     // Check permission - require manage permission
     const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    // Client dengan header aktor — audit_log mencatat pelaku soft-delete.
+    const supabase = await getActorClient({
+      request,
+      reason: request.nextUrl.searchParams.get('alasan'),
+    });
 
     const { id } = await context.params;
     const { data: existingAnggota } = await supabase

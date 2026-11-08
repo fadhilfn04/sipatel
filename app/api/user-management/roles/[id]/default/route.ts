@@ -66,6 +66,8 @@ export async function PATCH(
           entityType: 'user.role',
           description: 'User role set default.',
           ipAddress: clientIp,
+          oldValues: { roleId: id, isDefault: role.isDefault },
+          newValues: { roleId: id, isDefault: true },
         },
         tx,
       );

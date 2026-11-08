@@ -54,12 +54,13 @@ export async function DELETE(request: NextRequest) {
       // Log the event
       await systemLog(
         {
-          event: 'create',
+          event: 'delete',
           userId: session.user.id,
           entityId: permissionIds.join(', '),
           entityType: 'user.permissions',
           description: 'User permissions deleted.',
           ipAddress: clientIp,
+          newValues: { deletedPermissionIds: permissionIds },
         },
         tx,
       );

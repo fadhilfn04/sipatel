@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 interface HistoryUser {
   id: string;
   email: string;
-  full_name: string;
+  full_name: string | null;
 }
 
 interface AnggotaHistoryRecord {
@@ -16,6 +16,10 @@ interface AnggotaHistoryRecord {
   changed_fields: string[];
   created_at: string;
   changed_by_user: HistoryUser | null;
+  /** Tambahan dari audit_log (migration 036). */
+  module?: string | null;
+  reason?: string | null;
+  source?: string | null;
 }
 
 interface AnggotaHistoryResponse {

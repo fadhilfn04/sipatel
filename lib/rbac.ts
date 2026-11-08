@@ -17,6 +17,11 @@ export const PERMISSIONS = {
   MANAGE_PENGAKHIRAN_KEANGGOTAAN: 'manage_pengakhiran_keanggotaan',
   MANAGE_PERUBAHAN_KEPENGURUSAN: 'manage_perubahan_kepengurusan',
 
+  // Audit Trail (riwayat aktivitas terpusat — migration 036)
+  AUDIT_TRAIL_VIEW: 'audit_trail_view',
+  AUDIT_TRAIL_EXPORT: 'audit_trail_export',
+  AUDIT_TRAIL_MANAGE: 'audit_trail_manage',
+
   // Pelayanan
   ACCESS_DANA_KEMATIAN: 'access_dana_kematian',
   MANAGE_DANA_KEMATIAN: 'manage_dana_kematian',
@@ -110,6 +115,9 @@ export const PERMISSION_GROUPS = {
     permissions: [
       PERMISSIONS.ACCESS_SETTINGS,
       PERMISSIONS.MANAGE_SYSTEM,
+      PERMISSIONS.AUDIT_TRAIL_VIEW,
+      PERMISSIONS.AUDIT_TRAIL_EXPORT,
+      PERMISSIONS.AUDIT_TRAIL_MANAGE,
       PERMISSIONS.ALL_ACCESS,
     ],
   },
@@ -222,6 +230,8 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     PERMISSIONS.ACCESS_KEUANGAN,
     PERMISSIONS.VIEW_IURAN,
     PERMISSIONS.MANAGE_IURAN,
+    // Audit trail: pengurus dapat melihat riwayat aktivitas
+    PERMISSIONS.AUDIT_TRAIL_VIEW,
   ],
 };
 
@@ -350,6 +360,21 @@ export const INITIAL_PERMISSIONS = [
     slug: PERMISSIONS.MANAGE_SYSTEM,
     name: 'Manage System',
     description: 'Kelola pengaturan sistem',
+  },
+  {
+    slug: PERMISSIONS.AUDIT_TRAIL_VIEW,
+    name: 'Lihat Riwayat Aktivitas',
+    description: 'Melihat audit trail / riwayat aktivitas seluruh modul',
+  },
+  {
+    slug: PERMISSIONS.AUDIT_TRAIL_EXPORT,
+    name: 'Ekspor Riwayat Aktivitas',
+    description: 'Mengekspor audit trail ke CSV',
+  },
+  {
+    slug: PERMISSIONS.AUDIT_TRAIL_MANAGE,
+    name: 'Kelola Audit Trail',
+    description: 'Mengelola konfigurasi audit trail (retensi/masking)',
   },
   {
     slug: PERMISSIONS.ALL_ACCESS,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 import {
   requireAnyPermission,
   notAuthenticatedResponse,
@@ -15,11 +16,9 @@ import {
 } from '@/lib/server/anggota-kematian-service';
 import type { UpdateAnggotaKematianInput } from '@/lib/supabase';
 
-function getClient() {
-  if (!supabaseAdmin) {
-    throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
-  }
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 function validateTanggalMeninggal(value: unknown): string | null {
@@ -38,14 +37,14 @@ function validateTanggalMeninggal(value: unknown): string | null {
 
 /** GET /api/anggota-kematian/[id] — detail entry kematian. */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireAnyPermission([...ENTRY_KEMATIAN_VIEW_PERMISSIONS]);
 
     const { id } = await context.params;
-    const client = getClient();
+    const client = await getClient(request);
 
     const { data, error } = await client
       .from('anggota_kematian')
@@ -94,7 +93,7 @@ export async function PUT(
       }
     }
 
-    const client = getClient();
+    const client = await getClient(request);
 
     const { data: existing, error: existingError } = await client
       .from('anggota_kematian')
@@ -138,7 +137,7 @@ export async function PUT(
     }
 
     // Pastikan status anggota tetap konsisten 'meninggal' (idempotent).
-    await markAnggotaMeninggal(existing.anggota_id);
+    await markAnggotaMeninggal(existing.anggota_id, client);
 
     return NextResponse.json({ data, message: 'Entry meninggal dunia berhasil diperbarui.' });
   } catch (error: any) {
@@ -158,14 +157,14 @@ export async function PUT(
  * lewat Pengelolaan Data bila memang diperlukan. Data historis dipertahankan.
  */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireAnyPermission([...ENTRY_KEMATIAN_MANAGE_PERMISSIONS]);
 
     const { id } = await context.params;
-    const client = getClient();
+    const client = await getClient(request);
 
     const { data: existing, error: existingError } = await client
       .from('anggota_kematian')

@@ -103,6 +103,9 @@ export async function PUT(
       );
     }
 
+    // Snapshot user lama untuk audit old/new (migration 036).
+    const existingUser = await prisma.user.findUnique({ where: { id } });
+
     // Use a transaction to insert multiple records atomically
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const user = await tx.user.update({
@@ -119,6 +122,14 @@ export async function PUT(
           entityType: 'user.profile',
           description: 'User profile updated.',
           ipAddress: clientIp,
+          oldValues: existingUser
+            ? {
+                name: existingUser.name,
+                status: existingUser.status,
+                roleId: existingUser.roleId,
+              }
+            : null,
+          newValues: { name, status, roleId },
         },
         tx,
       );
@@ -188,6 +199,10 @@ export async function DELETE(
           entityType: 'user',
           description: 'User trashed.',
           ipAddress: clientIp,
+          oldValues: userToDelete
+            ? { email: userToDelete.email, name: userToDelete.name, status: userToDelete.status }
+            : null,
+          newValues: { isTrashed: true, status: 'INACTIVE' },
         },
         tx,
       );

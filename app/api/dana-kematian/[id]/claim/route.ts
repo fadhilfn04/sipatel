@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import authOptions from '@/app/api/auth/[...nextauth]/auth-options';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 import { getDakemActorContext, getActorCabang } from '@/lib/server/dakem-enforcement';
 import { canClaimClaim, canReleaseClaim } from '@/lib/server/dakem-claim-rules';
 
-function getClient() {
-  if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 /**
@@ -44,7 +45,7 @@ export async function POST(
     }
 
     // Ambil kondisi pengajuan saat ini (untuk validasi aturan + audit).
-    const { data: claim, error: fetchError } = await getClient()
+    const { data: claim, error: fetchError } = await (await getClient(request))
       .from('dana_kematian')
       .select('id, status_proses, claim_status, cabang_pemilik_kode, diklaim_oleh, kode_cabang, nama_anggota, data_perubahan')
       .eq('id', id)
@@ -81,7 +82,7 @@ export async function POST(
 
     // ── UPDATE atomik (anti race dua cabang claim bersamaan) ──
     // Kondisi WHERE memastikan baris masih 'tersedia' saat update dijalankan.
-    const { data: updated, error: updateError } = await getClient()
+    const { data: updated, error: updateError } = await (await getClient(request))
       .from('dana_kematian')
       .update({
         claim_status: 'diklaim',
@@ -119,7 +120,7 @@ export async function POST(
     }
 
     // Audit trail eksplisit (claim bukan transisi status → trigger DB tidak mencatat).
-    const { error: logError } = await getClient()
+    const { error: logError } = await (await getClient(request))
       .from('riwayat_proses_dakem')
       .insert({
         dana_kematian_id: id,
@@ -172,7 +173,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Anda tidak memiliki akses untuk melepas pengajuan', code: 'PERMISSION_DENIED' }, { status: 403 });
     }
 
-    const { data: claim, error: fetchError } = await getClient()
+    const { data: claim, error: fetchError } = await (await getClient(request))
       .from('dana_kematian')
       .select('id, status_proses, claim_status, cabang_pemilik_kode, diklaim_oleh, kode_cabang')
       .eq('id', id)
@@ -206,7 +207,7 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
     const actorNama = session?.user?.name || 'Sistem';
 
-    const { data: updated, error: updateError } = await getClient()
+    const { data: updated, error: updateError } = await (await getClient(request))
       .from('dana_kematian')
       .update({
         claim_status: 'tersedia',
@@ -235,7 +236,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Pengajuan tidak sedang diklaim.', code: 'NOT_CLAIMED' }, { status: 409 });
     }
 
-    const { error: logError } = await getClient()
+    const { error: logError } = await (await getClient(request))
       .from('riwayat_proses_dakem')
       .insert({
         dana_kematian_id: id,

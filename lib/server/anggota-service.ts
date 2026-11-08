@@ -143,24 +143,28 @@ export async function isNikExists(nik: string, excludeId?: string): Promise<bool
  * Catat riwayat mutasi (append-only) bila cabang anggota berubah.
  * Riwayat TIDAK pernah diubah/dihapus — anggota_mutasi hanya menerima INSERT.
  */
-export async function recordMutasiIfCabangChanged(params: {
-  before: Record<string, any>;
-  after: Record<string, any>;
-  diajukanOleh?: string | null;
-  disetujuiOleh?: string | null;
-  alasan?: string | null;
-}): Promise<void> {
+export async function recordMutasiIfCabangChanged(
+  params: {
+    before: Record<string, any>;
+    after: Record<string, any>;
+    diajukanOleh?: string | null;
+    disetujuiOleh?: string | null;
+    alasan?: string | null;
+  },
+  client?: NonNullable<typeof supabaseAdmin>,
+): Promise<void> {
   const cabangChanged =
     params.before.nama_cabang !== params.after.nama_cabang ||
     params.before.kode_cabang !== params.after.kode_cabang;
 
-  if (!cabangChanged || !supabaseAdmin) return;
+  const db = client ?? supabaseAdmin;
+  if (!cabangChanged || !db) return;
 
   const tanggalEfektif =
     params.after.tanggal_mutasi ||
     (params.after.updated_at ? String(params.after.updated_at).slice(0, 10) : null);
 
-  const { error } = await supabaseAdmin.from('anggota_mutasi').insert({
+  const { error } = await db.from('anggota_mutasi').insert({
     anggota_id: params.after.id,
     nik: params.after.nik ?? params.before.nik ?? null,
     cabang_asal: params.before.nama_cabang ?? null,

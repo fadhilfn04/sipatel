@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, CreateLaporanPeriodeInput } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 
 // GET /api/laporan-periode - List period reports with filtering
 export async function GET(request: NextRequest) {
@@ -74,6 +75,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/laporan-periode - Create new period report
 export async function POST(request: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  const supabase = await getActorClient({ request });
+
   try {
     const body: CreateLaporanPeriodeInput = await request.json();
 

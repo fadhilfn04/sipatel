@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 import {
   requirePermission,
   notAuthenticatedResponse,
@@ -12,11 +13,9 @@ import {
 } from '@/lib/utils/mutasi-cabang-validation';
 import { MUTASI_CABANG_ACTIVE_STATUSES } from '@/lib/workflow/mutasi-cabang-status';
 
-function getClient() {
-  if (!supabaseAdmin) {
-    throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
-  }
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 /** Resolve cabang tujuan dari master_cabang, fallback ke nama cabang anggota. */
@@ -72,7 +71,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '10'), 1), 100);
     const offset = (page - 1) * limit;
 
-    const client = getClient();
+    const client = await getClient(request);
 
     let query = client
       .from('pengajuan_mutasi_cabang')
@@ -142,7 +141,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const client = getClient();
+    const client = await getClient(request);
 
     // Anggota dipilih pengurus dari daftar NIK — diverifikasi server-side.
     const { data: anggota, error: anggotaError } = await client

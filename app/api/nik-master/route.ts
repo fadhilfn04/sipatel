@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 
 // GET /api/nik-master - Get all NIK master records
 export async function GET(request: NextRequest) {
@@ -52,6 +53,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/nik-master - Create new NIK master (when pensioner passes away)
 export async function POST(request: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku pewarisan NIK.
+  const supabase = await getActorClient({ request });
+
   try {
     const body = await request.json();
 

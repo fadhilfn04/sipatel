@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 import { CreateAnggotaInput, AnggotaFilter } from '@/lib/supabase';
 import { requirePermission, requireAnyPermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS, ROLES } from '@/lib/rbac';
@@ -124,6 +125,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     // Check permission
     const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    // Client dengan header aktor — audit_log otomatis mencatat pelaku perubahan.
+    const supabase = await getActorClient({ request });
 
   try {
     const body: CreateAnggotaInput = await request.json();

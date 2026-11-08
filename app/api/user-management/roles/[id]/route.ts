@@ -103,6 +103,12 @@ export async function PUT(
     const { name, slug, description, permissions }: RoleSchemaType =
       parsedData.data;
 
+    // Snapshot izin lama untuk audit old/new (migration 036).
+    const oldPermissions = await prisma.userRolePermission.findMany({
+      where: { roleId: id },
+      select: { permissionId: true },
+    });
+
     // Check uniqueness for name and slug
     const isUniqueRole = await isUnique('userRole', { slug, name }, { id });
     if (!isUniqueRole) {
@@ -135,6 +141,31 @@ export async function PUT(
 
           await tx.userRolePermission.createMany({ data: newPermissions });
         }
+
+        // Log dengan snapshot old/new (audit trail — migration 036).
+        await systemLog(
+          {
+            event: 'update',
+            userId: session.user.id,
+            entityId: id,
+            entityType: 'user.role',
+            description: 'User role updated.',
+            ipAddress: getClientIP(request),
+            oldValues: {
+              name: existingCategory.name,
+              slug: existingCategory.slug,
+              description: existingCategory.description,
+              permissionIds: oldPermissions.map((p) => p.permissionId),
+            },
+            newValues: {
+              name,
+              slug,
+              description,
+              permissionIds: permissions ?? [],
+            },
+          },
+          tx,
+        );
 
         return role;
       },
@@ -233,6 +264,11 @@ export async function DELETE(
           entityType: 'user.role',
           description: 'User role deleted.',
           ipAddress: clientIp,
+          oldValues: {
+            name: role.name,
+            slug: role.slug,
+            description: role.description,
+          },
         },
         tx,
       );

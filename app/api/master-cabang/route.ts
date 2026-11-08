@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 import { requirePermission, requireAnyPermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS } from '@/lib/rbac';
 import { CreateMasterCabangInput } from '@/lib/supabase';
@@ -78,7 +79,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Require manage permission
-    await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+
+    // Client dengan header aktor — audit_log mencatat pelaku + created_by.
+    const supabase = await getActorClient({ request });
 
     const body: CreateMasterCabangInput = await request.json();
 
@@ -113,6 +117,9 @@ export async function POST(request: NextRequest) {
         area_regional: body.area_regional || null,
         area_witel: body.area_witel || null,
         is_active: body.is_active !== undefined ? body.is_active : true,
+        // Kolom audit (migration 021) — sebelumnya selalu NULL.
+        created_by: user.id,
+        updated_by: user.id,
       }])
       .select()
       .single();

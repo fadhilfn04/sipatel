@@ -15,6 +15,8 @@ import {
   recordMutasiIfCabangChanged,
 } from '@/lib/server/anggota-service';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
+import { writeAudit } from '@/lib/server/audit-service';
 
 /**
  * POST /api/anggota/approvals/[id] — keputusan usulan perubahan anggota.
@@ -35,6 +37,8 @@ export async function POST(
         'Hanya admin yang dapat memutuskan usulan perubahan anggota',
       );
     }
+    // Client dengan header aktor + pencatatan aksi APPROVE/REJECT.
+    const supabase = await getActorClient({ request });
 
     const { id } = await context.params;
     const body = await request.json();
@@ -100,6 +104,18 @@ export async function POST(
           { status: 500 },
         );
       }
+
+      // Audit aksi keputusan (supplementary — baris data juga diaudit trigger).
+      await writeAudit({
+        module: 'keanggotaan',
+        tableName: 'anggota_perubahan',
+        entityId: id,
+        anggotaId: proposal.anggota_id ?? null,
+        action: 'REJECT',
+        actorUserId: user.id,
+        reason: body.alasan ?? null,
+      });
+
       return NextResponse.json({
         data: updated,
         message: 'Usulan ditolak — data utama tidak berubah.',
@@ -128,6 +144,18 @@ export async function POST(
         { status: 500 },
       );
     }
+
+    // Audit aksi persetujuan (supplementary — apply data juga diaudit trigger).
+    await writeAudit({
+      module: 'keanggotaan',
+      tableName: 'anggota_perubahan',
+      entityId: id,
+      anggotaId: proposal.anggota_id ?? null,
+      action: 'APPROVE',
+      actorUserId: user.id,
+      reason: body?.alasan || null,
+      newValues: { jenis: proposal.jenis, diajukan_oleh: proposal.diajukan_oleh },
+    });
 
     const anggotaId = proposal.anggota_id;
 
@@ -248,7 +276,7 @@ export async function POST(
         diajukanOleh: proposal.diajukan_oleh,
         disetujuiOleh: user.id,
         alasan: proposal.alasan,
-      });
+      }, supabase);
 
       return NextResponse.json({
         data: updatedAnggota,
@@ -283,7 +311,7 @@ export async function POST(
         diajukanOleh: proposal.diajukan_oleh,
         disetujuiOleh: user.id,
         diputuskanPada: nowIso,
-      });
+      }, supabase);
 
       if (applied.error) {
         console.error('Error applying approved rekening change:', applied.error);

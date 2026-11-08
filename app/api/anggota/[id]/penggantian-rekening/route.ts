@@ -17,6 +17,7 @@ import {
   isAdminActor,
 } from '@/lib/server/anggota-service';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 
 /**
  * GET /api/anggota/[id]/penggantian-rekening
@@ -136,6 +137,9 @@ export async function POST(
 
     const input = parsed.data!;
 
+    // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+    const supabase = await getActorClient({ request, reason: input.alasan });
+
     // Ambil data anggota existing (snapshot rekening lama).
     const { data: existing, error: fetchError } = await supabase
       .from('anggota')
@@ -240,7 +244,7 @@ export async function POST(
       diajukanOleh: user.id,
       disetujuiOleh: user.id,
       diputuskanPada: nowIso,
-    });
+    }, supabase);
 
     if (applied.error) {
       console.error('Error applying penggantian rekening:', applied.error);

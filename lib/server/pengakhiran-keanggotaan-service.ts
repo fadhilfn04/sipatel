@@ -15,6 +15,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { PENGAKHIRAN_ACTIVE_STATUSES } from '@/lib/workflow/pengakhiran-keanggotaan-status';
 
 /** Kolom relasi anggota yang disertakan pada query pengakhiran_keanggotaan. */
@@ -30,12 +31,14 @@ export const PENGAKHIRAN_WITH_ANGGOTA_SELECT = `*, anggota:anggota_id(${PENGAKHI
  */
 export async function markAnggotaBerhenti(
   anggotaId: string,
+  client?: SupabaseClient,
 ): Promise<{ updated: boolean; error?: string }> {
-  if (!supabaseAdmin) {
+  const db = client ?? supabaseAdmin;
+  if (!db) {
     return { updated: false, error: 'Supabase admin client not configured' };
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await db
     .from('anggota')
     .update({ status_keanggotaan: 'berhenti', updated_at: new Date().toISOString() })
     .eq('id', anggotaId)

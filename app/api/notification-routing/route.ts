@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 import authOptions from '@/app/api/auth/[...nextauth]/auth-options';
 
-function getClient() {
-  if (!supabaseAdmin) throw new Error('Supabase admin client not configured.');
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 // GET /api/notification-routing — list all routing rules
@@ -14,7 +15,7 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { data, error } = await getClient()
+    const { data, error } = await (await getClient())
       .from('notification_routing')
       .select('*')
       .order('event_type', { ascending: true });
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if event_type already exists
-    const { data: existing } = await getClient()
+    const { data: existing } = await (await getClient(request))
       .from('notification_routing')
       .select('id')
       .eq('event_type', event_type)
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event type already exists' }, { status: 409 });
     }
 
-    const { data, error } = await getClient()
+    const { data, error } = await (await getClient(request))
       .from('notification_routing')
       .insert({
         event_type,
@@ -90,7 +91,7 @@ export async function PUT(request: NextRequest) {
     const now = new Date().toISOString();
     const updates = await Promise.all(
       rules.map(async (rule) => {
-        const { data, error } = await getClient()
+        const { data, error } = await (await getClient(request))
           .from('notification_routing')
           .update({
             target_role_slugs: rule.target_role_slugs,
@@ -124,7 +125,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'event_type query param is required' }, { status: 400 });
     }
 
-    const { error } = await getClient()
+    const { error } = await (await getClient(request))
       .from('notification_routing')
       .delete()
       .eq('event_type', eventType);

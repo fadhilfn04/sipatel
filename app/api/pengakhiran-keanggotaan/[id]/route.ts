@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 import {
   requireAnyPermission,
   notAuthenticatedResponse,
@@ -18,11 +19,9 @@ import {
   markAnggotaBerhenti,
 } from '@/lib/server/pengakhiran-keanggotaan-service';
 
-function getClient() {
-  if (!supabaseAdmin) {
-    throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
-  }
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 function actorName(user: { name?: string | null; email?: string | null; id: string }): string {
@@ -35,14 +34,14 @@ function actorName(user: { name?: string | null; email?: string | null; id: stri
  * Detail pengajuan pengakhiran keanggotaan — pengurus/admin.
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   try {
     await requireAnyPermission([...PENGAKHIRAN_VIEW_PERMISSIONS]);
 
     const { id } = await context.params;
-    const client = getClient();
+    const client = await getClient(request);
 
     const { data, error } = await client
       .from('pengakhiran_keanggotaan')
@@ -103,7 +102,7 @@ export async function PATCH(
       );
     }
 
-    const client = getClient();
+    const client = await getClient(request);
 
     const { data: existing, error: existingError } = await client
       .from('pengakhiran_keanggotaan')
@@ -154,7 +153,7 @@ export async function PATCH(
     // Apply status anggota LEBIH DULU untuk 'disetujui_pp' agar tidak ada
     // pengakhiran disetujui tanpa status anggota yang konsisten.
     if (targetStatus === 'disetujui_pp') {
-      const applied = await markAnggotaBerhenti(existing.anggota_id);
+      const applied = await markAnggotaBerhenti(existing.anggota_id, client);
       if (!applied.updated && applied.error) {
         return NextResponse.json(
           {

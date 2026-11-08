@@ -1,4 +1,5 @@
 import { Clock, User, FileText, Trash2, Edit, PlusCircle } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import {
@@ -11,7 +12,7 @@ import {
 interface HistoryUser {
   id: string;
   email: string;
-  full_name: string;
+  full_name: string | null;
 }
 
 interface AnggotaHistoryRecord {
@@ -24,6 +25,9 @@ interface AnggotaHistoryRecord {
   changed_fields: string[];
   created_at: string;
   changed_by_user: HistoryUser | null;
+  module?: string | null;
+  reason?: string | null;
+  source?: string | null;
 }
 
 interface HistoryTimelineProps {
@@ -112,7 +116,13 @@ function HistoryCard({ record }: { record: AnggotaHistoryRecord }) {
             {record.changed_by_user && (
               <div className="flex items-center gap-1">
                 <User className="h-3 w-3" />
-                <span>{record.changed_by_user.full_name || record.changed_by_user.email}</span>
+                <span>{record.changed_by_user.full_name || record.changed_by_user.email || 'System'}</span>
+              </div>
+            )}
+            {record.reason && (
+              <div className="flex items-center gap-1">
+                <FileText className="h-3 w-3" />
+                <span className="truncate max-w-[280px]" title={record.reason}>{record.reason}</span>
               </div>
             )}
           </div>
@@ -188,7 +198,7 @@ function DataPreview({
 }
 
 function getActionConfig(action: string) {
-  const configs = {
+  const configs: Record<string, { label: string; variant: string; icon: ReactNode; color: string }> = {
     CREATE: {
       label: 'Anggota Baru Dibuat',
       variant: 'success',
@@ -206,10 +216,42 @@ function getActionConfig(action: string) {
       variant: 'destructive',
       icon: <Trash2 className="h-4 w-4 text-red-600" />,
       color: 'bg-red-600 border-red-600'
+    },
+    RESTORE: {
+      label: 'Data Dipulihkan',
+      variant: 'success',
+      icon: <PlusCircle className="h-4 w-4 text-teal-600" />,
+      color: 'bg-teal-600 border-teal-600'
+    },
+    APPROVE: {
+      label: 'Usulan Disetujui',
+      variant: 'success',
+      icon: <PlusCircle className="h-4 w-4 text-emerald-600" />,
+      color: 'bg-emerald-600 border-emerald-600'
+    },
+    REJECT: {
+      label: 'Usulan Ditolak',
+      variant: 'destructive',
+      icon: <Trash2 className="h-4 w-4 text-red-600" />,
+      color: 'bg-red-600 border-red-600'
+    },
+    VERIFY: {
+      label: 'Verifikasi',
+      variant: 'secondary',
+      icon: <FileText className="h-4 w-4 text-indigo-600" />,
+      color: 'bg-indigo-600 border-indigo-600'
     }
   };
 
-  return configs[action as keyof typeof configs] || configs.CREATE;
+  // Aksi lain (LOGIN/LOGOUT/dst.) → netral, label mengikuti nama aksi.
+  return (
+    configs[action] ?? {
+      label: action,
+      variant: 'secondary',
+      icon: <FileText className="h-4 w-4 text-muted-foreground" />,
+      color: 'bg-slate-500 border-slate-500',
+    }
+  );
 }
 
 function getActionColor(action: string): string {

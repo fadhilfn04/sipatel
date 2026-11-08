@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 import { requirePermission, requireAnyPermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS } from '@/lib/rbac';
 import { UpdateMasterCabangInput } from '@/lib/supabase';
@@ -55,7 +56,10 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+
+    // Client dengan header aktor — audit_log mencatat pelaku + updated_by.
+    const supabase = await getActorClient({ request });
 
     const { id } = await context.params;
     const body: UpdateMasterCabangInput = await request.json();
@@ -94,6 +98,7 @@ export async function PUT(
       .from('master_cabang')
       .update({
         ...body,
+        updated_by: user.id,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -136,7 +141,10 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+
+    // Client dengan header aktor — audit_log mencatat pelaku penonaktifan.
+    const supabase = await getActorClient({ request });
 
     const { id } = await context.params;
 
@@ -156,7 +164,7 @@ export async function DELETE(
     // Soft delete: deactivate instead of hard delete to preserve anggota references
     const { error } = await supabase
       .from('master_cabang')
-      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .update({ is_active: false, updated_by: user.id, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (error) {

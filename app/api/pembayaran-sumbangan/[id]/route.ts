@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, UpdatePembayaranSumbanganInput } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 import { requirePermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS } from '@/lib/rbac';
 
@@ -50,7 +51,10 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  await requirePermission(PERMISSIONS.MANAGE_IURAN);
+  const user = await requirePermission(PERMISSIONS.MANAGE_IURAN);
+
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  const supabase = await getActorClient({ request });
 
   try {
     const { id } = await params;
@@ -76,7 +80,14 @@ export async function PUT(
       ...body,
       // Convert empty strings to null for date fields
       tanggal_verifikasi: body.tanggal_verifikasi === '' ? null : body.tanggal_verifikasi,
-      diverifikasi_oleh: body.diverifikasi_oleh === '' ? null : body.diverifikasi_oleh,
+      // Verifikator DIAMBIL DARI SESSION (bukan request body) agar tidak
+      // dapat dipalsukan klien — undefined = biarkan tidak berubah.
+      diverifikasi_oleh:
+        body.diverifikasi_oleh === undefined
+          ? undefined
+          : body.diverifikasi_oleh === ''
+            ? null
+            : user.name || user.email || user.id,
       catatan_verifikasi: body.catatan_verifikasi === '' ? null : body.catatan_verifikasi,
       keterangan_pembayaran: body.keterangan_pembayaran === '' ? null : body.keterangan_pembayaran,
       metode_pembayaran: body.metode_pembayaran === '' ? null : body.metode_pembayaran,
@@ -128,6 +139,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   await requirePermission(PERMISSIONS.MANAGE_IURAN);
+
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  const supabase = await getActorClient({ request });
 
   try {
     const { id } = await params;

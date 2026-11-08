@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 
-function getClient() {
-  if (!supabaseAdmin) throw new Error('Supabase admin client not configured.');
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 export interface ImportRow {
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     // Collect all unique NIKs and look them up in bulk
     const niks = Array.from(new Set(rows.map(r => r.nik?.trim()).filter(Boolean)));
-    const { data: anggotaList } = await getClient()
+    const { data: anggotaList } = await (await getClient(request))
       .from('anggota')
       .select('id, nik, nama_anggota, status_anggota, status_mps, nama_cabang')
       .in('nik', niks)
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     // Check which anggota_ids already have active claims
     const anggotaIds = (anggotaList || []).map(a => a.id);
-    const { data: existingClaims } = await getClient()
+    const { data: existingClaims } = await (await getClient(request))
       .from('dana_kematian')
       .select('anggota_id')
       .in('anggota_id', anggotaIds)
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
 
     let insertedCount = 0;
     if (insertPayload.length > 0) {
-      const { error: insertError } = await getClient()
+      const { error: insertError } = await (await getClient(request))
         .from('dana_kematian')
         .insert(insertPayload);
 

@@ -196,6 +196,7 @@ export async function POST(request: NextRequest) {
           entityType: 'user',
           description: 'User added by user.',
           ipAddress: clientIp,
+          newValues: { name, email, status: 'ACTIVE', roleId },
         },
         tx,
       );

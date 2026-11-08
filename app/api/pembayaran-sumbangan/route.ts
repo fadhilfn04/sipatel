@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, CreatePembayaranSumbanganInput } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 import { requirePermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS } from '@/lib/rbac';
 
@@ -89,7 +90,10 @@ export async function GET(request: NextRequest) {
 // POST /api/pembayaran-sumbangan - Create new payment
 export async function POST(request: NextRequest) {
   // Check permission
-  await requirePermission(PERMISSIONS.MANAGE_IURAN);
+  const user = await requirePermission(PERMISSIONS.MANAGE_IURAN);
+
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  const supabase = await getActorClient({ request });
 
   try {
     const body: CreatePembayaranSumbanganInput = await request.json();
@@ -118,7 +122,9 @@ export async function POST(request: NextRequest) {
       ...body,
       // Convert empty strings to null for date fields
       tanggal_verifikasi: body.tanggal_verifikasi || null,
-      diverifikasi_oleh: body.diverifikasi_oleh || null,
+      // Verifikator DIAMBIL DARI SESSION (bukan request body) agar tidak
+      // dapat dipalsukan klien — lihat audit-trail-history-audit.md §4.
+      diverifikasi_oleh: body.diverifikasi_oleh ? user.name || user.email || user.id : null,
       catatan_verifikasi: body.catatan_verifikasi || null,
       keterangan_pembayaran: body.keterangan_pembayaran || null,
       metode_pembayaran: body.metode_pembayaran || null,

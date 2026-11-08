@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import authOptions from '@/app/api/auth/[...nextauth]/auth-options';
 import { supabaseAdmin, deleteFromSupabaseStorage } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 import { getDakemActorContext, getActorCabang, CABANG_EDITABLE_STATUSES } from '@/lib/server/dakem-enforcement';
 import { canEditClaim } from '@/lib/server/dakem-claim-rules';
 import { BERKAS_DOCUMENTS } from '@/lib/config/dana-kematian-berkas';
 
-function getClient() {
-  if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 /** Kolom file dokumen pengajuan yang dikenal (dari konfigurasi berkas). */
@@ -46,7 +47,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Anda tidak memiliki akses ke modul Dana Kematian', code: 'PERMISSION_DENIED' }, { status: 403 });
     }
 
-    const { data: claim, error: fetchError } = await getClient()
+    const { data: claim, error: fetchError } = await (await getClient(request))
       .from('dana_kematian')
       .select('id, nama_anggota, status_proses, kode_cabang, claim_status, cabang_pemilik_kode, data_perubahan')
       .eq('id', id)
@@ -84,7 +85,7 @@ export async function DELETE(
     }
 
     // Ambil URL file saat ini.
-    const { data: current, error: currentError } = await getClient()
+    const { data: current, error: currentError } = await (await getClient(request))
       .from('dana_kematian')
       .select(fileKey)
       .eq('id', id)
@@ -103,7 +104,7 @@ export async function DELETE(
     const actorNama = session?.user?.name || 'Sistem';
 
     // 1) Null-kan kolom + audit metadata (trigger riwayat/audit membaca data_perubahan).
-    const { error: updateError } = await getClient()
+    const { error: updateError } = await (await getClient(request))
       .from('dana_kematian')
       .update({
         [fileKey]: null,
@@ -134,7 +135,7 @@ export async function DELETE(
     }
 
     // 3) Audit trail eksplisit.
-    const { error: logError } = await getClient()
+    const { error: logError } = await (await getClient(request))
       .from('riwayat_proses_dakem')
       .insert({
         dana_kematian_id: id,

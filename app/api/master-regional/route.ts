@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 import { requirePermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS } from '@/lib/rbac';
 
-function getClient() {
-  if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 // GET /api/master-regional - Fetch all regionals (for dropdown/reference)
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     const includeInactive = searchParams.get('includeInactive') === 'true';
     const includeWitel = searchParams.get('includeWitel') === 'true';
 
-    const client = getClient();
+    const client = await getClient(request);
 
     let query = client
       .from('master_regional')
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
   try {
     await requirePermission(PERMISSIONS.MANAGE_SYSTEM);
 
-    const client = getClient();
+    const client = await getClient(request);
     const body = await request.json();
 
     const { kode_regional, nama_regional, is_active = true } = body;
@@ -129,7 +130,7 @@ export async function PUT(request: NextRequest) {
   try {
     await requirePermission(PERMISSIONS.MANAGE_SYSTEM);
 
-    const client = getClient();
+    const client = await getClient(request);
     const body = await request.json();
 
     const { id, kode_regional, nama_regional, is_active } = body;
@@ -218,7 +219,7 @@ export async function DELETE(request: NextRequest) {
   try {
     await requirePermission(PERMISSIONS.MANAGE_SYSTEM);
 
-    const client = getClient();
+    const client = await getClient(request);
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

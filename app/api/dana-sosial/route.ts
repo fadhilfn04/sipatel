@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 import { DanaSosialFilter } from '@/lib/supabase';
 import { notifyDanaSosialCreated } from '@/lib/server/create-notification';
 
@@ -79,6 +80,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  const supabase = await getActorClient({ request });
+
   try {
     const body = await request.json();
 

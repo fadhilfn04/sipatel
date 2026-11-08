@@ -117,6 +117,15 @@ export async function PUT(
       entityType: 'user.permission',
       description: 'User permission updated.',
       ipAddress: clientIp,
+      oldValues: {
+        slug: existingPermission.slug,
+        name: existingPermission.name,
+        description: existingPermission.description,
+      },
+      newValues: {
+        name: updatedPermission.name,
+        description: updatedPermission.description,
+      },
     });
 
     return NextResponse.json(updatedPermission);
@@ -185,6 +194,11 @@ export async function DELETE(
           entityType: 'user.permission',
           description: 'User permission deleted.',
           ipAddress: clientIp,
+          oldValues: {
+            slug: existingPermission.slug,
+            name: existingPermission.name,
+            description: existingPermission.description,
+          },
         },
         tx,
       );

@@ -38,16 +38,16 @@ CREATE TABLE IF NOT EXISTS master_tarif_dana_kematian (
   is_active BOOLEAN DEFAULT true,
   keterangan TEXT,
   created_at TIMESTAMPTZ DEFAULT timezone('utc', now()) NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT timezone('utc', now()) NOT NULL,
-
-  -- Ensure only one active tariff per category at a time
-  CONSTRAINT unique_active_tarif_per_category
-    EXCLUDE (USING (
-      kategori_anggota WITH = AND
-      is_active WITH = AND
-      (tanggal_berakhir IS NULL OR tanggal_berakhir >= CURRENT_DATE) WITH =
-    ))
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc', now()) NOT NULL
 );
+
+-- NOTE: "satu tarif aktif per kategori" TIDAK bisa memakai EXCLUDE constraint —
+-- ekspresi `tanggal_berakhir >= CURRENT_DATE` bukan IMMUTABLE dan syntax
+-- `EXCLUDE (USING (...))` invalid di PostgreSQL. Selain itu seed di bawah justru
+-- memakai BEBERAPA tarif aktif per kategori (dibedakan rentang masa kerja),
+-- sehingga aturan yang benar adalah "satu tarif aktif per (kategori, rentang)".
+-- Tarif aktif diambil lewat get_applicable_tarif(); index parsial non-unique
+-- di bawah cukup untuk performa.
 
 -- =========================================================
 -- 3. CREATE INDEXES
@@ -65,9 +65,11 @@ CREATE INDEX IF NOT EXISTS idx_tarif_masa_kerja
 CREATE INDEX IF NOT EXISTS idx_tarif_tanggal_berlaku
   ON master_tarif_dana_kematian(tanggal_berlaku DESC);
 
+-- NOTE: predicate index TIDAK BOLEH memakai CURRENT_DATE (tidak IMMUTABLE).
+-- Filter tanggal berakhir dilakukan saat query (lihat get_applicable_tarif()).
 CREATE INDEX IF NOT EXISTS idx_tarif_active_per_category
   ON master_tarif_dana_kematian(kategori_anggota, is_active)
-  WHERE is_active = true AND (tanggal_berakhir IS NULL OR tanggal_berakhir >= CURRENT_DATE);
+  WHERE is_active = true;
 
 -- =========================================================
 -- 4. CREATE UPDATED_AT TRIGGER
@@ -81,6 +83,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trg_update_tarif_updated_at ON master_tarif_dana_kematian;
 CREATE TRIGGER trg_update_tarif_updated_at
   BEFORE UPDATE ON master_tarif_dana_kematian
   FOR EACH ROW
@@ -235,18 +238,21 @@ COMMENT ON FUNCTION validate_dana_kematian_amount IS
 ALTER TABLE master_tarif_dana_kematian ENABLE ROW LEVEL SECURITY;
 
 -- Public read access (master data is reference data)
+DROP POLICY IF EXISTS "Allow public read access on master_tarif_dana_kematian" ON master_tarif_dana_kematian;
 CREATE POLICY "Allow public read access on master_tarif_dana_kematian"
   ON master_tarif_dana_kematian FOR SELECT
   TO public
   USING (is_active = true);
 
 -- Authenticated users can view all (including inactive)
+DROP POLICY IF EXISTS "Allow authenticated to view all master_tarif" ON master_tarif_dana_kematian;
 CREATE POLICY "Allow authenticated to view all master_tarif"
   ON master_tarif_dana_kematian FOR SELECT
   TO authenticated
   USING (true);
 
 -- Only users with MANAGE_DANA_KEMATIAN permission can modify
+DROP POLICY IF EXISTS "Allow dana kematian managers to modify master_tarif" ON master_tarif_dana_kematian;
 CREATE POLICY "Allow dana kematian managers to modify master_tarif"
   ON master_tarif_dana_kematian FOR ALL
   TO authenticated

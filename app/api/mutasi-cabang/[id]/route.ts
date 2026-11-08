@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 import {
   requirePermission,
   notAuthenticatedResponse,
@@ -11,11 +12,9 @@ import {
   isValidMutasiCabangTransition,
 } from '@/lib/workflow/mutasi-cabang-status';
 
-function getClient() {
-  if (!supabaseAdmin) {
-    throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
-  }
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 function actorName(user: { name?: string | null; email?: string | null; id: string }): string {
@@ -28,14 +27,14 @@ function actorName(user: { name?: string | null; email?: string | null; id: stri
  * Detail pengajuan mutasi cabang — khusus pengurus/admin (manage keanggotaan).
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   try {
     await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
 
     const { id } = await context.params;
-    const client = getClient();
+    const client = await getClient(request);
 
     const { data, error } = await client
       .from('pengajuan_mutasi_cabang')
@@ -92,7 +91,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Status tujuan tidak valid', code: 'INVALID_STATUS' }, { status: 400 });
     }
 
-    const client = getClient();
+    const client = await getClient(request);
 
     const { data: existing, error: existingError } = await client
       .from('pengajuan_mutasi_cabang')

@@ -15,6 +15,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** Kolom relasi anggota yang disertakan pada query anggota_kematian. */
 export const ANGGOTA_KEMATIAN_ANGGOTA_SELECT =
@@ -30,12 +31,14 @@ export const ANGGOTA_KEMATIAN_WITH_ANGGOTA_SELECT = `*, anggota:anggota_id(${ANG
  */
 export async function markAnggotaMeninggal(
   anggotaId: string,
+  client?: SupabaseClient,
 ): Promise<{ updated: boolean; error?: string }> {
-  if (!supabaseAdmin) {
+  const db = client ?? supabaseAdmin;
+  if (!db) {
     return { updated: false, error: 'Supabase admin client not configured' };
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await db
     .from('anggota')
     .update({ status_anggota: 'meninggal', updated_at: new Date().toISOString() })
     .eq('id', anggotaId)

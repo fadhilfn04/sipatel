@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 import {
   notifyDanaSosialDisetujui,
   notifyDanaSosialDitolak,
@@ -42,6 +43,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  const supabase = await getActorClient({ request });
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -131,6 +135,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  const supabase = await getActorClient({ request });
+
   try {
     const { id } = await params;
 

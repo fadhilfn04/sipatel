@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import authOptions from '@/app/api/auth/[...nextauth]/auth-options';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 import { getDakemActorContext } from '@/lib/server/dakem-enforcement';
 import { isValidStatusTransition } from '@/lib/workflow/dana-kematian-transitions';
 import {
@@ -10,9 +11,9 @@ import {
   notifyDanaKematianUpdated,
 } from '@/lib/server/create-notification';
 
-function getClient() {
-  if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 type VerifyAction = 'verify' | 'return' | 'reject';
@@ -60,7 +61,7 @@ export async function POST(
     }
 
     // Ambil kondisi terkini.
-    const { data: claim, error: fetchError } = await getClient()
+    const { data: claim, error: fetchError } = await (await getClient(request))
       .from('dana_kematian')
       .select('id, nama_anggota, status_proses, besaran_dana_kematian, document_metadata')
       .eq('id', id)
@@ -147,7 +148,7 @@ export async function POST(
     };
 
     // Optimistic lock: hanya update bila status masih 'proses_pusat'.
-    const { data: updated, error: updateError } = await getClient()
+    const { data: updated, error: updateError } = await (await getClient(request))
       .from('dana_kematian')
       .update(updateData)
       .eq('id', id)
@@ -167,7 +168,7 @@ export async function POST(
     }
 
     // Audit trail eksplisit dengan kolom yang BENAR (riwayat_proses_dakem).
-    const { error: logError } = await getClient()
+    const { error: logError } = await (await getClient(request))
       .from('riwayat_proses_dakem')
       .insert({
         dana_kematian_id: id,
@@ -232,7 +233,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const { data: claim, error } = await getClient()
+    const { data: claim, error } = await (await getClient(request))
       .from('dana_kematian')
       .select('*')
       .eq('id', id)
@@ -243,7 +244,7 @@ export async function GET(
       return NextResponse.json({ error: 'Claim tidak ditemukan' }, { status: 404 });
     }
 
-    const { data: history } = await getClient()
+    const { data: history } = await (await getClient(request))
       .from('riwayat_proses_dakem')
       .select('*')
       .eq('dana_kematian_id', id)

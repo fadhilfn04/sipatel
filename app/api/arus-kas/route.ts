@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, CreateArusKasInput } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 
 // GET /api/arus-kas - List cash flow transactions with filtering
 export async function GET(request: NextRequest) {
@@ -79,6 +80,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/arus-kas - Create new cash flow transaction
 export async function POST(request: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  const supabase = await getActorClient({ request });
+
   try {
     const body: CreateArusKasInput = await request.json();
 

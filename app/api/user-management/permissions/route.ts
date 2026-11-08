@@ -142,6 +142,7 @@ export async function POST(request: NextRequest) {
       entityType: 'user.permission',
       description: 'User permission added.',
       ipAddress: clientIp,
+      newValues: { name, slug, description },
     });
 
     return NextResponse.json(newPermission);

@@ -176,6 +176,7 @@ export async function POST(request: NextRequest) {
             entityType: 'user.role',
             description: 'User role added.',
             ipAddress: clientIp,
+            newValues: { name, slug, description, permissionIds: permissions ?? [] },
           },
           tx,
         );

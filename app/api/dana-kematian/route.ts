@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import authOptions from '@/app/api/auth/[...nextauth]/auth-options';
 import { CreateDanaKematianInput, DanaKematianFilter } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 import { notifyDanaKematianCreated } from '@/lib/server/create-notification';
 import {
   getDeathClaimPeriodExceededMessage,
@@ -13,9 +14,9 @@ import { getDakemActorContext, getActorCabang } from '@/lib/server/dakem-enforce
 import { getMaxDeathClaimPeriodYears, getRequiredDocumentOverride } from '@/lib/server/dakem-config';
 import { isBerkasLengkap } from '@/lib/config/dana-kematian-berkas';
 
-function getClient() {
-  if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 // GET /api/dana-kematian - List death benefits with filtering
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     const orderBy = searchParams.get('orderBy') || 'created_at';
     const orderDirection = searchParams.get('orderDirection') || 'desc';
 
-    let query = getClient()
+    let query = (await getClient(request))
       .from('dana_kematian')
       .select('*, anggota:anggota_id(nik)', { count: 'exact' })
       .order(orderBy, {
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
     // Search
     if (search) {
       // Find anggota IDs whose NIK matches the search term (NIK lives in the anggota table, not dana_kematian)
-      const { data: nikMatches } = await getClient()
+      const { data: nikMatches } = await (await getClient(request))
         .from('anggota')
         .select('id')
         .ilike('nik', `%${search}%`)
@@ -214,7 +215,7 @@ export async function POST(request: NextRequest) {
 
     // Check if member exists (if anggota_id is provided)
     if (body.anggota_id) {
-      const { data: member } = await getClient()
+      const { data: member } = await (await getClient(request))
         .from('anggota')
         .select('id, status_keanggotaan')
         .eq('id', body.anggota_id)
@@ -244,7 +245,7 @@ export async function POST(request: NextRequest) {
     // Create dana kematian
     const sessionForActor = await getServerSession(authOptions);
     const nowIso = new Date().toISOString();
-    const { data: newDanaKematian, error } = await getClient()
+    const { data: newDanaKematian, error } = await (await getClient(request))
       .from('dana_kematian')
       .insert([{
         ...body,

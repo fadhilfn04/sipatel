@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import authOptions from '@/app/api/auth/[...nextauth]/auth-options';
 import { UpdateDanaKematianInput } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 import { isValidStatusTransition } from '@/lib/workflow/dana-kematian-transitions';
 import {
   getDeathClaimPeriodExceededMessage,
@@ -28,9 +29,9 @@ import {
   notifyDanaKematianDeleted,
 } from '@/lib/server/create-notification';
 
-function getClient() {
-  if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 // GET /api/dana-kematian/[id] - Get single death benefit claim by ID
@@ -48,7 +49,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const { data: danaKematian, error } = await getClient()
+    const { data: danaKematian, error } = await (await getClient(request))
       .from('dana_kematian')
       .select('*, anggota:anggota_id(nik)')
       .eq('id', id)
@@ -82,7 +83,7 @@ export async function PUT(
     const body: UpdateDanaKematianInput = await request.json();
 
     // Fetch existing claim to compare changes for notifications
-    const { data: existingClaim } = await getClient()
+    const { data: existingClaim } = await (await getClient(request))
       .from('dana_kematian')
       .select(`
         id, nama_anggota, cabang_asal_melapor, status_proses, besaran_dana_kematian, keterangan,
@@ -346,7 +347,7 @@ export async function PUT(
     // ─────────────────────────────────────────────────────────────────────
 
     // Update dana kematian
-    const { data: updatedDanaKematian, error } = await getClient()
+    const { data: updatedDanaKematian, error } = await (await getClient(request))
       .from('dana_kematian')
       .update(patch)
       .eq('id', id)
@@ -458,7 +459,7 @@ export async function DELETE(
 
     const { id } = await params;
     // Check if claim exists
-    const { data: existingClaim } = await getClient()
+    const { data: existingClaim } = await (await getClient(request))
       .from('dana_kematian')
       .select('id, status_proses, nama_anggota, kode_cabang, cabang_asal_melapor, claim_status, cabang_pemilik_kode')
       .eq('id', id)
@@ -494,7 +495,7 @@ export async function DELETE(
     }
 
     // Soft delete by setting deleted_at
-    const { error } = await getClient()
+    const { error } = await (await getClient(request))
       .from('dana_kematian')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id);

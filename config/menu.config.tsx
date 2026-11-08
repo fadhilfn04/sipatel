@@ -431,6 +431,14 @@ export const MENU_SIDEBAR: MenuConfig = [
         path: '/user-management/permissions',
         permissions: [PERMISSIONS.MANAGE_PERMISSIONS],
       },
+      {
+        // Audit trail terpusat seluruh modul (migration 036).
+        // Menampilkan waktu, pengguna, role, modul, aksi, dan diff old/new
+        // per field — dengan filter anggota/modul/aksi/periode + ekspor CSV.
+        title: 'Riwayat Aktivitas',
+        path: '/audit-trail',
+        permissions: [PERMISSIONS.AUDIT_TRAIL_VIEW],
+      },
       // {
       //   title: 'Akun',
       //   path: '/user-management/account',

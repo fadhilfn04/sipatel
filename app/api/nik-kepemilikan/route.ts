@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 
 // GET /api/nik-kepemilikan - Get all NIK kepemilikan records
 export async function GET(request: NextRequest) {
@@ -65,6 +66,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/nik-kepemilikan - Create new NIK kepemilikan (assign NIK to heir)
 export async function POST(request: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku pewarisan NIK.
+  const supabase = await getActorClient({ request });
+
   try {
     const body = await request.json();
 

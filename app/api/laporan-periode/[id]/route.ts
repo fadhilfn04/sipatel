@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, UpdateLaporanPeriodeInput } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
+import { getCurrentUser } from '@/lib/rbac-server';
 
 // GET /api/laporan-periode/[id] - Get single period report by ID
 export async function GET(
@@ -37,6 +39,10 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  const supabase = await getActorClient({ request });
+  const user = await getCurrentUser();
+
   try {
     const { id } = await params;
     const body: UpdateLaporanPeriodeInput = await request.json();
@@ -75,7 +81,14 @@ export async function PUT(
         marjin_laba: body.marjin_laba !== undefined ? body.marjin_laba : undefined,
         status_laporan: body.status_laporan !== undefined ? body.status_laporan : undefined,
         catatan: body.catatan !== undefined ? body.catatan : undefined,
-        diverifikasi_oleh: body.diverifikasi_oleh !== undefined ? body.diverifikasi_oleh : undefined,
+        // Verifikator DIAMBIL DARI SESSION (bukan request body) agar tidak
+        // dapat dipalsukan klien — undefined = biarkan tidak berubah.
+        diverifikasi_oleh:
+          body.diverifikasi_oleh !== undefined
+            ? body.diverifikasi_oleh === ''
+              ? null
+              : user?.name || user?.email || user?.id || null
+            : undefined,
         tanggal_disetujui: body.tanggal_disetujui !== undefined ? body.tanggal_disetujui : undefined,
         file_laporan: body.file_laporan !== undefined ? body.file_laporan : undefined,
         updated_at: new Date().toISOString(),
@@ -111,6 +124,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  const supabase = await getActorClient({ request });
+
   try {
     const { id } = await params;
 

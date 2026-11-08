@@ -16,15 +16,45 @@ import { Search, History, Filter } from 'lucide-react';
 import { HistoryTimeline } from '@/components/anggota/HistoryTimeline';
 import { useAnggotaHistory } from '@/lib/hooks/use-anggota-history';
 
+interface AnggotaOption {
+  id: string;
+  nik: string;
+  nama_anggota: string;
+  nama_cabang?: string | null;
+}
+
 export default function HistoryAnggotaPage() {
-  const [selectedAnggotaId, setSelectedAnggotaId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedAnggota, setSelectedAnggota] = useState<AnggotaOption | null>(null);
+  const [results, setResults] = useState<AnggotaOption[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
 
-  // For this demo page, we'll use a fixed anggota ID
-  // In production, you'd have a selector to choose which anggota to view history for
-  const demoAnggotaId = selectedAnggotaId || 'demo-anggota-id';
+  const { data: historyData, isLoading, error } = useAnggotaHistory(selectedAnggota?.id || '');
 
-  const { data: historyData, isLoading, error } = useAnggotaHistory(demoAnggotaId);
+  // Cari anggota berdasarkan NIK/nama (memakai GET /api/anggota).
+  const handleSearch = async () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    setSearching(true);
+    setSearchError('');
+    try {
+      const res = await fetch(`/api/anggota?search=${encodeURIComponent(q)}&limit=10`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setSearchError(err.error || 'Gagal mencari anggota. Pastikan Anda memiliki akses data keanggotaan.');
+        setResults([]);
+        return;
+      }
+      const json = await res.json();
+      setResults((json.data || []).slice(0, 10));
+    } catch (e: any) {
+      setSearchError(e.message || 'Gagal mencari anggota.');
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
 
   return (
     <ProtectedRoute permission={PERMISSIONS.HISTORY_ANGGOTA_VIEW}>
@@ -50,14 +80,56 @@ export default function HistoryAnggotaPage() {
                     placeholder="Cari berdasarkan NIK atau nama anggota..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSearch();
+                    }}
                     className="pl-9"
                   />
                 </div>
-                <Button variant="outline">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filter
+                <Button variant="outline" onClick={handleSearch} disabled={searching}>
+                  <Search className="h-4 w-4 mr-2" />
+                  {searching ? 'Mencari...' : 'Cari'}
                 </Button>
               </div>
+
+              {searchError && (
+                <p className="text-sm text-destructive mt-3">{searchError}</p>
+              )}
+
+              {results.length > 0 && (
+                <div className="mt-3 border rounded-md divide-y max-h-64 overflow-y-auto">
+                  {results.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedAnggota(a);
+                        setResults([]);
+                      }}
+                      className={`w-full text-left px-3 py-2 hover:bg-muted/60 ${
+                        selectedAnggota?.id === a.id ? 'bg-muted' : ''
+                      }`}
+                    >
+                      <div className="text-sm font-medium">{a.nama_anggota}</div>
+                      <div className="text-xs text-muted-foreground">
+                        NIK {a.nik}{a.nama_cabang ? ` · ${a.nama_cabang}` : ''}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {selectedAnggota && (
+                <div className="mt-3 flex items-center gap-2 text-sm">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Anggota terpilih:</span>
+                  <span className="font-medium">{selectedAnggota.nama_anggota}</span>
+                  <span className="text-muted-foreground">({selectedAnggota.nik})</span>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedAnggota(null)}>
+                    Ganti
+                  </Button>
+                </div>
+              )}
             </CardHeader>
           </Card>
 

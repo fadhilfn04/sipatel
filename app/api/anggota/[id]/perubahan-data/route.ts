@@ -12,6 +12,7 @@ import {
 } from '@/lib/rbac-server';
 import { isAdminActor } from '@/lib/server/anggota-service';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
 
 /**
  * POST /api/anggota/[id]/perubahan-data
@@ -38,6 +39,8 @@ export async function POST(
 ) {
   try {
     const user = await requirePermission(PERMISSIONS.MANAGE_KEANGGOTAAN);
+    // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+    const supabase = await getActorClient({ request });
     const { id } = await context.params;
 
     const body = await request.json();

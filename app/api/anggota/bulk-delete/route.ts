@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
+import { getClientIP } from '@/lib/api';
+import { logBatchOperation } from '@/lib/server/audit-service';
 import { requirePermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS } from '@/lib/rbac';
 import { isAdminActor } from '@/lib/server/anggota-service';
@@ -28,6 +31,10 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date().toISOString();
+
+    // Client dengan header aktor — setiap soft-delete tercatat di audit_log
+    // dengan pelaku, plus log operasi massal (batch_operation_log).
+    const supabase = await getActorClient({ request });
 
     // Build a single UPDATE query with all filters applied directly.
     // Supabase .update() supports the same filter chain as .select(),
@@ -75,6 +82,20 @@ export async function POST(request: NextRequest) {
     }
 
     const deletedCount = deletedData?.length || 0;
+
+    // Log operasi massal — sebelumnya bulk delete tidak meninggalkan jejak.
+    await logBatchOperation({
+      operationType: 'bulk_delete_anggota',
+      tableName: 'anggota',
+      totalRecords: deleteAll ? deletedCount : ids.length,
+      successCount: deletedCount,
+      failureCount: deleteAll ? 0 : Math.max(0, ids.length - deletedCount),
+      status: 'completed',
+      performedBy: user.id,
+      ipAddress: getClientIP(request),
+      userAgent: request.headers.get('user-agent'),
+      metadata: { delete_all: !!deleteAll, filters: deleteAll ? filters ?? null : null },
+    });
 
     return NextResponse.json({
       message: `${deletedCount} data anggota berhasil dihapus`,

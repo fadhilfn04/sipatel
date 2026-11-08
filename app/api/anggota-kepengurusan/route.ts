@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { getActorClient } from '@/lib/supabase-actor';
 import {
   requireAnyPermission,
   notAuthenticatedResponse,
@@ -24,11 +25,9 @@ import {
 } from '@/lib/utils/kepengurusan-validation';
 import { POSISI_NETRAL } from '@/lib/anggota-kepengurusan';
 
-function getClient() {
-  if (!supabaseAdmin) {
-    throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
-  }
-  return supabaseAdmin;
+async function getClient(request?: NextRequest) {
+  // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
+  return getActorClient({ request });
 }
 
 function actorName(user: { name?: string | null; email?: string | null; id: string }): string {
@@ -53,7 +52,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20'), 1), 100);
     const offset = (page - 1) * limit;
 
-    const client = getClient();
+    const client = await getClient(request);
 
     let query = client
       .from('anggota_kepengurusan')
@@ -134,7 +133,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const client = getClient();
+    const client = await getClient(request);
 
     // Resolve & validasi eligibilitas anggota.
     const { data: anggota, error: anggotaError } = await client
@@ -331,7 +330,7 @@ export async function POST(request: NextRequest) {
         tanggalMulai: inserted.tanggal_mulai,
         decidedBy: actorName(user),
         catatanKeputusan: 'Perubahan kepengurusan ditetapkan langsung oleh admin.',
-      });
+      }, client);
 
       if (!applied.ok) {
         // Tandai gagal agar tidak menggantung sebagai pengajuan aktif.

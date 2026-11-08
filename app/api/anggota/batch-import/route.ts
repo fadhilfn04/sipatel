@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getActorClient } from '@/lib/supabase-actor';
+import { getClientIP } from '@/lib/api';
+import { logBatchOperation } from '@/lib/server/audit-service';
 import { requirePermission, notAuthenticatedResponse, unauthorizedResponse } from '@/lib/rbac-server';
 import { PERMISSIONS } from '@/lib/rbac';
 import { isAdminActor } from '@/lib/server/anggota-service';
@@ -29,6 +32,9 @@ export async function POST(request: NextRequest) {
         'Import Excel hanya dapat dilakukan admin. Penambahan anggota oleh cabang wajib melalui usulan yang disetujui admin.'
       );
     }
+
+    // Client dengan header aktor + log operasi massal (batch_operation_log).
+    const supabase = await getActorClient({ request });
 
     const body = await request.json();
     const { records } = body;
@@ -85,12 +91,28 @@ export async function POST(request: NextRequest) {
 
     if (upsertErr) {
       console.error('Error upserting batch:', upsertErr);
+
+      // Log operasi massal (gagal) — migration 025/036.
+      await logBatchOperation({
+        operationType: 'import_anggota',
+        tableName: 'anggota',
+        totalRecords: records.length,
+        successCount: 0,
+        failureCount: validRecords.length,
+        errorSummary: upsertErr.message,
+        status: 'failed',
+        performedBy: user.id,
+        ipAddress: getClientIP(request),
+        userAgent: request.headers.get('user-agent'),
+        metadata: { invalid_rows: errors.length },
+      });
+
       return NextResponse.json(
         {
           message: `Gagal import: ${upsertErr.message}`,
           successCount: 0,
           errorCount: validRecords.length,
-          errors: validRecords.map((r, i) => ({
+          errors: validRecords.map((_, i) => ({
             row: i + 1,
             error: upsertErr.message || 'Gagal import data',
           })),
@@ -100,6 +122,25 @@ export async function POST(request: NextRequest) {
     }
 
     const successCount = upsertedData?.length || 0;
+
+    // Log operasi massal (sukses/parsial) — migration 025/036.
+    await logBatchOperation({
+      operationType: 'import_anggota',
+      tableName: 'anggota',
+      totalRecords: records.length,
+      successCount,
+      failureCount: errors.length + (validRecords.length - successCount),
+      errorSummary:
+        errors.length > 0
+          ? `${errors.length} baris tidak valid; ${validRecords.length - successCount} gagal disimpan`
+          : null,
+      status:
+        errors.length === 0 && successCount === validRecords.length ? 'completed' : 'partial',
+      performedBy: user.id,
+      ipAddress: getClientIP(request),
+      userAgent: request.headers.get('user-agent'),
+      metadata: { invalid_rows: errors.length },
+    });
 
     return NextResponse.json({
       message: `${successCount} data berhasil diproses`,

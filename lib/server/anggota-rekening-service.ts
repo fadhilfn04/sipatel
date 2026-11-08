@@ -12,6 +12,7 @@
 
 import type { PenggantianRekeningFormValues } from '@/lib/anggota-rekening';
 import { supabase } from '@/lib/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface RekeningSnapshot {
   nama_bank?: string | null;
@@ -48,12 +49,41 @@ export interface ApplyPenggantianRekeningResult {
  */
 export async function applyPenggantianRekening(
   args: ApplyPenggantianRekeningArgs,
+  client?: SupabaseClient,
 ): Promise<ApplyPenggantianRekeningResult> {
   const { anggotaId, before, usulan } = args;
+  const db = client ?? supabase;
   const nowIso = new Date().toISOString();
 
+  // 0) Jalur utama: RPC atomik (migration 036) — rekening aktif + histori
+  //    append-only tersimpan dalam SATU transaksi (menutup gap non-transaksional).
+  try {
+    const { data: rpcRows, error: rpcError } = await db.rpc('apply_penggantian_rekening', {
+      p_anggota_id: anggotaId,
+      p_nama_bank: usulan.nama_bank,
+      p_norek_bank: usulan.norek_bank,
+      p_nama_pemilik_rekening: usulan.nama_pemilik_rekening,
+      p_kode_bank: usulan.kode_bank ?? null,
+      p_tanggal_efektif: usulan.tanggal_efektif,
+      p_dokumen_pendukung: usulan.dokumen_pendukung ?? null,
+      p_alasan: usulan.alasan ?? null,
+      p_diajukan_oleh: args.diajukanOleh ?? null,
+      p_disetujui_oleh: args.disetujuiOleh ?? null,
+      p_diputuskan_pada: args.diputuskanPada ?? nowIso,
+    });
+
+    if (!rpcError) {
+      const row = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
+      return { data: row ?? null };
+    }
+    // RPC belum tersedia (migration 036 belum dijalankan) → fallback legacy.
+    console.warn('[REKENING] RPC apply_penggantian_rekening gagal, pakai fallback:', rpcError.message);
+  } catch (error: any) {
+    console.warn('[REKENING] RPC apply_penggantian_rekening error, pakai fallback:', error?.message);
+  }
+
   // 1) Rekening baru menjadi rekening aktif pada data utama anggota.
-  const { data: updated, error: updateError } = await supabase
+  const { data: updated, error: updateError } = await db
     .from('anggota')
     .update({
       nama_bank: usulan.nama_bank,
@@ -74,7 +104,7 @@ export async function applyPenggantianRekening(
   }
 
   // 2) Tandai rekening aktif lama pada histori sebagai non-aktif.
-  const { error: deactivateError } = await supabase
+  const { error: deactivateError } = await db
     .from('anggota_rekening')
     .update({ status: 'non_aktif' })
     .eq('anggota_id', anggotaId)
@@ -89,7 +119,7 @@ export async function applyPenggantianRekening(
   }
 
   // 3) Simpan histori penggantian (lama → baru) — append-only.
-  const { error: historyError } = await supabase
+  const { error: historyError } = await db
     .from('anggota_rekening')
     .insert({
       anggota_id: anggotaId,
