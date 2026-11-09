@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   Toolbar,
   ToolbarActions,
@@ -98,6 +98,13 @@ export default function PengelolaanDataPage() {
   const [selectedMps, setSelectedMps] = useState<string>('all');
   const [selectedIuran, setSelectedIuran] = useState<string>('all');
   const [selectedCabang, setSelectedCabang] = useState<string>('all');
+
+  // Deep-link dari dashboard: /keanggotaan/pengelolaan-data?nama_cabang=Bandung
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const cabangParam = sp.get('nama_cabang');
+    if (cabangParam) setSelectedCabang(cabangParam);
+  }, []);
 
   // Selection state
   // rowSelection tracks per-page checkbox (managed by tanstack table)

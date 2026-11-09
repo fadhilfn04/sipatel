@@ -2,9 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, readFile } from 'fs/promises';
 import { join } from 'path';
 import * as XLSX from 'xlsx';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 
 export async function POST(request: NextRequest) {
   try {
+    const guard = await guardPermissions(
+      [PERMISSIONS.MANAGE_KEANGGOTAAN],
+      'Anda tidak memiliki akses untuk mengimpor data anggota',
+    );
+    if (guard.error) return guard.error;
     const formData = await request.formData();
     const file = formData.get('file') as File;
 

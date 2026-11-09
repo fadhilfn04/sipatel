@@ -65,7 +65,7 @@ const Demo1DarkSidebarPage = () => {
         </Toolbar>
       </Container>
       <Container>
-        <DashboardContent />
+        <DashboardContent period="30d" />
       </Container>
     </Fragment>
   );

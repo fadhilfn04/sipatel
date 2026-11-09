@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, CreateLaporanPeriodeInput } from '@/lib/supabase';
 import { getActorClient } from '@/lib/supabase-actor';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 
 // GET /api/laporan-periode - List period reports with filtering
 export async function GET(request: NextRequest) {
   try {
+    const guard = await guardPermissions([
+      PERMISSIONS.ACCESS_KEUANGAN,
+      PERMISSIONS.MANAGE_LAPORAN,
+    ], 'Anda tidak memiliki akses ke modul Keuangan');
+    if (guard.error) return guard.error;
     const searchParams = request.nextUrl.searchParams;
     const tipe = searchParams.get('tipe_laporan') || '';
     const status = searchParams.get('status_laporan') || '';
@@ -75,6 +82,11 @@ export async function GET(request: NextRequest) {
 
 // POST /api/laporan-periode - Create new period report
 export async function POST(request: NextRequest) {
+  const guard = await guardPermissions(
+    [PERMISSIONS.MANAGE_LAPORAN],
+    'Anda tidak memiliki akses untuk membuat laporan periode',
+  );
+  if (guard.error) return guard.error;
   // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
   const supabase = await getActorClient({ request });
 

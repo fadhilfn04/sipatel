@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getActorClient } from '@/lib/supabase-actor';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 import { DanaSosialFilter } from '@/lib/supabase';
 import { notifyDanaSosialCreated } from '@/lib/server/create-notification';
 
 export async function GET(request: NextRequest) {
   try {
+    const guard = await guardPermissions([
+      PERMISSIONS.ACCESS_DANA_SOCIAL,
+      PERMISSIONS.MANAGE_DANA_SOCIAL,
+    ], 'Anda tidak memiliki akses ke modul Dana Sosial');
+    if (guard.error) return guard.error;
     const searchParams = request.nextUrl.searchParams;
 
     const search = searchParams.get('search') || '';
@@ -80,6 +87,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await guardPermissions(
+    [PERMISSIONS.MANAGE_DANA_SOCIAL],
+    'Anda tidak memiliki akses untuk membuat pengajuan Dana Sosial',
+  );
+  if (guard.error) return guard.error;
   // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
   const supabase = await getActorClient({ request });
 

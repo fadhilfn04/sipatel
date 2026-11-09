@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getActorClient } from '@/lib/supabase-actor';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 
 // GET /api/nik-kepemilikan - Get all NIK kepemilikan records
 export async function GET(request: NextRequest) {
   try {
+    const guard = await guardPermissions([
+      PERMISSIONS.VIEW_KEANGGOTAAN,
+      PERMISSIONS.ACCESS_KEANGGOTAAN,
+      PERMISSIONS.MANAGE_KEANGGOTAAN,
+    ]);
+    if (guard.error) return guard.error;
     const { searchParams } = new URL(request.url);
     const nikId = searchParams.get('nik_id');
     const anggotaId = searchParams.get('anggota_id');
@@ -66,6 +74,11 @@ export async function GET(request: NextRequest) {
 
 // POST /api/nik-kepemilikan - Create new NIK kepemilikan (assign NIK to heir)
 export async function POST(request: NextRequest) {
+  const guard = await guardPermissions(
+    [PERMISSIONS.MANAGE_KEANGGOTAAN],
+    'Anda tidak memiliki akses untuk mengubah kepemilikan NIK',
+  );
+  if (guard.error) return guard.error;
   // Client dengan header aktor — audit_log mencatat pelaku pewarisan NIK.
   const supabase = await getActorClient({ request });
 

@@ -1,19 +1,123 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge, BadgeDot } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Users, FileText, Activity, CheckCircle2, XCircle,
-  ArrowRight, RefreshCw, ChevronRight, Clock,
-  TrendingUp, AlertTriangle, UserPlus, Heart,
-} from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useDashboardStats, useLatestData } from '@/lib/hooks/use-dashboard-api';
-import { useHasPermission } from '@/lib/hooks/use-rbac';
-import { PERMISSIONS } from '@/lib/rbac';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  Alert,
+  AlertContent,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+  AlertToolbar,
+} from '@/components/ui/alert';
+import {
+  Users,
+  UsersRound,
+  PieChart,
+  RefreshCw,
+  AlertTriangle,
+  ChevronRight,
+} from 'lucide-react';
+import {
+  useDashboardOverview,
+  DashboardPeriod,
+  DashboardOverviewResponse,
+  DASHBOARD_PERIODS,
+} from '@/lib/hooks/use-dashboard-api';
+import { getDakemStatus } from '@/lib/workflow/dana-kematian-status';
+import { SummaryCards } from './summary-cards';
+import { ActivityFeed } from './activity-feed';
+import { MonitoringWidget } from './monitoring-widget';
+import { ChartCard, CHART_COLORS } from './charts/chart-shell';
+import {
+  StatusDonutChart,
+  DonutLegend,
+  STATUS_COLORS,
+  DonutSlice,
+} from './charts/status-donut';
+
+// Chart dimuat lazy agar bundle awal dashboard tetap ringan (recharts cukup besar).
+const ChartLoading = ({ h = 'h-72' }: { h?: string }) => (
+  <div className={`${h} w-full animate-pulse rounded-xl bg-accent`} />
+);
+
+const GrowthChart = dynamic(
+  () => import('./charts/growth-chart').then((m) => m.GrowthChart),
+  { ssr: false, loading: () => <ChartLoading /> },
+);
+const CabangChart = dynamic(
+  () => import('./charts/cabang-chart').then((m) => m.CabangChart),
+  { ssr: false, loading: () => <ChartLoading /> },
+);
+const MutasiChart = dynamic(
+  () => import('./charts/mutasi-chart').then((m) => m.MutasiChart),
+  { ssr: false, loading: () => <ChartLoading h="h-64" /> },
+);
+const PengurusChart = dynamic(
+  () => import('./charts/pengurus-chart').then((m) => m.PengurusChart),
+  { ssr: false, loading: () => <ChartLoading h="h-64" /> },
+);
+const AgeChart = dynamic(
+  () => import('./charts/age-chart').then((m) => m.AgeChart),
+  { ssr: false, loading: () => <ChartLoading /> },
+);
+const RegionalChart = dynamic(
+  () => import('./charts/regional-chart').then((m) => m.RegionalChart),
+  { ssr: false, loading: () => <ChartLoading /> },
+);
+const SumbanganChart = dynamic(
+  () => import('./charts/sumbangan-chart').then((m) => m.SumbanganChart),
+  { ssr: false, loading: () => <ChartLoading h="h-64" /> },
+);
+const CashflowChart = dynamic(
+  () => import('./charts/cashflow-chart').then((m) => m.CashflowChart),
+  { ssr: false, loading: () => <ChartLoading h="h-64" /> },
+);
+
+const formatNumber = (n: number) => new Intl.NumberFormat('id-ID').format(n);
+
+const STATUS_LABELS: Record<string, string> = {
+  aktif: 'Aktif',
+  non_aktif: 'Nonaktif',
+  berhenti: 'Berhenti',
+  meninggal: 'Meninggal',
+};
+
+const STATUS_COLOR_MAP: Record<string, string> = {
+  aktif: STATUS_COLORS.aktif,
+  non_aktif: STATUS_COLORS.non_aktif,
+  berhenti: STATUS_COLORS.berhenti,
+  meninggal: STATUS_COLORS.meninggal,
+};
+
+const KATEGORI_LABELS: Record<string, string> = {
+  biasa: 'Biasa',
+  luar_biasa: 'Luar Biasa',
+  kehormatan: 'Kehormatan',
+  tidak_diketahui: 'Tidak diketahui',
+};
+
+const PERAN_LABELS: Record<string, string> = {
+  pegawai: 'Pensiunan',
+  istri: 'Istri',
+  suami: 'Suami',
+  anak: 'Anak',
+  meninggal: 'Meninggal',
+  tidak_diketahui: 'Tidak diketahui',
+};
+
+const DEMOGRAFI_COLORS = [
+  '#0D0773',
+  '#1E2A8A',
+  '#0057B8',
+  '#0077CC',
+  '#00AEEF',
+  '#3EC8FF',
+  '#94A3B8',
+];
 
 function LiveClock() {
   const [time, setTime] = useState<Date | null>(null);
@@ -50,101 +154,132 @@ function LiveClock() {
   );
 }
 
-const PIPELINE_STAGES = [
-  {
-    key: 'dilaporkan',
-    label: 'Dilaporkan',
-    bgClass: 'bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-600',
-    textClass: 'text-slate-700 dark:text-slate-300',
-    dotClass: 'bg-slate-500',
-    numClass: 'text-slate-800 dark:text-slate-200',
-  },
-  {
-    key: 'verifikasi_cabang',
-    label: 'Verifikasi Cabang',
-    bgClass: 'bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700',
-    textClass: 'text-blue-700 dark:text-blue-300',
-    dotClass: 'bg-blue-500',
-    numClass: 'text-blue-800 dark:text-blue-200',
-  },
-  {
-    key: 'proses_pusat',
-    label: 'Proses Pusat',
-    bgClass: 'bg-orange-50 dark:bg-orange-950 border-orange-300 dark:border-orange-700',
-    textClass: 'text-orange-700 dark:text-orange-300',
-    dotClass: 'bg-orange-500',
-    numClass: 'text-orange-800 dark:text-orange-200',
-  },
-  {
-    key: 'selesai',
-    label: 'Selesai',
-    bgClass: 'bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700',
-    textClass: 'text-green-700 dark:text-green-300',
-    dotClass: 'bg-green-500',
-    numClass: 'text-green-800 dark:text-green-200',
-  },
-  {
-    key: 'ditolak',
-    label: 'Ditolak',
-    bgClass: 'bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700',
-    textClass: 'text-red-700 dark:text-red-300',
-    dotClass: 'bg-red-500',
-    numClass: 'text-red-800 dark:text-red-200',
-  },
-] as const;
+/** Bangun slice donut distribusi status keanggotaan. */
+function buildStatusSlices(
+  data: DashboardOverviewResponse['charts']['distribusiStatus'],
+): { slices: DonutSlice[]; total: number } {
+  const total = data.reduce((sum, d) => sum + d.jumlah, 0);
+  const slices: DonutSlice[] = data.map((d) => ({
+    label: STATUS_LABELS[d.status] || d.status,
+    value: d.jumlah,
+    color: STATUS_COLOR_MAP[d.status] || CHART_COLORS.slate,
+  }));
+  return { slices, total };
+}
 
-const STATUS_CONFIG: Record<string, { label: string; variant: 'secondary' | 'info' | 'warning' | 'success' | 'destructive' }> = {
-  dilaporkan: { label: 'Dilaporkan', variant: 'secondary' },
-  verifikasi_cabang: { label: 'Verifikasi Cabang', variant: 'info' },
-  proses_pusat: { label: 'Proses Pusat', variant: 'warning' },
-  selesai: { label: 'Selesai', variant: 'success' },
-  ditolak: { label: 'Ditolak', variant: 'destructive' },
-};
+/** Bangun slice donut generik untuk distribusi demografi. */
+function buildLabeledSlices(
+  data: { status: string; jumlah: number }[],
+  labels: Record<string, string>,
+): { slices: DonutSlice[]; total: number } {
+  const total = data.reduce((sum, d) => sum + d.jumlah, 0);
+  const slices: DonutSlice[] = data.map((d, i) => ({
+    label: labels[d.status] || d.status.replace(/_/g, ' '),
+    value: d.jumlah,
+    color: DEMOGRAFI_COLORS[i % DEMOGRAFI_COLORS.length],
+  }));
+  return { slices, total };
+}
 
-const formatNumber = (n: number) => new Intl.NumberFormat('id-ID').format(n);
-const formatCurrency = (n: number) =>
-  new Intl.NumberFormat('id-ID', {
-    style: 'currency', currency: 'IDR',
-    minimumFractionDigits: 0, maximumFractionDigits: 0,
-  }).format(n);
-const formatDate = (s: string) =>
-  new Date(s).toLocaleDateString('id-ID', {
-    day: 'numeric', month: 'short', year: 'numeric',
+/** Bangun slice donut dana kematian per status. */
+function buildDakemSlices(
+  data: DashboardOverviewResponse['charts']['dakemPerStatus'],
+): { slices: DonutSlice[]; total: number } {
+  const total = data.reduce((sum, d) => sum + d.jumlah, 0);
+  const colorFor = (status: string) => {
+    if (status === 'selesai') return CHART_COLORS.green;
+    if (status === 'ditolak') return CHART_COLORS.red;
+    if (status === 'batal') return CHART_COLORS.slate;
+    if (['proses_pusat', 'pending_dokumen', 'revisi_pusat'].includes(status)) return CHART_COLORS.amber;
+    if (status === 'verified') return CHART_COLORS.blue;
+    if (['penyaluran', 'terima_ahli_waris', 'laporan'].includes(status)) return CHART_COLORS.cyan;
+    return CHART_COLORS.slate;
+  };
+  const slices: DonutSlice[] = data.map((d) => {
+    const cfg = getDakemStatus(d.status);
+    return {
+      label: cfg.label,
+      value: d.jumlah,
+      color: colorFor(d.status),
+      // Status legacy tidak ada di dropdown filter modul → tanpa link.
+      href: cfg.legacy
+        ? undefined
+        : `/pelayanan/dana-kematian?status_proses=${encodeURIComponent(d.status)}`,
+    };
   });
+  return { slices, total };
+}
 
-export function DashboardContent() {
-  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats();
-  const { data: latestData, isLoading: latestLoading } = useLatestData('both', 5);
-  const canViewKeanggotaan = useHasPermission(PERMISSIONS.VIEW_KEANGGOTAAN);
-  const canAccessDanaSosial = useHasPermission(PERMISSIONS.ACCESS_DANA_SOCIAL);
+interface DashboardContentProps {
+  period: DashboardPeriod;
+}
 
-  const klaimByStatus = stats?.klaimByStatus || {};
-  const klaimAktif = stats?.klaimAktif ?? 0;
+export function DashboardContent({ period }: DashboardContentProps) {
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    isRefetching,
+    dataUpdatedAt,
+  } = useDashboardOverview(period);
+
+  const perms = data?.permissions;
+  const periodLabel = DASHBOARD_PERIODS.find((p) => p.value === period)?.label;
+
+  const status = buildStatusSlices(data?.charts.distribusiStatus || []);
+  const dakem = buildDakemSlices(data?.charts.dakemPerStatus || []);
+  const kategori = buildLabeledSlices(data?.charts.kategori || [], KATEGORI_LABELS);
+  const peran = buildLabeledSlices(data?.charts.peranKeluarga || [], PERAN_LABELS);
+
+  const pendingTotal =
+    (data?.summary.mutasiPending || 0) +
+    (data?.summary.dakemPending || 0);
+
+  const showRowA = perms?.keanggotaan;
+  const showRowB = perms?.keanggotaan || perms?.danaKematian;
+  const showRowC = perms?.mutasi || perms?.keanggotaan;
+  const showDemografi = perms?.keanggotaan;
+  const showKeuangan = perms?.keuangan;
 
   return (
     <div className="space-y-6 pb-8">
-
       {/* ── Hero / Greeting ── */}
-      <div className="rounded-2xl bg-linear-to-br from-blue-700 via-blue-600 to-indigo-700 p-6 shadow-lg">
+      <div className="rounded-2xl bg-linear-to-br from-[#0D0773] via-[#14308F] to-[#0069C0] p-6 shadow-lg">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <LiveClock />
           <div className="flex flex-col items-start lg:items-end gap-2">
             <Button
               variant="outline"
               size="sm"
-              className="bg-white/20 border-white/30 text-white hover:bg-white/30 gap-2"
-              onClick={() => refetchStats()}
+              className="bg-[#00AEEF]/20 border-[#7FDBFF]/40 text-white hover:bg-[#00AEEF]/30 gap-2"
+              onClick={() => refetch()}
+              disabled={isRefetching}
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
               Perbarui Data
             </Button>
-            {klaimAktif > 0 && (
+            <p className="text-white/60 text-xs text-right tabular-nums">
+              Terakhir diperbarui:{' '}
+              {dataUpdatedAt
+                ? new Date(dataUpdatedAt).toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : '—'}
+            </p>
+            {pendingTotal > 0 && (
               <div className="flex items-center gap-2 rounded-lg bg-white/20 px-3 py-2">
                 <AlertTriangle className="h-4 w-4 text-yellow-300 shrink-0" />
                 <span className="text-white text-sm font-medium">
-                  {formatNumber(klaimAktif)} pengajuan sedang diproses
+                  {formatNumber(pendingTotal)} pengajuan menunggu proses
                 </span>
               </div>
+            )}
+            {data?.scope.isScoped && data.scope.cabang && (
+              <p className="text-white/70 text-xs text-right">
+                Cakupan: <span className="font-medium text-white">{data.scope.cabang}</span>
+              </p>
             )}
             <p className="text-white/60 text-xs text-right">
               Sistem Informasi Pelayanan Pensiunan Telkom (SIPATEL)
@@ -153,341 +288,230 @@ export function DashboardContent() {
         </div>
       </div>
 
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          title="Total Anggota"
-          value={statsLoading ? null : formatNumber(stats?.totalAnggota || 0)}
-          sub={!statsLoading && stats
-            ? `${formatNumber(stats.anggotaAktif)} aktif · ${formatNumber(stats.anggotaMeninggal)} meninggal`
-            : undefined}
-          icon={<Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />}
-          iconBg="bg-blue-50 dark:bg-blue-950"
-          valueCls="text-blue-700 dark:text-blue-400"
-          borderCls="border-blue-200 dark:border-blue-800"
-        />
-        <KpiCard
-          title="Total Pengajuan Dana Kematian"
-          value={statsLoading ? null : formatNumber(stats?.totalKlaim || 0)}
-          sub="Semua pengajuan terdaftar"
-          icon={<FileText className="h-6 w-6 text-purple-600 dark:text-purple-400" />}
-          iconBg="bg-purple-50 dark:bg-purple-950"
-          valueCls="text-purple-700 dark:text-purple-400"
-          borderCls="border-purple-200 dark:border-purple-800"
-        />
-        <KpiCard
-          title="Dalam Proses"
-          value={statsLoading ? null : formatNumber(klaimAktif)}
-          sub="Belum selesai / ditolak"
-          icon={<Activity className="h-6 w-6 text-orange-600 dark:text-orange-400" />}
-          iconBg="bg-orange-50 dark:bg-orange-950"
-          valueCls="text-orange-600 dark:text-orange-400"
-          borderCls="border-orange-200 dark:border-orange-800"
-          highlight={klaimAktif > 0}
-        />
-        <KpiCard
-          title="Selesai"
-          value={statsLoading ? null : formatNumber(stats?.klaimSelesai || 0)}
-          sub={!statsLoading && stats && stats.totalDicairkan > 0
-            ? `${formatCurrency(stats.totalDicairkan)} dicairkan`
-            : 'Dana kematian selesai diproses'}
-          icon={<CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />}
-          iconBg="bg-green-50 dark:bg-green-950"
-          valueCls="text-green-700 dark:text-green-400"
-          borderCls="border-green-200 dark:border-green-800"
-        />
-      </div>
-
-      {/* ── Dana Kematian Pipeline ── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <TrendingUp className="h-5 w-5 text-blue-600" />
-              Alur Proses Dana Kematian
-            </CardTitle>
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/pelayanan/dana-kematian" className="gap-1">
-                Lihat Semua
-                <ChevronRight className="h-4 w-4" />
-              </Link>
+      {/* ── Error state ── */}
+      {isError && (
+        <Alert variant="destructive">
+          <AlertIcon>
+            <AlertTriangle className="h-4 w-4" />
+          </AlertIcon>
+          <AlertContent>
+            <AlertTitle>Gagal memuat data dashboard</AlertTitle>
+            <AlertDescription>
+              Terjadi kesalahan saat mengambil data dari server. Periksa koneksi
+              Anda, lalu coba lagi.
+            </AlertDescription>
+          </AlertContent>
+          <AlertToolbar>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isRefetching}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
+              Coba Lagi
             </Button>
+          </AlertToolbar>
+        </Alert>
+      )}
+
+      {/* ── Summary Cards ── */}
+      <SummaryCards data={data} isLoading={isLoading} periodLabel={periodLabel} />
+
+      {/* ── Row A: Pertumbuhan + Distribusi status ── */}
+      {showRowA && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <GrowthChart
+              data={data?.charts.pertumbuhanAnggota || []}
+              isLoading={isLoading}
+              periodLabel={periodLabel}
+            />
           </div>
-        </CardHeader>
-        <CardContent>
-          {statsLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-24 rounded-xl" />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-wrap lg:flex-nowrap items-stretch gap-2">
-              {PIPELINE_STAGES.map((stage, idx) => (
-                <div key={stage.key} className="flex items-center gap-2 flex-1 min-w-30">
-                  <div
-                    className={`flex-1 rounded-xl border-2 p-4 text-center ${stage.bgClass}`}
-                  >
-                    <div className={`h-2.5 w-2.5 rounded-full ${stage.dotClass} mx-auto mb-2`} />
-                    <p className={`text-xs font-medium leading-tight mb-2 ${stage.textClass}`}>
-                      {stage.label}
-                    </p>
-                    <p className={`text-3xl font-bold tabular-nums ${stage.numClass}`}>
-                      {klaimByStatus[stage.key] || 0}
-                    </p>
-                    <p className={`text-xs mt-1 ${stage.textClass} opacity-70`}>pengajuan</p>
-                  </div>
-                  {/* Arrow between stages, except after the last two (selesai/ditolak are parallel outcomes) */}
-                  {idx < 2 && (
-                    <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0 hidden lg:block" />
-                  )}
-                  {idx === 2 && (
-                    <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0 hidden lg:block" />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── Recent Activity + Quick Actions ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Recent Claims — spans 2 columns */}
-        <div className="lg:col-span-2">
-          <Card className="h-full">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-purple-600" />
-                  Pengajuan Terbaru
-                </CardTitle>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/pelayanan/dana-kematian">Lihat Semua</Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {latestLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Skeleton key={i} className="h-14 w-full rounded-lg" />
-                  ))}
-                </div>
-              ) : !latestData?.klaim.length ? (
-                <p className="text-center text-muted-foreground py-10">
-                  Belum ada data pengajuan
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {latestData.klaim.map((claim: any) => {
-                    const sc = STATUS_CONFIG[claim.status_proses] || {
-                      label: claim.status_proses,
-                      variant: 'secondary' as const,
-                    };
-                    return (
-                      <div
-                        key={claim.id}
-                        className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/40 transition-colors"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm truncate">{claim.nama_anggota}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            AW: {claim.nama_ahli_waris} · {formatDate(claim.created_at)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3 ml-4 shrink-0">
-                          <span className="text-sm font-semibold text-green-600 dark:text-green-400 hidden sm:block">
-                            {formatCurrency(claim.besaran_dana_kematian || 0)}
-                          </span>
-                          <Badge variant={sc.variant} appearance="ghost">
-                            <BadgeDot />
-                            {sc.label}
-                          </Badge>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar: Quick Actions + Recent Members */}
-        <div className="space-y-4">
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Akses Cepat</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button className="w-full justify-start gap-3 h-11" asChild>
-                <Link href="/pelayanan/dana-kematian">
-                  <FileText className="h-5 w-5" />
-                  Dana Kematian
-                </Link>
-              </Button>
-              {canViewKeanggotaan && (
-                <Button variant="outline" className="w-full justify-start gap-3 h-11" asChild>
+          <div>
+            <ChartCard
+              title="Status Keanggotaan"
+              subtitle="Distribusi anggota saat ini"
+              icon={<PieChart className="h-4 w-4 text-green-500" />}
+              isLoading={isLoading}
+              isEmpty={status.total === 0}
+              height={240}
+              action={
+                <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
                   <Link href="/keanggotaan/pengelolaan-data">
-                    <Users className="h-5 w-5" />
-                    Data Anggota
+                    <ChevronRight className="h-4 w-4" />
                   </Link>
                 </Button>
-              )}
-              {/* {canAccessDanaSosial && (
-                <Button variant="outline" className="w-full justify-start gap-3 h-11" asChild>
-                  <Link href="/pelayanan/dana-sosial">
-                    <Heart className="h-5 w-5" />
-                    Dana Sosial
-                  </Link>
-                </Button>
-              )} */}
-            </CardContent>
-          </Card>
+              }
+            >
+              <div className="space-y-4">
+                <StatusDonutChart
+                  slices={status.slices}
+                  centerValue={formatNumber(status.total)}
+                  centerLabel="anggota"
+                />
+                <DonutLegend slices={status.slices} total={status.total} />
+              </div>
+            </ChartCard>
+          </div>
+        </div>
+      )}
 
-          {/* Recent Members */}
-          {canViewKeanggotaan && (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <UserPlus className="h-4 w-4 text-blue-600" />
-                    Anggota Terbaru
-                  </CardTitle>
+
+      {/* ── Row B: Cabang + Dana Kematian per status ── */}
+      {showRowB && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            {perms?.keanggotaan ? (
+              <CabangChart
+                data={data?.charts.anggotaPerCabang || []}
+                isLoading={isLoading}
+                scopeLabel={data?.scope.isScoped ? (data.scope.cabang ?? undefined) : undefined}
+              />
+            ) : (
+              <Card className="h-full">
+                <CardHeader>
+                  <CardTitle className="text-base">Anggota per Cabang</CardTitle>
+                </CardHeader>
+                <CardContent
+                  className="flex items-center justify-center text-sm text-muted-foreground"
+                  style={{ height: 280 }}
+                >
+                  Tidak ada akses
+                </CardContent>
+              </Card>
+            )}
+          </div>
+          <div>
+            <ChartCard
+              title="Dana Kematian per Status"
+              subtitle="Seluruh pengajuan tercatat"
+              icon={<Users className="h-4 w-4 text-purple-500" />}
+              isLoading={isLoading}
+              isEmpty={dakem.total === 0}
+              height={240}
+              action={
+                perms?.danaKematian ? (
                   <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                    <Link href="/keanggotaan/pengelolaan-data">
+                    <Link href="/pelayanan/dana-kematian">
                       <ChevronRight className="h-4 w-4" />
                     </Link>
                   </Button>
+                ) : undefined
+              }
+            >
+              {perms?.danaKematian ? (
+                <div className="space-y-4">
+                  <StatusDonutChart
+                    slices={dakem.slices}
+                    centerValue={formatNumber(dakem.total)}
+                    centerLabel="pengajuan"
+                  />
+                  <DonutLegend slices={dakem.slices} total={dakem.total} />
                 </div>
-              </CardHeader>
-              <CardContent>
-                {latestLoading ? (
-                  <div className="space-y-3">
-                    {[1, 2, 3, 4].map((i) => (
-                      <Skeleton key={i} className="h-10 w-full" />
-                    ))}
-                  </div>
-                ) : !latestData?.anggota.length ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Belum ada data
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {latestData.anggota.slice(0, 4).map((member: any) => (
-                      <div key={member.id} className="flex items-center justify-between">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium leading-tight truncate">
-                            {member.nama_anggota}
-                          </p>
-                          <p className="text-xs text-muted-foreground font-mono">
-                            {member.nik}
-                          </p>
-                        </div>
-                        <Badge
-                          variant={
-                            member.status_anggota === 'aktif' ? 'success' :
-                            member.status_anggota === 'meninggal' ? 'destructive' :
-                            'secondary'
-                          }
-                          appearance="ghost"
-                          className="ml-2 shrink-0"
-                        >
-                          {member.status_anggota || 'aktif'}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div
+                  className="flex items-center justify-center text-sm text-muted-foreground"
+                  style={{ height: 240 }}
+                >
+                  Tidak ada akses
+                </div>
+              )}
+            </ChartCard>
+          </div>
+        </div>
+      )}
 
-          {/* Stats Summary */}
-          {!statsLoading && stats && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-muted-foreground" />
-                  Ringkasan
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total Anggota</span>
-                  <span className="font-semibold">{formatNumber(stats.totalAnggota)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Dana Kematian Selesai</span>
-                  <span className="font-semibold text-green-600">{formatNumber(stats.klaimSelesai)}</span>
-                </div>
-                {stats.klaimDitolak > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Ditolak</span>
-                    <span className="font-semibold text-red-600">{formatNumber(stats.klaimDitolak)}</span>
-                  </div>
-                )}
-                {stats.totalDanaSosial > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Dana Sosial</span>
-                    <span className="font-semibold">{formatNumber(stats.totalDanaSosial)}</span>
-                  </div>
-                )}
-                {stats.totalDicairkan > 0 && (
-                  <div className="pt-2 border-t">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Total Dicairkan</span>
-                      <span className="font-bold text-green-700 dark:text-green-400">
-                        {formatCurrency(stats.totalDicairkan)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+      {/* ── Row Demografi: Usia + Kategori ── */}
+      {showDemografi && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <AgeChart data={data?.charts.usia || []} isLoading={isLoading} />
+          </div>
+          <div>
+            <ChartCard
+              title="Kategori Keanggotaan"
+              subtitle="Tier keanggotaan saat ini"
+              icon={<Users className="h-4 w-4 text-violet-500" />}
+              isLoading={isLoading}
+              isEmpty={kategori.total === 0}
+              height={240}
+            >
+              <div className="space-y-4">
+                <StatusDonutChart
+                  slices={kategori.slices}
+                  centerValue={formatNumber(kategori.total)}
+                  centerLabel="anggota"
+                />
+                <DonutLegend slices={kategori.slices} total={kategori.total} />
+              </div>
+            </ChartCard>
+          </div>
+        </div>
+      )}
+
+      {/* ── Row Demografi 2: Regional + Peran Keluarga ── */}
+      {showDemografi && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <RegionalChart data={data?.charts.regional || []} isLoading={isLoading} />
+          </div>
+          <div>
+            <ChartCard
+              title="Peran Keluarga"
+              subtitle="Pegawai / istri / suami / anak"
+              icon={<UsersRound className="h-4 w-4 text-cyan-500" />}
+              isLoading={isLoading}
+              isEmpty={peran.total === 0}
+              height={240}
+            >
+              <div className="space-y-4">
+                <StatusDonutChart
+                  slices={peran.slices}
+                  centerValue={formatNumber(peran.total)}
+                  centerLabel="anggota"
+                />
+                <DonutLegend slices={peran.slices} total={peran.total} />
+              </div>
+            </ChartCard>
+          </div>
+        </div>
+      )}
+
+      {/* ── Row C: Mutasi + Pengurus ── */}
+      {showRowC && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {perms?.mutasi && (
+            <MutasiChart data={data?.charts.mutasiPerBulan || []} isLoading={isLoading} />
+          )}
+          {perms?.keanggotaan && (
+            <PengurusChart data={data?.charts.pengurusPerJabatan || []} isLoading={isLoading} />
           )}
         </div>
+      )}
+
+      {/* ── Row Keuangan: Sumbangan + Arus Kas ── */}
+      {showKeuangan && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <SumbanganChart data={data?.charts.sumbanganPerBulan || []} isLoading={isLoading} />
+          </div>
+          <CashflowChart data={data?.charts.arusKasPerBulan || []} isLoading={isLoading} />
+        </div>
+      )}
+
+      {/* ── Row D: Aktivitas + Monitoring ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <ActivityFeed
+            activities={data?.activity}
+            isLoading={isLoading}
+            auditEnabled={data?.auditEnabled ?? false}
+          />
+        </div>
+        <MonitoringWidget monitoring={data?.monitoring} isLoading={isLoading} />
       </div>
     </div>
   );
 }
 
-interface KpiCardProps {
-  title: string;
-  value: string | null;
-  sub?: string;
-  icon: React.ReactNode;
-  iconBg: string;
-  valueCls: string;
-  borderCls: string;
-  highlight?: boolean;
-}
-
-function KpiCard({ title, value, sub, icon, iconBg, valueCls, borderCls, highlight }: KpiCardProps) {
-  return (
-    <Card className={`border-2 ${borderCls} hover:shadow-lg transition-shadow ${highlight ? 'ring-2 ring-orange-400/40' : ''}`}>
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-muted-foreground leading-snug">{title}</p>
-            {value === null ? (
-              <Skeleton className="h-10 w-24 mt-2" />
-            ) : (
-              <p className={`text-3xl font-bold mt-1 tabular-nums ${valueCls}`}>{value}</p>
-            )}
-            {sub && value !== null && (
-              <p className="text-xs text-muted-foreground mt-1 truncate">{sub}</p>
-            )}
-          </div>
-          <div className={`h-12 w-12 rounded-xl ${iconBg} flex items-center justify-center shrink-0 ml-3`}>
-            {icon}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}

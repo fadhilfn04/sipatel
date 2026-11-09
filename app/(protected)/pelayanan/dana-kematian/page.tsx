@@ -97,6 +97,13 @@ export default function DanaKematianPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
+  // Deep-link dari dashboard: /pelayanan/dana-kematian?status_proses=selesai
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const statusParam = sp.get('status_proses');
+    if (statusParam) setSelectedStatus(statusParam);
+  }, []);
+
   // Debounce search input — reset to page 1 when query changes
   useEffect(() => {
     const timer = setTimeout(() => {

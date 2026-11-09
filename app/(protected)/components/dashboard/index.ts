@@ -1,6 +1,7 @@
 export { DashboardPage } from './dashboard-page';
 export { DashboardContent } from './dashboard-content';
-export { StatisticsCards } from './StatisticsCards';
-export { LatestMembers } from './LatestMembers';
-export { LatestClaims } from './LatestClaims';
-export { LatestSocial } from './LatestSocial';
+export { PeriodFilter } from './period-filter';
+export { SummaryCards } from './summary-cards';
+export { ActivityFeed } from './activity-feed';
+export { MonitoringWidget } from './monitoring-widget';
+

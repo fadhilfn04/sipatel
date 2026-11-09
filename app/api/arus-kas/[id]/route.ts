@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, UpdateArusKasInput } from '@/lib/supabase';
 import { getActorClient } from '@/lib/supabase-actor';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 
 // GET /api/arus-kas/[id] - Get single cash flow transaction by ID
 export async function GET(
@@ -8,6 +10,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const guard = await guardPermissions([
+      PERMISSIONS.ACCESS_KEUANGAN,
+      PERMISSIONS.MANAGE_LAPORAN,
+      PERMISSIONS.VIEW_IURAN,
+    ], 'Anda tidak memiliki akses ke modul Keuangan');
+    if (guard.error) return guard.error;
     const { id } = await params;
     const { data: arusKas, error } = await supabase
       .from('arus_kas')
@@ -38,6 +46,11 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const guard = await guardPermissions(
+    [PERMISSIONS.MANAGE_LAPORAN, PERMISSIONS.MANAGE_IURAN],
+    'Anda tidak memiliki akses untuk mengubah transaksi keuangan',
+  );
+  if (guard.error) return guard.error;
   // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
   const supabase = await getActorClient({ request });
 
@@ -109,6 +122,11 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const guard = await guardPermissions(
+    [PERMISSIONS.MANAGE_LAPORAN, PERMISSIONS.MANAGE_IURAN],
+    'Anda tidak memiliki akses untuk menghapus transaksi keuangan',
+  );
+  if (guard.error) return guard.error;
   // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
   const supabase = await getActorClient({ request });
 

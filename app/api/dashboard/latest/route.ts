@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser, notAuthenticatedResponse } from '@/lib/rbac-server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
 
 function getClient() {
@@ -8,12 +9,18 @@ function getClient() {
 
 export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return notAuthenticatedResponse();
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type') || 'both';
     const limit = parseInt(searchParams.get('limit') || '5');
 
     const client = getClient();
-    const data: any = {};
+    const data: Record<string, unknown> = {};
 
     if (type === 'anggota' || type === 'both') {
       const { data: latestAnggota } = await client
@@ -49,10 +56,11 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error('Error fetching latest data:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch latest data' },
+      { error: message || 'Failed to fetch latest data' },
       { status: 500 }
     );
   }

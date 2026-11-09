@@ -22,6 +22,15 @@ async function getClient(request?: NextRequest) {
 // GET /api/dana-kematian - List death benefits with filtering
 export async function GET(request: NextRequest) {
   try {
+    // Auth: hanya user dengan kapabilitas Dana Kematian (PC/PP/superuser).
+    const actor = await getDakemActorContext();
+    if (!actor.userId) {
+      return NextResponse.json({ error: 'Silakan login terlebih dahulu', code: 'UNAUTHORIZED' }, { status: 401 });
+    }
+    if (!actor.canManagePC && !actor.canVerifyPP) {
+      return NextResponse.json({ error: 'Anda tidak memiliki akses ke modul Dana Kematian', code: 'PERMISSION_DENIED' }, { status: 403 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status_proses') || '';

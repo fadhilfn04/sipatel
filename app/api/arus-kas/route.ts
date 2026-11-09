@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, CreateArusKasInput } from '@/lib/supabase';
 import { getActorClient } from '@/lib/supabase-actor';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 
 // GET /api/arus-kas - List cash flow transactions with filtering
 export async function GET(request: NextRequest) {
   try {
+    const guard = await guardPermissions([
+      PERMISSIONS.ACCESS_KEUANGAN,
+      PERMISSIONS.MANAGE_LAPORAN,
+      PERMISSIONS.VIEW_IURAN,
+    ], 'Anda tidak memiliki akses ke modul Keuangan');
+    if (guard.error) return guard.error;
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search') || '';
     const jenis = searchParams.get('jenis_transaksi') || '';
@@ -80,6 +88,11 @@ export async function GET(request: NextRequest) {
 
 // POST /api/arus-kas - Create new cash flow transaction
 export async function POST(request: NextRequest) {
+  const guard = await guardPermissions(
+    [PERMISSIONS.MANAGE_LAPORAN, PERMISSIONS.MANAGE_IURAN],
+    'Anda tidak memiliki akses untuk mencatat transaksi keuangan',
+  );
+  if (guard.error) return guard.error;
   // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
   const supabase = await getActorClient({ request });
 

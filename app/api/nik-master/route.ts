@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getActorClient } from '@/lib/supabase-actor';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 
 // GET /api/nik-master - Get all NIK master records
 export async function GET(request: NextRequest) {
   try {
+    const guard = await guardPermissions([
+      PERMISSIONS.VIEW_KEANGGOTAAN,
+      PERMISSIONS.ACCESS_KEANGGOTAAN,
+      PERMISSIONS.MANAGE_KEANGGOTAAN,
+    ]);
+    if (guard.error) return guard.error;
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
     const page = parseInt(searchParams.get('page') || '1');
@@ -53,6 +61,11 @@ export async function GET(request: NextRequest) {
 
 // POST /api/nik-master - Create new NIK master (when pensioner passes away)
 export async function POST(request: NextRequest) {
+  const guard = await guardPermissions(
+    [PERMISSIONS.MANAGE_KEANGGOTAAN],
+    'Anda tidak memiliki akses untuk membuat data NIK',
+  );
+  if (guard.error) return guard.error;
   // Client dengan header aktor — audit_log mencatat pelaku pewarisan NIK.
   const supabase = await getActorClient({ request });
 

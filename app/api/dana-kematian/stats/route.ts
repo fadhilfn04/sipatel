@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getCurrentUser, notAuthenticatedResponse } from '@/lib/rbac-server';
+import { PERMISSIONS, hasAnyPermission } from '@/lib/rbac';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -8,6 +10,27 @@ const supabase = createClient(
 
 export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return notAuthenticatedResponse();
+    }
+
+    // Statistik dakem hanya untuk pengguna modul Pelayanan (Dana Kematian).
+    if (
+      !hasAnyPermission(user, [
+        PERMISSIONS.ACCESS_DANA_KEMATIAN,
+        PERMISSIONS.MANAGE_DANA_KEMATIAN,
+        PERMISSIONS.DAKEM_MANAGE_PC,
+        PERMISSIONS.DAKEM_VERIFY_PP,
+      ])
+    ) {
+      return NextResponse.json(
+        { error: 'Anda tidak memiliki akses ke statistik dana kematian' },
+        { status: 403 },
+      );
+    }
+
     // Get all claims
     const { data: claims, error } = await supabase
       .from('dana_kematian')

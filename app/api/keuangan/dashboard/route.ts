@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 
 function getClient() {
   if (!supabaseAdmin) throw new Error('Supabase admin client not configured. Set SUPABASE_SERVICE_ROLE_KEY.');
@@ -8,6 +10,12 @@ function getClient() {
 
 export async function GET(request: NextRequest) {
   try {
+    const guard = await guardPermissions([
+      PERMISSIONS.ACCESS_KEUANGAN,
+      PERMISSIONS.MANAGE_LAPORAN,
+      PERMISSIONS.VIEW_IURAN,
+    ]);
+    if (guard.error) return guard.error;
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get('period') || 'month';
 

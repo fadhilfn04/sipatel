@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 
 // GET /api/keuangan/ringkasan - Get financial summary
 export async function GET(request: NextRequest) {
   try {
+    const guard = await guardPermissions([
+      PERMISSIONS.ACCESS_KEUANGAN,
+      PERMISSIONS.MANAGE_LAPORAN,
+      PERMISSIONS.VIEW_IURAN,
+    ]);
+    if (guard.error) return guard.error;
     const searchParams = request.nextUrl.searchParams;
     const dateFrom = searchParams.get('date_from') || new Date().toISOString().split('T')[0];
     const dateTo = searchParams.get('date_to') || new Date().toISOString().split('T')[0];

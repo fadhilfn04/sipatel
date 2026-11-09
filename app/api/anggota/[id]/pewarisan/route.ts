@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 
 // GET /api/anggota/[id]/pewarisan - Get inheritance history for an anggota
 export async function GET(
@@ -7,6 +9,12 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const guard = await guardPermissions([
+      PERMISSIONS.VIEW_KEANGGOTAAN,
+      PERMISSIONS.ACCESS_KEANGGOTAAN,
+      PERMISSIONS.MANAGE_KEANGGOTAAN,
+    ], 'Anda tidak memiliki akses ke data pewarisan NIK');
+    if (guard.error) return guard.error;
     const { id } = await context.params;
 
     // First, get the anggota's NIK

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 
 function getClient() {
   if (!supabaseAdmin) throw new Error('Supabase admin client not configured.');
@@ -10,6 +12,12 @@ function getClient() {
 // Returns selesai claims whose cabang_tanggal_serah_ke_ahli_waris falls in the given month
 export async function GET(request: NextRequest) {
   try {
+    const guard = await guardPermissions([
+      PERMISSIONS.ACCESS_KEUANGAN,
+      PERMISSIONS.MANAGE_LAPORAN,
+      PERMISSIONS.ACCESS_DANA_KEMATIAN,
+    ], 'Anda tidak memiliki akses ke laporan periode Dana Kematian');
+    if (guard.error) return guard.error;
     const searchParams = request.nextUrl.searchParams;
     const periode = searchParams.get('periode'); // 'YYYY-MM'
     const cabang = searchParams.get('cabang') || '';

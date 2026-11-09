@@ -8,7 +8,7 @@
   --card-foreground: var(--color-zinc-950);
   --popover: var(--color-white);
   --popover-foreground: var(--color-zinc-950);
-  --primary: var(--color-blue-500);
+  --primary: #0D0773; /* Brand P2Tel navy — tombol, link, state aktif */
   --primary-foreground: var(--color-white);
   --secondary: var(--color-zinc-100);
   --secondary-foreground: var(--color-zinc-900);
@@ -36,7 +36,7 @@
   --card-foreground: var(--color-zinc-50);
   --popover: var(--color-zinc-950);
   --popover-foreground: var(--color-zinc-50);
-  --primary: var(--color-blue-600);
+  --primary: #1E2A8A; /* Brand P2Tel navy (versi terang untuk mode gelap) */
   --primary-foreground: var(--color-white);
   --secondary: var(--color-zinc-800);
   --secondary-foreground: var(--color-zinc-50);

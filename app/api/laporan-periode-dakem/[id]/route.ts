@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 
 function getClient() {
   if (!supabaseAdmin) throw new Error('Supabase admin client not configured.');
@@ -12,6 +14,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const guard = await guardPermissions(
+      [PERMISSIONS.MANAGE_LAPORAN],
+      'Anda tidak memiliki akses untuk mengubah laporan periode',
+    );
+    if (guard.error) return guard.error;
     const { id } = await params;
     const body = await request.json();
 
@@ -42,6 +49,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const guard = await guardPermissions(
+      [PERMISSIONS.MANAGE_LAPORAN],
+      'Anda tidak memiliki akses untuk menghapus laporan periode',
+    );
+    if (guard.error) return guard.error;
     const { id } = await params;
     const { error } = await getClient()
       .from('laporan_periode_dakem')

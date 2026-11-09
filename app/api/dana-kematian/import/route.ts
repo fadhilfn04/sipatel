@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-storage';
 import { getActorClient } from '@/lib/supabase-actor';
+import { getDakemActorContext } from '@/lib/server/dakem-enforcement';
 
 async function getClient(request?: NextRequest) {
   // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
@@ -32,6 +33,15 @@ const toDate = (v: string | undefined) => (v && v.trim()) ? v.trim() : null;
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth: impor massal hanya untuk kapabilitas Dana Kematian (PC/PP/superuser).
+    const actor = await getDakemActorContext();
+    if (!actor.userId) {
+      return NextResponse.json({ error: 'Silakan login terlebih dahulu', code: 'UNAUTHORIZED' }, { status: 401 });
+    }
+    if (!actor.canManagePC) {
+      return NextResponse.json({ error: 'Anda tidak memiliki akses untuk mengimpor pengajuan Dana Kematian', code: 'PERMISSION_DENIED' }, { status: 403 });
+    }
+
     const { rows }: { rows: ImportRow[] } = await request.json();
 
     if (!Array.isArray(rows) || rows.length === 0) {

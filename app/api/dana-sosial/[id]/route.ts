@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getActorClient } from '@/lib/supabase-actor';
+import { guardPermissions } from '@/lib/api-guard';
+import { PERMISSIONS } from '@/lib/rbac';
 import {
   notifyDanaSosialDisetujui,
   notifyDanaSosialDitolak,
@@ -12,6 +14,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const guard = await guardPermissions([
+      PERMISSIONS.ACCESS_DANA_SOCIAL,
+      PERMISSIONS.MANAGE_DANA_SOCIAL,
+    ], 'Anda tidak memiliki akses ke modul Dana Sosial');
+    if (guard.error) return guard.error;
     const { id } = await params;
     const { data, error } = await supabase
       .from('dana_sosial')
@@ -43,6 +50,11 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const guard = await guardPermissions(
+    [PERMISSIONS.MANAGE_DANA_SOCIAL],
+    'Anda tidak memiliki akses untuk mengubah pengajuan Dana Sosial',
+  );
+  if (guard.error) return guard.error;
   // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
   const supabase = await getActorClient({ request });
 
@@ -135,6 +147,11 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const guard = await guardPermissions(
+    [PERMISSIONS.MANAGE_DANA_SOCIAL],
+    'Anda tidak memiliki akses untuk menghapus pengajuan Dana Sosial',
+  );
+  if (guard.error) return guard.error;
   // Client dengan header aktor — audit_log mencatat pelaku (migration 036).
   const supabase = await getActorClient({ request });
 

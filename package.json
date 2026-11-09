@@ -97,9 +97,5 @@
     "tailwindcss": "^4.1.17",
     "tsx": "^4.23.13",
     "typescript": "^5.8.3"
-  },
-  "overrides": {
-    "minimatch": "^10.2.1",
-    "ajv": ">=8.18.0"
   }
 }
